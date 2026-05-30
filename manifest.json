@@ -1,12 +1,19 @@
 {
-  "name": "STGBLOG",
-  "short_name": "STGBLOG",
+  "name": "Nexus - 加密社交平台",
+  "short_name": "Nexus",
+  "description": "安全、匿名的加密社交网络",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
-  "description": "中文匿名社区，实时发帖，推荐区，热门区。",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "portrait-primary",
   "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
@@ -17,5 +24,9 @@
       "sizes": "512x512",
       "type": "image/png"
     }
-  ]
+  ],
+  "categories": ["social", "communication"],
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "prefer_related_applications": false
 }
