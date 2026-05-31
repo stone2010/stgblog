@@ -1,5 +1,5 @@
 const CACHE_NAME = "stgblog-v3";
-const STATIC_ASSETS = ["/", "/index.html", "/icon-192.png", "/icon-512.png", "/icon.svg"];
+const STATIC_ASSETS = ["./", "./index.html", "./icon-192.png", "./icon-512.png", "./icon.svg"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)));
