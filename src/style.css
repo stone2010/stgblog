@@ -754,6 +754,22 @@ a{color:var(--accent);text-decoration:none}
   .install-banner{bottom:calc(var(--bottom-h) + max(8px,env(safe-area-inset-bottom)) + 8px)}
 }
 
+/* ===== DM Read Receipts & Unread ===== */
+.dm-read-status{
+  color:var(--dim);margin-left:4px;font-weight:400;
+}
+.dm-read-status.read{
+  color:var(--accent);
+}
+.dm-unread-item{
+  background:rgba(29,155,240,0.04);
+}
+.dm-unread-dot{
+  width:10px;height:10px;
+  background:var(--accent);border-radius:50%;
+  flex-shrink:0;
+}
+
 /* ===== STGBLOG v4.0 New Features ===== */
 
 /* Repost indicator */

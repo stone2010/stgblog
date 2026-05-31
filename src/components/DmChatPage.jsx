@@ -1,17 +1,31 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Icons } from "./Icons";
 import { useAuth } from "../context/AuthContext";
 import { formatTime } from "../utils";
 
-export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, onBack, onUserClick }) {
+export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, onBack, onUserClick, onMarkAsRead }) {
   const { user } = useAuth();
   const [input, setInput] = useState("");
+  const messagesEndRef = useRef(null);
+
+  // Auto scroll to bottom
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [dmMessages]);
+
+  // Mark as read when opening chat
+  useEffect(() => {
+    if (dmTarget) onMarkAsRead?.(dmTarget);
+  }, [dmTarget, onMarkAsRead]);
 
   const handleSend = useCallback(async () => {
     if (!input.trim()) return;
     const ok = await onSend(input);
     if (ok) setInput("");
   }, [input, onSend]);
+
+  // Get the last message sent by user to show read receipt
+  const lastSentMsg = [...dmMessages].reverse().find((m) => m.sender === user?.username);
 
   return (
     <div className="dm-chat">
@@ -29,12 +43,25 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
             <p style={{ fontSize: 13, color: "var(--dim)" }}>消息使用端到端加密，只有你和 {dmTarget} 能看到</p>
           </div>
         )}
-        {dmMessages.map((msg, i) => (
-          <div key={msg.id || i} className={`dm-msg ${msg.sender === user?.username ? "sent" : "received"}`}>
-            {msg.content}
-            <div className="dm-msg-time">{formatTime(msg.created_at)}{msg.encrypted && " 🔒"}</div>
-          </div>
-        ))}
+        {dmMessages.map((msg, i) => {
+          const isMine = msg.sender === user?.username;
+          const isLast = i === dmMessages.length - 1;
+          return (
+            <div key={msg.id || i} className={`dm-msg ${isMine ? "sent" : "received"}`}>
+              {msg.content}
+              <div className="dm-msg-time">
+                {formatTime(msg.created_at)}
+                {msg.encrypted && " 🔒"}
+                {isMine && (
+                  <span className={`dm-read-status ${msg.read ? "read" : ""}`}>
+                    {msg.read ? " ✓✓" : " ✓"}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        <div ref={messagesEndRef} />
       </div>
       <div className="dm-chat-input">
         <textarea className="dm-input" value={input} onChange={(e) => setInput(e.target.value)}

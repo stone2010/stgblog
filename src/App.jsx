@@ -20,7 +20,7 @@ import RepostModal from "./components/RepostModal";
 import EditPostModal from "./components/EditPostModal";
 
 function AppInner() {
-  const { user, followingSet } = useAuth();
+  const { user, followingSet, keyPair } = useAuth();
 
   // Posts
   const [posts, setPosts] = useState([]);
@@ -56,7 +56,7 @@ function AppInner() {
 
   // Hooks
   const { notifications, unreadCount, markAllRead, markOneRead } = useNotifications(user?.username);
-  const { dmList, dmTarget, dmMessages, dmSending, loadDmList, sendDm, openDm, closeDm, setDmTarget } = useDM(user, null);
+  const { dmList, dmTarget, dmMessages, dmSending, dmUnreadCount, loadDmList, sendDm, openDm, closeDm, markAsRead, setDmTarget } = useDM(user, keyPair);
 
   // ─── Theme ───
   useEffect(() => { applyTheme(theme); }, [theme]);
@@ -344,7 +344,7 @@ function AppInner() {
           <button className="sidebar-btn" onClick={() => navigate("home")}><span className="sb-icon"><Icons.Home /></span>首页</button>
           <button className="sidebar-btn" onClick={() => navigate("search")}><span className="sb-icon"><Icons.Search /></span>搜索</button>
           {user && <button className="sidebar-btn" onClick={() => navigate("notifications")}><span className="sb-icon"><Icons.Bell /></span>通知{unreadCount > 0 && <span className="sidebar-badge">{unreadCount > 9 ? "9+" : unreadCount}</span>}</button>}
-          {user && <button className="sidebar-btn" onClick={() => navigate("dm")}><span className="sb-icon"><Icons.Msg /></span>私信</button>}
+          {user && <button className="sidebar-btn" onClick={() => navigate("dm")}><span className="sb-icon"><Icons.Msg /></span>私信{dmUnreadCount > 0 && <span className="sidebar-badge">{dmUnreadCount > 9 ? "9+" : dmUnreadCount}</span>}</button>}
           {user && <button className="sidebar-btn" onClick={() => navigate("profile")}><span className="sb-icon"><Icons.User /></span>个人</button>}
           <button className="sidebar-btn" onClick={toggleTheme}><span className="sb-icon">{theme === "dark" ? <Icons.ThemeLight /> : <Icons.ThemeDark />}</span>{theme === "dark" ? "亮色模式" : "暗色模式"}</button>
           {user ? (
@@ -360,7 +360,7 @@ function AppInner() {
       {page === "dm-chat" && dmTarget && (
         <div className="dm-overlay">
           <DmChatPage dmTarget={dmTarget} dmMessages={dmMessages} dmSending={dmSending}
-            onSend={sendDm} onBack={() => { closeDm(); setPage("dm"); }} onUserClick={openUserClick} />
+            onSend={sendDm} onBack={() => { closeDm(); setPage("dm"); }} onUserClick={openUserClick} onMarkAsRead={markAsRead} />
         </div>
       )}
 
@@ -370,7 +370,10 @@ function AppInner() {
           <button className={`bnav-btn ${mobileTab === "home" ? "on" : ""}`} onClick={() => navigate("home")}><span className="bnav-icon"><Icons.Home /></span></button>
           <button className={`bnav-btn ${mobileTab === "search" ? "on" : ""}`} onClick={() => navigate("search")}><span className="bnav-icon"><Icons.Search /></span></button>
           <button className="bnav-compose" onClick={() => { if (user) { navigate("home"); setMobileTab("home"); } else setAuthOpen(true); }}>✦</button>
-          <button className={`bnav-btn ${mobileTab === "dm" ? "on" : ""}`} onClick={() => { if (user) navigate("dm"); else setAuthOpen(true); }}><span className="bnav-icon"><Icons.Msg /></span></button>
+          <button className={`bnav-btn ${mobileTab === "dm" ? "on" : ""}`} onClick={() => { if (user) navigate("dm"); else setAuthOpen(true); }} style={{ position: "relative" }}>
+            <span className="bnav-icon"><Icons.Msg /></span>
+            {dmUnreadCount > 0 && <span className="bnav-dot" />}
+          </button>
           <button className={`bnav-btn ${mobileTab === "me" ? "on" : ""}`} onClick={() => navigate("profile")} style={{ position: "relative" }}>
             <span className="bnav-icon"><Icons.User /></span>
             {unreadCount > 0 && <span className="bnav-dot" />}

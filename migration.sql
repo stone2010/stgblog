@@ -13,6 +13,10 @@ ALTER TABLE posts ADD COLUMN IF NOT EXISTS edited BOOLEAN DEFAULT FALSE;
 CREATE INDEX IF NOT EXISTS idx_posts_repost_of ON posts(repost_of);
 CREATE INDEX IF NOT EXISTS idx_posts_quote_of ON posts(quote_of);
 
+-- 2. dm_messages 表新增已读字段
+ALTER TABLE dm_messages ADD COLUMN IF NOT EXISTS read BOOLEAN DEFAULT FALSE;
+CREATE INDEX IF NOT EXISTS idx_dm_messages_read ON dm_messages(receiver, read);
+
 -- 2. notifications 表新增类型支持 (repost, quote)
 -- type 字段已经是 TEXT 类型，无需修改表结构
 -- 新增的 type 值: 'repost', 'quote'
