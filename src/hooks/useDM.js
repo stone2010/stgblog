@@ -8,14 +8,13 @@ export function useDM(user, keyPair) {
   const [dmMessages, setDmMessages] = useState([]);
   const [dmSending, setDmSending] = useState(false);
   const [dmUnreadCount, setDmUnreadCount] = useState(0);
-  const lastCheckRef = useRef(0);
 
   const loadDmList = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase.from("dm_messages").select("*")
+    const { data, error } = await supabase.from("dm_messages").select("*")
       .or(`sender.eq.${user.username},receiver.eq.${user.username}`)
       .order("created_at", { ascending: false });
-    if (!data) return;
+    if (error || !data) return;
     const conversations = {};
     data.forEach((msg) => {
       const other = msg.sender === user.username ? msg.receiver : msg.sender;
@@ -26,29 +25,31 @@ export function useDM(user, keyPair) {
     setDmList(Object.entries(conversations).map(([other, last]) => ({ other, last })));
   }, [user]);
 
-  // Poll unread DM count
+  // Poll unread DM count (graceful if read column missing)
   const checkUnread = useCallback(async () => {
     if (!user) return;
-    const { count } = await supabase.from("dm_messages")
-      .select("*", { count: "exact", head: true })
-      .eq("receiver", user.username)
-      .eq("read", false);
-    setDmUnreadCount(count || 0);
+    try {
+      const { count, error } = await supabase.from("dm_messages")
+        .select("*", { count: "exact", head: true })
+        .eq("receiver", user.username)
+        .eq("read", false);
+      if (!error) setDmUnreadCount(count || 0);
+    } catch { /* read column may not exist yet */ }
   }, [user]);
 
   useEffect(() => {
     if (!user) { setDmUnreadCount(0); return; }
     checkUnread();
-    const interval = setInterval(checkUnread, 15000); // poll every 15s
+    const interval = setInterval(checkUnread, 15000);
     return () => clearInterval(interval);
   }, [user, checkUnread]);
 
   const loadDmMessages = useCallback(async (otherUser) => {
     if (!user || !otherUser) return;
-    const { data } = await supabase.from("dm_messages").select("*")
+    const { data, error } = await supabase.from("dm_messages").select("*")
       .or(`and(sender.eq.${user.username},receiver.eq.${otherUser}),and(sender.eq.${otherUser},receiver.eq.${user.username})`)
       .order("created_at", { ascending: true });
-    if (!data) return;
+    if (error || !data) { setDmMessages([]); return; }
 
     if (keyPair) {
       const decrypted = await Promise.all(data.map(async (msg) => {
@@ -67,17 +68,19 @@ export function useDM(user, keyPair) {
       setDmMessages(data);
     }
 
-    // Mark messages from otherUser as read
-    await supabase.from("dm_messages")
-      .update({ read: true })
-      .eq("sender", otherUser)
-      .eq("receiver", user.username)
-      .eq("read", false);
-    checkUnread();
+    // Mark as read (graceful if read column missing)
+    try {
+      await supabase.from("dm_messages")
+        .update({ read: true })
+        .eq("sender", otherUser)
+        .eq("receiver", user.username)
+        .eq("read", false);
+      checkUnread();
+    } catch {}
   }, [user, keyPair, checkUnread]);
 
   const sendDm = useCallback(async (content) => {
-    if (!user || !dmTarget || !content.trim()) return;
+    if (!user || !dmTarget || !content.trim()) return false;
     setDmSending(true);
 
     const { data: recipient } = await supabase.from("users").select("pubkey").eq("username", dmTarget).maybeSingle();
@@ -91,18 +94,17 @@ export function useDM(user, keyPair) {
           sender: user.username, receiver: dmTarget,
           content, ciphertext, iv, encrypted: true,
           sender_pubkey: JSON.stringify(keyPair.publicKey),
-          read: false,
         };
       } catch (e) {
         console.warn("Encryption failed, sending plain:", e);
-        msgData = { sender: user.username, receiver: dmTarget, content, encrypted: false, read: false };
+        msgData = { sender: user.username, receiver: dmTarget, content, encrypted: false };
       }
     } else {
-      msgData = { sender: user.username, receiver: dmTarget, content, encrypted: false, read: false };
+      msgData = { sender: user.username, receiver: dmTarget, content, encrypted: false };
     }
 
     const { data, error } = await supabase.from("dm_messages").insert([msgData]).select("*").single();
-    if (!error) {
+    if (!error && data) {
       setDmMessages((prev) => [...prev, { ...data, decrypted: true }]);
       loadDmList();
     }
@@ -110,15 +112,16 @@ export function useDM(user, keyPair) {
     return !error;
   }, [user, dmTarget, keyPair, loadDmList]);
 
-  // Mark a specific message as read (when recipient views it)
   const markAsRead = useCallback(async (otherUser) => {
     if (!user || !otherUser) return;
-    await supabase.from("dm_messages")
-      .update({ read: true })
-      .eq("sender", otherUser)
-      .eq("receiver", user.username)
-      .eq("read", false);
-    checkUnread();
+    try {
+      await supabase.from("dm_messages")
+        .update({ read: true })
+        .eq("sender", otherUser)
+        .eq("receiver", user.username)
+        .eq("read", false);
+      checkUnread();
+    } catch {}
   }, [user, checkUnread]);
 
   const openDm = useCallback(async (otherUser) => {
