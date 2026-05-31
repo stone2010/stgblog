@@ -18,6 +18,7 @@ import FollowersPage from "./components/FollowersPage";
 import NewDmModal from "./components/NewDmModal";
 import RepostModal from "./components/RepostModal";
 import EditPostModal from "./components/EditPostModal";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 function AppInner() {
   const { user, followingSet, keyPair } = useAuth();
@@ -233,9 +234,10 @@ function AppInner() {
   }, [user]);
 
   const navigate = useCallback((p) => {
-    setPage(p); setSelectedPost(null); setDmTarget(null);
+    setPage(p); setSelectedPost(null);
+    try { setDmTarget(null); } catch {}
     setViewingProfile(null); setFollowersPage(null);
-    if (p === "dm" && user) loadDmList();
+    if (p === "dm" && user) { try { loadDmList(); } catch (e) { console.error("loadDmList failed:", e); } }
     setMobileTab(p === "home" ? "home" : p === "dm" ? "dm" : p === "profile" ? "me" : p === "notifications" ? "notif" : "home");
   }, [user, loadDmList, setDmTarget]);
 
@@ -353,7 +355,7 @@ function AppInner() {
             <button className="sidebar-compose" onClick={() => setAuthOpen(true)}>登录</button>
           )}
         </aside>
-        <div className="layout">{renderPage()}</div>
+        <div className="layout"><ErrorBoundary>{renderPage()}</ErrorBoundary></div>
       </div>
 
       {/* DM Chat Overlay */}
