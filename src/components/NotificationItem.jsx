@@ -1,12 +1,17 @@
 import React, { memo } from "react";
 import { formatTime } from "../utils";
 
+const typeMap = {
+  like: { icon: "❤️", text: "赞了你的帖子" },
+  comment: { icon: "💬", text: "评论了你的帖子" },
+  reply: { icon: "↩️", text: "回复了你的评论" },
+  follow: { icon: "👤", text: "关注了你" },
+  repost: { icon: "🔁", text: "转发了你的帖子" },
+  quote: { icon: "💭", text: "引用了你的帖子" },
+};
+
 const NotificationItem = memo(function NotificationItem({ notif, onClick }) {
-  const icon = notif.type === "like" ? "❤️" : notif.type === "comment" ? "💬" : notif.type === "reply" ? "↩️" : "👤";
-  const text = notif.type === "like" ? "赞了你的帖子"
-    : notif.type === "comment" ? "评论了你的帖子"
-    : notif.type === "reply" ? "回复了你的评论"
-    : "关注了你";
+  const { icon, text } = typeMap[notif.type] || { icon: "🔔", text: "新通知" };
   return (
     <div className={`notif-item ${notif.read ? "" : "unread"}`} onClick={() => onClick(notif)}>
       <div className="notif-icon">{icon}</div>

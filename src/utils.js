@@ -8,7 +8,7 @@ export function generateHash() {
   return result;
 }
 
-// 热门排序（带时间衰减）
+// ─── 热门排序（带时间衰减）───
 export function getHotPosts(posts) {
   const now = Date.now();
   return [...posts].sort((a, b) => {
@@ -22,47 +22,26 @@ export function getHotPosts(posts) {
   });
 }
 
-// 智能推荐算法（优化版）
-// 因素：时间新鲜度、互动量、内容质量、关注关系、多样性、用户偏好
+// ─── 智能推荐算法（优化版）───
 export function getRecommendPosts(posts, { followingSet = new Set(), likedPosts = new Set() } = {}) {
   const now = Date.now();
-
   const scored = posts.map((post) => {
     const ageHours = (now - new Date(post.created_at).getTime()) / 3600000;
-
-    // 1. 时间衰减（指数衰减，48小时半衰期）
     const timeFactor = Math.exp(-ageHours / 48);
-
-    // 2. 互动得分（对数缩放，防爆）
     const likes = post.likes || 0;
     const views = post.views || 0;
     const comments = post.comment_count || 0;
     const engagementScore = Math.log1p(likes * 3 + comments * 5 + views * 0.05);
-
-    // 3. 内容质量（长度适中的内容质量更高）
     const len = post.content?.length || 0;
     const qualityBonus = len > 50 && len < 500 ? 1.3 : len >= 500 ? 1.1 : 1.0;
-
-    // 4. 关注关系加成
     const followBonus = followingSet.has(post.author) ? 2.5 : 1.0;
-
-    // 5. 已点赞内容的相似作者加成
     const likedBonus = likedPosts.has(post.id) ? 0.3 : 1.0;
-
-    // 6. 置顶加成
     const pinBonus = post.pinned ? 500 : 0;
-
-    // 7. 新作者探索加成（降低已有一定曝光的帖子权重）
     const exploreBonus = (views < 10) ? 1.5 : (views < 50) ? 1.2 : 1.0;
-
     const score = (engagementScore * qualityBonus * followBonus * likedBonus * exploreBonus + pinBonus) * timeFactor;
-
     return { ...post, _score: score };
   });
-
-  // 多样性：同一作者最多连续出现2次，且间隔至少3条
   scored.sort((a, b) => b._score - a._score);
-
   const result = [];
   const authorLastIdx = {};
   for (const post of scored) {
@@ -71,53 +50,112 @@ export function getRecommendPosts(posts, { followingSet = new Set(), likedPosts 
     result.push(post);
     authorLastIdx[post.author] = result.length - 1;
   }
-
   return result;
 }
 
+// ─── 点赞 ───
 export function hasLiked(postId) {
-  try {
-    const likedPosts = JSON.parse(localStorage.getItem("likedPosts")) || [];
-    return likedPosts.includes(postId);
-  } catch { return false; }
+  try { return (JSON.parse(localStorage.getItem("likedPosts")) || []).includes(postId); } catch { return false; }
 }
-
 export function saveLiked(postId) {
   try {
-    const likedPosts = JSON.parse(localStorage.getItem("likedPosts")) || [];
-    if (!likedPosts.includes(postId)) {
-      likedPosts.push(postId);
-      localStorage.setItem("likedPosts", JSON.stringify(likedPosts));
-    }
+    const arr = JSON.parse(localStorage.getItem("likedPosts")) || [];
+    if (!arr.includes(postId)) { arr.push(postId); localStorage.setItem("likedPosts", JSON.stringify(arr)); }
   } catch {}
 }
-
 export function getLikedSet() {
-  try {
-    return new Set(JSON.parse(localStorage.getItem("likedPosts")) || []);
-  } catch { return new Set(); }
+  try { return new Set(JSON.parse(localStorage.getItem("likedPosts")) || []); } catch { return new Set(); }
 }
 
+// ─── 浏览计数 ───
 export function hasViewed(postId) {
   try {
-    const viewedPosts = JSON.parse(localStorage.getItem("viewedPosts")) || {};
-    const lastView = viewedPosts[postId];
-    if (!lastView) return false;
-    return Date.now() - lastView < 30 * 60 * 1000;
+    const v = JSON.parse(localStorage.getItem("viewedPosts")) || {};
+    return v[postId] && Date.now() - v[postId] < 30 * 60 * 1000;
   } catch { return false; }
 }
-
 export function saveViewed(postId) {
   try {
-    const viewedPosts = JSON.parse(localStorage.getItem("viewedPosts")) || {};
-    viewedPosts[postId] = Date.now();
-    // 清理过期记录（保留最近100条）
-    const entries = Object.entries(viewedPosts).sort((a, b) => b[1] - a[1]).slice(0, 100);
+    const v = JSON.parse(localStorage.getItem("viewedPosts")) || {};
+    v[postId] = Date.now();
+    const entries = Object.entries(v).sort((a, b) => b[1] - a[1]).slice(0, 100);
     localStorage.setItem("viewedPosts", JSON.stringify(Object.fromEntries(entries)));
   } catch {}
 }
 
-// 格式化时间
+// ─── 书签 ───
+export function hasBookmarked(postId) {
+  try { return (JSON.parse(localStorage.getItem("bookmarkedPosts")) || []).includes(postId); } catch { return false; }
+}
+export function toggleBookmark(postId) {
+  try {
+    const arr = JSON.parse(localStorage.getItem("bookmarkedPosts")) || [];
+    const idx = arr.indexOf(postId);
+    if (idx >= 0) arr.splice(idx, 1); else arr.push(postId);
+    localStorage.setItem("bookmarkedPosts", JSON.stringify(arr));
+    return idx < 0; // returns true if now bookmarked
+  } catch { return false; }
+}
+export function getBookmarkedSet() {
+  try { return new Set(JSON.parse(localStorage.getItem("bookmarkedPosts")) || []); } catch { return new Set(); }
+}
+
+// ─── 屏蔽/静音 ───
+export function getBlockedSet() {
+  try { return new Set(JSON.parse(localStorage.getItem("blockedUsers")) || []); } catch { return new Set(); }
+}
+export function toggleBlock(username) {
+  try {
+    const arr = JSON.parse(localStorage.getItem("blockedUsers")) || [];
+    const idx = arr.indexOf(username);
+    if (idx >= 0) arr.splice(idx, 1); else arr.push(username);
+    localStorage.setItem("blockedUsers", JSON.stringify(arr));
+    return idx < 0;
+  } catch { return false; }
+}
+export function getMutedSet() {
+  try { return new Set(JSON.parse(localStorage.getItem("mutedUsers")) || []); } catch { return new Set(); }
+}
+export function toggleMute(username) {
+  try {
+    const arr = JSON.parse(localStorage.getItem("mutedUsers")) || [];
+    const idx = arr.indexOf(username);
+    if (idx >= 0) arr.splice(idx, 1); else arr.push(username);
+    localStorage.setItem("mutedUsers", JSON.stringify(arr));
+    return idx < 0;
+  } catch { return false; }
+}
+
+// ─── 主题 ───
+export function getTheme() {
+  return localStorage.getItem("stgblog_theme") || "dark";
+}
+export function setTheme(theme) {
+  localStorage.setItem("stgblog_theme", theme);
+  document.documentElement.setAttribute("data-theme", theme);
+}
+
+// ─── 内容解析：#hashtag @mention 可点击 ───
+export function parseContent(text) {
+  if (!text) return [];
+  const regex = /(#\w+)|(@\w+)|(\n)/g;
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ type: "text", value: text.slice(lastIndex, match.index) });
+    }
+    if (match[1]) parts.push({ type: "hashtag", value: match[1] });
+    else if (match[2]) parts.push({ type: "mention", value: match[2] });
+    else if (match[3]) parts.push({ type: "newline" });
+    lastIndex = regex.lastIndex;
+  }
+  if (lastIndex < text.length) parts.push({ type: "text", value: text.slice(lastIndex) });
+  return parts;
+}
+
+// ─── 格式化时间 ───
 export function formatTime(value) {
   if (!value) return "";
   try {
@@ -128,12 +166,10 @@ export function formatTime(value) {
     if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时`;
     if (diff < 604800000) return `${Math.floor(diff / 86400000)}天`;
     return new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium" }).format(d);
-  } catch {
-    return String(value);
-  }
+  } catch { return String(value); }
 }
 
-// 格式化数字
+// ─── 格式化数字 ───
 export function formatCount(n) {
   if (!n) return "0";
   if (n >= 10000) return (n / 10000).toFixed(1) + "万";
@@ -141,7 +177,7 @@ export function formatCount(n) {
   return String(n);
 }
 
-// 构建评论树
+// ─── 构建评论树 ───
 export function buildTree(comments) {
   const map = {};
   const roots = [];

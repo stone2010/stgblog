@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../supabase";
 import { useAuth } from "../context/AuthContext";
 import { Icons } from "./Icons";
 import PostCard from "./PostCard";
 
-export default function ProfileViewPage({ viewingProfile, onBack, onSelectPost, onLike, onShare, onOpenDm }) {
+export default function ProfileViewPage({ viewingProfile, posts: allPosts, onBack, onSelectPost, onLike, onShare, onRepost, onBookmark, onOpenDm }) {
   const { user, followingSet, follow, unfollow } = useAuth();
   const [profileData, setProfileData] = useState(null);
 
@@ -25,11 +25,6 @@ export default function ProfileViewPage({ viewingProfile, onBack, onSelectPost, 
     })();
   }, [viewingProfile, followingSet]);
 
-  const posts = useMemo(() => {
-    // This gets posts from parent state - we'll pass it in
-    return [];
-  }, []);
-
   const handleFollowToggle = useCallback(async () => {
     if (!profileData) return;
     if (profileData.isFollowing) {
@@ -40,6 +35,8 @@ export default function ProfileViewPage({ viewingProfile, onBack, onSelectPost, 
       setProfileData((d) => d ? { ...d, isFollowing: true, followers: d.followers + 1 } : d);
     }
   }, [profileData, viewingProfile, follow, unfollow]);
+
+  const userPosts = allPosts?.filter((p) => p.author === viewingProfile) || [];
 
   if (!profileData) return <div className="loader" style={{ margin: "80px auto" }} />;
 
@@ -52,6 +49,7 @@ export default function ProfileViewPage({ viewingProfile, onBack, onSelectPost, 
         <span className="detail-top-title">{viewingProfile}</span>
       </div>
       <div className="profile-header">
+        <div className="profile-banner" />
         <div className="profile-info">
           <div className="profile-avatar">{viewingProfile[0]}</div>
           <div className="profile-name">{viewingProfile}</div>
@@ -73,6 +71,13 @@ export default function ProfileViewPage({ viewingProfile, onBack, onSelectPost, 
             )}
           </div>
         </div>
+      </div>
+      <div className="feed">
+        {userPosts.length === 0 ? (
+          <div className="empty-state"><div className="icon">📝</div><h3>暂无帖子</h3></div>
+        ) : userPosts.map((post) => (
+          <PostCard key={post.id} post={post} onSelect={onSelectPost} onLike={onLike} onShare={onShare} onRepost={onRepost} onBookmark={onBookmark} />
+        ))}
       </div>
     </>
   );

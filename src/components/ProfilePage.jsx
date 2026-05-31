@@ -3,12 +3,22 @@ import { useAuth } from "../context/AuthContext";
 import { Icons } from "./Icons";
 import PostCard from "./PostCard";
 
-export default function ProfilePage({ posts, onAuthOpen, onSelectPost, onLike, onShare }) {
+export default function ProfilePage({ posts, onAuthOpen, onSelectPost, onLike, onShare, onRepost, onBookmark, onFollowersPage }) {
   const { user, followingSet, logout, updateBio } = useAuth();
   const [editOpen, setEditOpen] = useState(false);
   const [editBio, setEditBio] = useState("");
+  const [profileTab, setProfileTab] = useState("posts"); // posts | replies | likes
 
-  const userPosts = useMemo(() => posts.filter((p) => p.author === user?.username), [posts, user]);
+  const userPosts = useMemo(() => {
+    if (!user) return [];
+    if (profileTab === "likes") {
+      const liked = new Set(JSON.parse(localStorage.getItem("likedPosts") || "[]"));
+      return posts.filter((p) => liked.has(p.id));
+    }
+    return posts.filter((p) => p.author === user.username);
+  }, [posts, user, profileTab]);
+
+  const pinnedPost = useMemo(() => userPosts.find((p) => p.pinned), [userPosts]);
 
   const handleSaveBio = useCallback(async () => {
     await updateBio(editBio.trim());
@@ -27,14 +37,15 @@ export default function ProfilePage({ posts, onAuthOpen, onSelectPost, onLike, o
   return (
     <>
       <div className="profile-header">
+        <div className="profile-banner" />
         <div className="profile-info">
           <div className="profile-avatar">{user.username[0]}</div>
           <div className="profile-name">{user.username} <Icons.Verified /></div>
           <div className="profile-handle">@{user.username}</div>
           <div className="profile-bio">{user.bio || "STGBLOG 用户 · 加密社交"}</div>
           <div className="profile-stats">
-            <span><b>{userPosts.length}</b> 帖子</span>
-            <span><b>{followingSet.size}</b> 关注</span>
+            <span style={{ cursor: "pointer" }} onClick={() => onFollowersPage?.("following")}><b>{followingSet.size}</b> 关注</span>
+            <span style={{ cursor: "pointer" }} onClick={() => onFollowersPage?.("followers")}><b>{posts.filter((p) => p.author === user.username).length}</b> 帖子</span>
           </div>
           <div className="profile-actions">
             <button className="profile-edit" onClick={() => { setEditBio(user.bio || ""); setEditOpen(true); }}>编辑资料</button>
@@ -42,11 +53,18 @@ export default function ProfilePage({ posts, onAuthOpen, onSelectPost, onLike, o
           </div>
         </div>
       </div>
+      <div className="profile-tabs">
+        <button className={`profile-tab ${profileTab === "posts" ? "on" : ""}`} onClick={() => setProfileTab("posts")}>帖子</button>
+        <button className={`profile-tab ${profileTab === "likes" ? "on" : ""}`} onClick={() => setProfileTab("likes")}>喜欢</button>
+      </div>
       <div className="feed">
+        {pinnedPost && profileTab === "posts" && (
+          <PostCard key={`pinned-${pinnedPost.id}`} post={pinnedPost} onSelect={onSelectPost} onLike={onLike} onShare={onShare} onRepost={onRepost} onBookmark={onBookmark} />
+        )}
         {userPosts.length === 0 ? (
           <div className="empty-state"><div className="icon">📝</div><h3>暂无帖子</h3><p>发布你的第一条动态</p></div>
-        ) : userPosts.map((post) => (
-          <PostCard key={post.id} post={post} onSelect={onSelectPost} onLike={onLike} onShare={onShare} />
+        ) : userPosts.filter((p) => !p.pinned || profileTab !== "posts").map((post) => (
+          <PostCard key={post.id} post={post} onSelect={onSelectPost} onLike={onLike} onShare={onShare} onRepost={onRepost} onBookmark={onBookmark} />
         ))}
       </div>
 

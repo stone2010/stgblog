@@ -12,6 +12,9 @@ export default function ComposeBar({ value, onChange, onPublish }) {
 
   if (!user) return null;
 
+  const charCount = value.length;
+  const charClass = charCount > 1800 ? "over" : charCount > 1500 ? "warn" : "";
+
   return (
     <div className="compose-bar">
       <div className="compose-avatar">{user.username[0]}</div>
@@ -23,11 +26,13 @@ export default function ComposeBar({ value, onChange, onPublish }) {
           onChange={(e) => onChange(e.target.value)}
           placeholder="有什么新鲜事？"
           rows={2}
+          maxLength={2000}
         />
         <div className="compose-bottom">
           <div className="compose-tools">
             <button className="compose-tool">📷</button>
             <button className="compose-tool">😊</button>
+            {charCount > 0 && <span className={`char-counter ${charClass}`}>{charCount}/2000</span>}
           </div>
           <button className="compose-submit" onClick={handlePublish} disabled={!value.trim()}>发帖</button>
         </div>
