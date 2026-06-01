@@ -534,10 +534,13 @@ a{color:var(--accent);text-decoration:none}
     top:0;left:0;right:0;bottom:0;
     z-index:200;
     background:var(--bg);
+    height:100vh;
+    height:100dvh;
   }
   .dm-overlay .dm-chat{
     height:100%;
-    min-height:auto;
+    min-height:0;
+    max-height:100%;
   }
 }
 
@@ -545,6 +548,7 @@ a{color:var(--accent);text-decoration:none}
 .dm-chat{
   display:flex;flex-direction:column;
   width:100%;
+  height:100%;
   min-height:calc(100vh - var(--nav-h));
   background:var(--bg);
 }
@@ -578,7 +582,6 @@ a{color:var(--accent);text-decoration:none}
   border-top:1px solid var(--border);align-items:flex-end;
   flex-shrink:0;
   background:var(--bg);
-  position:sticky;bottom:0;
 }
 .dm-input{
   flex:1;padding:10px 14px;background:var(--bg2);
@@ -700,7 +703,7 @@ a{color:var(--accent);text-decoration:none}
   .sidebar{display:none}
   .desktop-wrap{display:block}
   .compose-bar{
-    position:sticky;bottom:0;z-index:60;
+    position:sticky;bottom:0;z-index:101;
     background:var(--bg);border-top:1px solid var(--border);
     padding-bottom:max(12px,env(safe-area-inset-bottom));
   }
@@ -714,7 +717,9 @@ a{color:var(--accent);text-decoration:none}
     min-height:44px;
   }
   .compose-textarea{font-size:16px;min-height:48px}
-  .feed{padding-bottom:20px}
+  .feed{
+    padding-bottom:calc(var(--bottom-h) + 80px + env(safe-area-inset-bottom, 0px));
+  }
   .post-action{padding:8px 12px}
   .post-action .pa-icon{font-size:18px}
   .bnav-compose{
