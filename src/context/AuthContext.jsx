@@ -37,6 +37,15 @@ export function AuthProvider({ children }) {
       .select("username, hash_id, pubkey, bio")
       .eq("username", name).eq("password", pass).maybeSingle();
     if (error || !data) return { error: "用户名或密码错误" };
+    // Sync local key pair with database on login
+    try {
+      const kp = await getOrCreateKeyPair(name);
+      const localPubKeyStr = JSON.stringify(kp.publicKey);
+      // Update pubkey in database if it doesn't match local key
+      if (data.pubkey !== localPubKeyStr) {
+        await supabase.from("users").update({ pubkey: localPubKeyStr }).eq("username", name);
+      }
+    } catch (e) { console.warn("Key sync on login failed:", e); }
     const u = { username: data.username, hash_id: data.hash_id, bio: data.bio || "" };
     localStorage.setItem("stgblog_user", JSON.stringify(u));
     setUser(u);

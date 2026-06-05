@@ -277,7 +277,10 @@ function AppInner() {
         onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark}
         onUserClick={openUserClick} onDeletePost={handleDeletePost} onEditPost={setEditPostModal} />
     );
-    if (page === "dm-chat" && dmTarget) return null;
+    if (page === "dm-chat" && dmTarget) return (
+      <DmChatPage dmTarget={dmTarget} dmMessages={dmMessages} dmSending={dmSending}
+        onSend={sendDm} onBack={() => { closeDm(); setPage("dm"); }} onUserClick={openUserClick} onMarkAsRead={markAsRead} />
+    );
     if (page === "notifications") return <NotificationPage notifications={notifications} onNotifClick={handleNotifClick} onBack={() => navigate("home")} />;
     if (page === "search") return <SearchPage searchKey={searchKey} setSearchKey={setSearchKey} posts={posts} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} />;
     if (page === "dm") return <DmListPage dmList={dmList} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} onNewDm={() => setNewDmOpen(true)} />;

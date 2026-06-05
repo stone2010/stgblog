@@ -51,7 +51,7 @@ export function useDM(user, keyPair) {
       .order("created_at", { ascending: true });
     if (error || !data) { setDmMessages([]); return; }
 
-    if (keyPair) {
+    if (keyPair && keyPair.privateKey) {
       const decrypted = await Promise.all(data.map(async (msg) => {
         if (msg.encrypted && msg.ciphertext && msg.iv && msg.sender_pubkey) {
           try {
@@ -61,11 +61,13 @@ export function useDM(user, keyPair) {
             return { ...msg, content: "[加密消息 · 无法解密]", decrypted: false };
           }
         }
-        return msg;
+        // Legacy unencrypted messages show content as-is
+        return { ...msg, decrypted: false };
       }));
       setDmMessages(decrypted);
     } else {
-      setDmMessages(data);
+      // No key pair available — show messages as-is (legacy fallback)
+      setDmMessages(data.map((msg) => ({ ...msg, decrypted: false })));
     }
 
     // Mark as read (graceful if read column missing)
@@ -92,7 +94,8 @@ export function useDM(user, keyPair) {
         const { ciphertext, iv } = await encryptMessage(content, keyPair.privateKey, recipientPubKey);
         msgData = {
           sender: user.username, receiver: dmTarget,
-          content, ciphertext, iv, encrypted: true,
+          // Store encrypted content only — no plaintext in database
+          content: "[加密消息]", ciphertext, iv, encrypted: true,
           sender_pubkey: JSON.stringify(keyPair.publicKey),
         };
       } catch (e) {
@@ -105,7 +108,8 @@ export function useDM(user, keyPair) {
 
     const { data, error } = await supabase.from("dm_messages").insert([msgData]).select("*").single();
     if (!error && data) {
-      setDmMessages((prev) => [...prev, { ...data, decrypted: true }]);
+      // Show plaintext in local state for the sender (database only has encrypted content)
+      setDmMessages((prev) => [...prev, { ...data, content, decrypted: true }]);
       loadDmList();
     }
     setDmSending(false);

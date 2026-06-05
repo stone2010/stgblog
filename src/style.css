@@ -185,9 +185,10 @@ a{color:var(--accent);text-decoration:none}
   position:fixed;bottom:0;left:0;right:0;z-index:100;
   background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);
   border-top:1px solid var(--border);
-  height:var(--bottom-h);
+  height:calc(var(--bottom-h) + env(safe-area-inset-bottom, 0px));
   display:flex;align-items:center;justify-content:space-around;
   padding:0 8px;
+  padding-bottom:env(safe-area-inset-bottom, 0px);
 }
 .bnav-btn{
   display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -536,11 +537,16 @@ a{color:var(--accent);text-decoration:none}
     background:var(--bg);
     height:100vh;
     height:100dvh;
+    overflow:hidden;
   }
   .dm-overlay .dm-chat{
     height:100%;
+    height:100dvh;
     min-height:0;
     max-height:100%;
+  }
+  .dm-overlay .dm-chat-top{
+    padding-top:max(8px,env(safe-area-inset-top));
   }
 }
 
@@ -551,6 +557,13 @@ a{color:var(--accent);text-decoration:none}
   height:100%;
   min-height:calc(100vh - var(--nav-h));
   background:var(--bg);
+}
+@media(min-width:901px){
+  .dm-chat{
+    min-height:calc(100vh - var(--nav-h));
+    border-left:1px solid var(--border);
+    border-right:1px solid var(--border);
+  }
 }
 .dm-chat-top{
   display:flex;align-items:center;gap:12px;padding:8px 16px;
@@ -731,6 +744,7 @@ a{color:var(--accent);text-decoration:none}
     padding:10px 16px;
     padding-bottom:max(10px,env(safe-area-inset-bottom));
     background:var(--bg);border-top:1px solid var(--border);
+    position:sticky;bottom:0;
   }
   .dm-input{font-size:16px;min-height:44px;padding:12px 14px}
   .dm-send-btn{width:44px;height:44px;font-size:18px}
@@ -755,7 +769,6 @@ a{color:var(--accent);text-decoration:none}
 
 /* Safe area */
 @supports(padding:max(0px)){
-  .bnav{padding-bottom:max(8px,env(safe-area-inset-bottom))}
   .install-banner{bottom:calc(var(--bottom-h) + max(8px,env(safe-area-inset-bottom)) + 8px)}
 }
 
@@ -914,6 +927,7 @@ a{color:var(--accent);text-decoration:none}
 }
 [data-theme="light"] .bnav{
   background:rgba(255,255,255,0.9);
+  border-top:1px solid var(--border);
 }
 [data-theme="light"] .post:hover{background:rgba(0,0,0,0.03)}
 [data-theme="light"] .notif-item:hover{background:rgba(0,0,0,0.03)}
