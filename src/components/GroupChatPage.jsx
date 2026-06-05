@@ -19,6 +19,24 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
     try { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); } catch {}
   }, [messages]);
 
+  // Mobile keyboard handling
+  useEffect(() => {
+    const updateHeight = () => {
+      const vv = window.visualViewport;
+      if (vv) document.documentElement.style.setProperty('--app-height', `${vv.height}px`);
+    };
+    const scrollToBottom = () => setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 150);
+    const vv = window.visualViewport;
+    if (vv) { vv.addEventListener("resize", updateHeight); vv.addEventListener("scroll", updateHeight); vv.addEventListener("resize", scrollToBottom); }
+    window.addEventListener("resize", updateHeight);
+    updateHeight();
+    return () => {
+      if (vv) { vv.removeEventListener("resize", updateHeight); vv.removeEventListener("scroll", updateHeight); vv.removeEventListener("resize", scrollToBottom); }
+      window.removeEventListener("resize", updateHeight);
+      document.documentElement.style.removeProperty('--app-height');
+    };
+  }, []);
+
   const isCreator = group?.creator === user?.username;
   const isAdmin = members?.find((m) => m.username === user?.username)?.role === "admin";
   const myRole = members?.find((m) => m.username === user?.username)?.role;

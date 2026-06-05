@@ -4,6 +4,7 @@ import { hasLiked, hasViewed, saveLiked, saveViewed, toggleBookmark, getTheme, s
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { useNotifications } from "./hooks/useNotifications";
 import { useDM } from "./hooks/useDM";
+import { useGroupChat } from "./hooks/useGroupChat";
 import { Icons } from "./components/Icons";
 import AuthModal from "./components/AuthModal";
 import NotificationPage from "./components/NotificationPage";
@@ -16,6 +17,10 @@ import ProfilePage from "./components/ProfilePage";
 import ProfileViewPage from "./components/ProfileViewPage";
 import FollowersPage from "./components/FollowersPage";
 import NewDmModal from "./components/NewDmModal";
+import GroupListPage from "./components/GroupListPage";
+import GroupChatPage from "./components/GroupChatPage";
+import CreateGroupModal from "./components/CreateGroupModal";
+import JoinGroupModal from "./components/JoinGroupModal";
 import RepostModal from "./components/RepostModal";
 import EditPostModal from "./components/EditPostModal";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -42,6 +47,8 @@ function AppInner() {
   const [newDmOpen, setNewDmOpen] = useState(false);
   const [repostModal, setRepostModal] = useState(null); // post to repost
   const [editPostModal, setEditPostModal] = useState(null); // post to edit
+  const [createGroupOpen, setCreateGroupOpen] = useState(false);
+  const [joinGroupOpen, setJoinGroupOpen] = useState(false);
 
   // Theme
   const [theme, setThemeState] = useState(getTheme);
@@ -58,6 +65,7 @@ function AppInner() {
   // Hooks
   const { notifications, unreadCount, markAllRead, markOneRead } = useNotifications(user?.username);
   const { dmList, dmTarget, dmMessages, dmSending, dmUnreadCount, loadDmList, sendDm, openDm, closeDm, markAsRead, setDmTarget } = useDM(user, keyPair);
+  const { groups, activeGroup, groupMessages, groupMembers, groupSending, loadGroups, createGroup, joinGroup, leaveGroup, loadGroupMessages, sendGroupMessage, getGroupMembers, kickMember, deleteGroup, openGroup, closeGroup } = useGroupChat(user, keyPair);
 
   // ─── Theme ───
   useEffect(() => { applyTheme(theme); }, [theme]);
@@ -238,8 +246,10 @@ function AppInner() {
     try { setDmTarget(null); } catch {}
     setViewingProfile(null); setFollowersPage(null);
     if (p === "dm" && user) { try { loadDmList(); } catch (e) { console.error("loadDmList failed:", e); } }
-    setMobileTab(p === "home" ? "home" : p === "dm" ? "dm" : p === "profile" ? "me" : p === "notifications" ? "notif" : "home");
-  }, [user, loadDmList, setDmTarget]);
+    if (p === "groups" && user) { try { loadGroups(); } catch (e) { console.error("loadGroups failed:", e); } }
+    try { closeGroup(); } catch {}
+    setMobileTab(p === "home" ? "home" : p === "dm" ? "dm" : p === "groups" ? "groups" : p === "profile" ? "me" : p === "notifications" ? "notif" : "home");
+  }, [user, loadDmList, setDmTarget, loadGroups, closeGroup]);
 
   const handleHashtag = useCallback((tag) => {
     setSearchKey(tag);
@@ -260,8 +270,10 @@ function AppInner() {
   const topTitle = () => {
     if (selectedPost) return "帖子";
     if (page === "dm-chat") return dmTarget;
+    if (page === "group-chat" && activeGroup) return activeGroup.name;
     if (page === "search") return "搜索";
     if (page === "dm") return "私信";
+    if (page === "groups") return "群组";
     if (page === "notifications") return "通知";
     if (page === "profile-view") return viewingProfile;
     if (page === "followers") return followersPage?.type === "followers" ? "粉丝" : "关注";
@@ -284,6 +296,13 @@ function AppInner() {
     if (page === "notifications") return <NotificationPage notifications={notifications} onNotifClick={handleNotifClick} onBack={() => navigate("home")} />;
     if (page === "search") return <SearchPage searchKey={searchKey} setSearchKey={setSearchKey} posts={posts} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} />;
     if (page === "dm") return <DmListPage dmList={dmList} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} onNewDm={() => setNewDmOpen(true)} />;
+    if (page === "groups") return <GroupListPage groups={groups} onOpenGroup={(g) => { openGroup(g); setPage("group-chat"); }} onCreateGroup={() => setCreateGroupOpen(true)} onJoinGroup={() => setJoinGroupOpen(true)} />;
+    if (page === "group-chat" && activeGroup) return (
+      <GroupChatPage group={activeGroup} messages={groupMessages} members={groupMembers} sending={groupSending}
+        onSend={sendGroupMessage} onBack={() => { closeGroup(); setPage("groups"); }}
+        onUserClick={openUserClick} onKickMember={kickMember} onDeleteGroup={(id) => { deleteGroup(id); setPage("groups"); }}
+        onLeaveGroup={(id) => { leaveGroup(id); setPage("groups"); }} onGetMembers={getGroupMembers} />
+    );
     if (page === "profile-view" && viewingProfile) return <ProfileViewPage viewingProfile={viewingProfile} posts={posts} onBack={() => { setViewingProfile(null); setPage("home"); setMobileTab("home"); }} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} />;
     if (page === "profile") return <ProfilePage posts={posts} onAuthOpen={() => setAuthOpen(true)} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onFollowersPage={(type) => setFollowersPage({ username: user.username, type })} />;
     return <HomeFeed posts={posts} postsLoading={postsLoading} tab={tab} setTab={setTab} searchKey={searchKey} composeText={composeText} setComposeText={setComposeText} onPublish={handlePublish} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onHashtag={handleHashtag} />;
@@ -350,6 +369,7 @@ function AppInner() {
           <button className="sidebar-btn" onClick={() => navigate("search")}><span className="sb-icon"><Icons.Search /></span>搜索</button>
           {user && <button className="sidebar-btn" onClick={() => navigate("notifications")}><span className="sb-icon"><Icons.Bell /></span>通知{unreadCount > 0 && <span className="sidebar-badge">{unreadCount > 9 ? "9+" : unreadCount}</span>}</button>}
           {user && <button className="sidebar-btn" onClick={() => navigate("dm")}><span className="sb-icon"><Icons.Msg /></span>私信{dmUnreadCount > 0 && <span className="sidebar-badge">{dmUnreadCount > 9 ? "9+" : dmUnreadCount}</span>}</button>}
+          {user && <button className="sidebar-btn" onClick={() => navigate("groups")}><span className="sb-icon"><Icons.Group /></span>群组</button>}
           {user && <button className="sidebar-btn" onClick={() => navigate("profile")}><span className="sb-icon"><Icons.User /></span>个人</button>}
           <button className="sidebar-btn" onClick={toggleTheme}><span className="sb-icon">{theme === "dark" ? <Icons.ThemeLight /> : <Icons.ThemeDark />}</span>{theme === "dark" ? "亮色模式" : "暗色模式"}</button>
           {user ? (
@@ -369,8 +389,18 @@ function AppInner() {
         </div>
       )}
 
+      {/* Group Chat Overlay */}
+      {page === "group-chat" && activeGroup && (
+        <div className="dm-overlay">
+          <GroupChatPage group={activeGroup} messages={groupMessages} members={groupMembers} sending={groupSending}
+            onSend={sendGroupMessage} onBack={() => { closeGroup(); setPage("groups"); }}
+            onUserClick={openUserClick} onKickMember={kickMember} onDeleteGroup={(id) => { deleteGroup(id); setPage("groups"); }}
+            onLeaveGroup={(id) => { leaveGroup(id); setPage("groups"); }} onGetMembers={getGroupMembers} />
+        </div>
+      )}
+
       {/* Bottom Navigation */}
-      {page !== "dm-chat" && (
+      {page !== "dm-chat" && page !== "group-chat" && (
         <nav className="bnav">
           <button className={`bnav-btn ${mobileTab === "home" ? "on" : ""}`} onClick={() => navigate("home")}><span className="bnav-icon"><Icons.Home /></span></button>
           <button className={`bnav-btn ${mobileTab === "search" ? "on" : ""}`} onClick={() => navigate("search")}><span className="bnav-icon"><Icons.Search /></span></button>
