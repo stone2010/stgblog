@@ -535,18 +535,34 @@ a{color:var(--accent);text-decoration:none}
     top:0;left:0;right:0;bottom:0;
     z-index:200;
     background:var(--bg);
-    height:100vh;
     height:100dvh;
     overflow:hidden;
   }
   .dm-overlay .dm-chat{
-    height:100%;
     height:100dvh;
     min-height:0;
-    max-height:100%;
+    max-height:100dvh;
   }
   .dm-overlay .dm-chat-top{
     padding-top:max(8px,env(safe-area-inset-top));
+  }
+  /* Keyboard-aware: input stays visible when keyboard opens */
+  .dm-overlay .dm-chat{
+    display:flex;
+    flex-direction:column;
+  }
+  .dm-overlay .dm-chat-messages{
+    flex:1;
+    min-height:0;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  .dm-overlay .dm-chat-input{
+    flex-shrink:0;
+    position:sticky;
+    bottom:0;
+    background:var(--bg);
+    padding-bottom:max(10px,env(safe-area-inset-bottom));
   }
 }
 
@@ -557,12 +573,15 @@ a{color:var(--accent);text-decoration:none}
   height:100%;
   min-height:calc(100vh - var(--nav-h));
   background:var(--bg);
+  /* Keyboard-aware: use dvh on mobile */
+  height:100dvh;
 }
 @media(min-width:901px){
   .dm-chat{
     min-height:calc(100vh - var(--nav-h));
     border-left:1px solid var(--border);
     border-right:1px solid var(--border);
+    height:auto;
   }
 }
 .dm-chat-top{
@@ -573,7 +592,7 @@ a{color:var(--accent);text-decoration:none}
 .dm-chat-back{font-size:18px;color:var(--text);padding:6px}
 .dm-chat-name{font-size:15px;font-weight:700}
 .dm-chat-lock{font-size:12px;color:var(--green);margin-left:6px}
-.dm-chat-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;min-height:300px}
+.dm-chat-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;min-height:0}
 .dm-msg{
   max-width:75%;padding:10px 14px;border-radius:18px;
   font-size:14px;line-height:1.5;word-break:break-word;
@@ -597,6 +616,7 @@ a{color:var(--accent);text-decoration:none}
   border-top:1px solid var(--border);align-items:flex-end;
   flex-shrink:0;
   background:var(--bg);
+  position:sticky;bottom:0;z-index:10;
 }
 .dm-input{
   flex:1;padding:10px 14px;background:var(--bg2);

@@ -23,11 +23,31 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
   const [showVerify, setShowVerify] = useState(false);
   const [remotePubKey, setRemotePubKey] = useState(null);
   const messagesEndRef = useRef(null);
+  const chatRef = useRef(null);
 
   // Auto scroll to bottom
   useEffect(() => {
     try { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); } catch {}
   }, [dmMessages]);
+
+  // Mobile keyboard handling: keep input visible when keyboard opens
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const onResize = () => {
+      if (!chatRef.current) return;
+      // On iOS, visualViewport.height shrinks when keyboard opens
+      const keyboardHeight = window.innerHeight - vv.height;
+      if (keyboardHeight > 100) {
+        // Keyboard is open — scroll to bottom to keep input visible
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        }, 100);
+      }
+    };
+    vv.addEventListener("resize", onResize);
+    return () => vv.removeEventListener("resize", onResize);
+  }, []);
 
   // Mark as read when opening chat
   useEffect(() => {
@@ -61,7 +81,7 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
   const messages = Array.isArray(dmMessages) ? dmMessages : [];
 
   return (
-    <div className="dm-chat">
+    <div className="dm-chat" ref={chatRef}>
       <div className="dm-chat-top">
         <button className="dm-chat-back" onClick={onBack}><Icons.Back /></button>
         <div className="dm-avatar" style={{ width: 32, height: 32, fontSize: 13, cursor: "pointer" }} onClick={() => onUserClick?.(dmTarget)}>{dmTarget?.[0] || '?'}</div>
