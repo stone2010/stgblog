@@ -13,15 +13,20 @@ ALTER TABLE posts ADD COLUMN IF NOT EXISTS edited BOOLEAN DEFAULT FALSE;
 CREATE INDEX IF NOT EXISTS idx_posts_repost_of ON posts(repost_of);
 CREATE INDEX IF NOT EXISTS idx_posts_quote_of ON posts(quote_of);
 
--- 2. dm_messages 表新增已读字段
+-- 2. dm_messages 表新增加密字段 + 已读字段
+ALTER TABLE dm_messages ADD COLUMN IF NOT EXISTS encrypted BOOLEAN DEFAULT FALSE;
+ALTER TABLE dm_messages ADD COLUMN IF NOT EXISTS ciphertext TEXT;
+ALTER TABLE dm_messages ADD COLUMN IF NOT EXISTS iv TEXT;
+ALTER TABLE dm_messages ADD COLUMN IF NOT EXISTS sender_pubkey TEXT;
 ALTER TABLE dm_messages ADD COLUMN IF NOT EXISTS read BOOLEAN DEFAULT FALSE;
 CREATE INDEX IF NOT EXISTS idx_dm_messages_read ON dm_messages(receiver, read);
+CREATE INDEX IF NOT EXISTS idx_dm_messages_encrypted ON dm_messages(encrypted);
 
--- 2. notifications 表新增类型支持 (repost, quote)
+-- 3. notifications 表新增类型支持 (repost, quote)
 -- type 字段已经是 TEXT 类型，无需修改表结构
 -- 新增的 type 值: 'repost', 'quote'
 
--- 3. 关注关系表
+-- 4. 关注关系表
 CREATE TABLE IF NOT EXISTS follows (
   id BIGSERIAL PRIMARY KEY,
   follower TEXT NOT NULL,
@@ -32,7 +37,7 @@ CREATE TABLE IF NOT EXISTS follows (
 CREATE INDEX IF NOT EXISTS idx_follows_follower ON follows(follower);
 CREATE INDEX IF NOT EXISTS idx_follows_following ON follows(following);
 
--- 4. 通知表
+-- 5. 通知表
 CREATE TABLE IF NOT EXISTS notifications (
   id BIGSERIAL PRIMARY KEY,
   user_to TEXT NOT NULL,
@@ -47,10 +52,11 @@ CREATE INDEX IF NOT EXISTS idx_notifications_user_to ON notifications(user_to);
 CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(user_to, read);
 CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at DESC);
 
--- 5. 用户资料扩展字段
+-- 6. 用户资料扩展字段
 ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS pubkey TEXT;
 
--- 6. RLS 策略
+-- 7. RLS 策略
 ALTER TABLE follows ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "follows_select" ON follows FOR SELECT USING (true);
 CREATE POLICY "follows_insert" ON follows FOR INSERT WITH CHECK (true);

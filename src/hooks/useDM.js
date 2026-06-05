@@ -87,6 +87,7 @@ export function useDM(user, keyPair) {
 
     const { data: recipient } = await supabase.from("users").select("pubkey").eq("username", dmTarget).maybeSingle();
     let msgData;
+    let usedEncryption = false;
 
     if (recipient?.pubkey && keyPair) {
       try {
@@ -94,10 +95,10 @@ export function useDM(user, keyPair) {
         const { ciphertext, iv } = await encryptMessage(content, keyPair.privateKey, recipientPubKey);
         msgData = {
           sender: user.username, receiver: dmTarget,
-          // Store encrypted content only — no plaintext in database
           content: "[加密消息]", ciphertext, iv, encrypted: true,
           sender_pubkey: JSON.stringify(keyPair.publicKey),
         };
+        usedEncryption = true;
       } catch (e) {
         console.warn("Encryption failed, sending plain:", e);
         msgData = { sender: user.username, receiver: dmTarget, content, encrypted: false };
@@ -108,9 +109,22 @@ export function useDM(user, keyPair) {
 
     const { data, error } = await supabase.from("dm_messages").insert([msgData]).select("*").single();
     if (!error && data) {
-      // Show plaintext in local state for the sender (database only has encrypted content)
-      setDmMessages((prev) => [...prev, { ...data, content, decrypted: true }]);
-      loadDmList();
+      // Verify encryption fields were actually stored (columns might not exist in DB)
+      if (usedEncryption && !data.encrypted) {
+        console.warn("Encryption columns missing in DB, re-inserting as plaintext");
+        // Delete the broken record and re-insert as plaintext
+        await supabase.from("dm_messages").delete().eq("id", data.id);
+        const plainMsg = { sender: user.username, receiver: dmTarget, content, encrypted: false };
+        const { data: retry, error: retryErr } = await supabase.from("dm_messages").insert([plainMsg]).select("*").single();
+        if (!retryErr && retry) {
+          setDmMessages((prev) => [...prev, { ...retry, content, decrypted: false }]);
+          loadDmList();
+        }
+      } else {
+        // Show plaintext in local state for the sender
+        setDmMessages((prev) => [...prev, { ...data, content, decrypted: true }]);
+        loadDmList();
+      }
     }
     setDmSending(false);
     return !error;
