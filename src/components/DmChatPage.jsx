@@ -30,23 +30,45 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
     try { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); } catch {}
   }, [dmMessages]);
 
-  // Mobile keyboard handling: keep input visible when keyboard opens
+  // Mobile keyboard handling (WeChat/QQ style)
+  // Dynamically set --app-height so chat container shrinks when keyboard opens
   useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const onResize = () => {
-      if (!chatRef.current) return;
-      // On iOS, visualViewport.height shrinks when keyboard opens
-      const keyboardHeight = window.innerHeight - vv.height;
-      if (keyboardHeight > 100) {
-        // Keyboard is open — scroll to bottom to keep input visible
-        setTimeout(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-        }, 100);
+    const updateHeight = () => {
+      const vv = window.visualViewport;
+      if (vv) {
+        // visualViewport.height gives the visible area (excludes keyboard)
+        document.documentElement.style.setProperty('--app-height', `${vv.height}px`);
+      } else {
+        document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
       }
     };
-    vv.addEventListener("resize", onResize);
-    return () => vv.removeEventListener("resize", onResize);
+
+    const vv = window.visualViewport;
+    if (vv) {
+      vv.addEventListener("resize", updateHeight);
+      vv.addEventListener("scroll", updateHeight);
+    }
+    window.addEventListener("resize", updateHeight);
+    updateHeight();
+
+    // Also scroll to bottom when keyboard opens
+    const scrollToBottom = () => {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 150);
+    };
+    if (vv) vv.addEventListener("resize", scrollToBottom);
+
+    return () => {
+      if (vv) {
+        vv.removeEventListener("resize", updateHeight);
+        vv.removeEventListener("scroll", updateHeight);
+        vv.removeEventListener("resize", scrollToBottom);
+      }
+      window.removeEventListener("resize", updateHeight);
+      // Reset height when leaving chat
+      document.documentElement.style.removeProperty('--app-height');
+    };
   }, []);
 
   // Mark as read when opening chat

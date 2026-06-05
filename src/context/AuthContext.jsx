@@ -11,6 +11,8 @@ export function AuthProvider({ children }) {
   });
   const [keyPair, setKeyPair] = useState(null);
   const [followingSet, setFollowingSet] = useState(new Set());
+  const [dmPrivacy, setDmPrivacy] = useState("open");
+  const [dmKey, setDmKey] = useState(null);
 
   // Load key pair when user changes
   useEffect(() => {
@@ -96,10 +98,42 @@ export function AuthProvider({ children }) {
     await supabase.from("follows").delete().eq("follower", user.username).eq("following", targetUser);
   }, [user]);
 
+  // Load DM privacy settings
+  useEffect(() => {
+    if (!user) { setDmPrivacy("open"); setDmKey(null); return; }
+    (async () => {
+      const { data } = await supabase.from("users")
+        .select("dm_privacy, dm_key")
+        .eq("username", user.username)
+        .maybeSingle();
+      if (data) {
+        setDmPrivacy(data.dm_privacy || "open");
+        setDmKey(data.dm_key || null);
+      }
+    })();
+  }, [user]);
+
+  const updateDmPrivacy = useCallback(async (privacy) => {
+    if (!user) return;
+    let key = dmKey;
+    if (privacy === "key_required" && !key) {
+      // Auto-generate DM key
+      key = "DMK-" + Math.random().toString(36).slice(2, 12).toUpperCase();
+      await supabase.from("users").update({ dm_privacy: privacy, dm_key: key }).eq("username", user.username);
+      setDmKey(key);
+    } else {
+      await supabase.from("users").update({ dm_privacy: privacy }).eq("username", user.username);
+    }
+    setDmPrivacy(privacy);
+  }, [user, dmKey]);
+
+  const getDmKey = useCallback(() => dmKey, [dmKey]);
+
   return (
     <AuthContext.Provider value={{
-      user, keyPair, followingSet,
+      user, keyPair, followingSet, dmPrivacy, dmKey,
       login, register, logout, updateBio, follow, unfollow,
+      updateDmPrivacy, getDmKey,
     }}>
       {children}
     </AuthContext.Provider>

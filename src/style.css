@@ -535,21 +535,21 @@ a{color:var(--accent);text-decoration:none}
     top:0;left:0;right:0;bottom:0;
     z-index:200;
     background:var(--bg);
+    /* JS will set exact height to handle keyboard */
     height:100dvh;
+    height:calc(var(--app-height, 100dvh));
     overflow:hidden;
   }
   .dm-overlay .dm-chat{
-    height:100dvh;
+    height:100%;
     min-height:0;
-    max-height:100dvh;
+    max-height:100%;
+    display:flex;
+    flex-direction:column;
   }
   .dm-overlay .dm-chat-top{
     padding-top:max(8px,env(safe-area-inset-top));
-  }
-  /* Keyboard-aware: input stays visible when keyboard opens */
-  .dm-overlay .dm-chat{
-    display:flex;
-    flex-direction:column;
+    flex-shrink:0;
   }
   .dm-overlay .dm-chat-messages{
     flex:1;
@@ -559,8 +559,6 @@ a{color:var(--accent);text-decoration:none}
   }
   .dm-overlay .dm-chat-input{
     flex-shrink:0;
-    position:sticky;
-    bottom:0;
     background:var(--bg);
     padding-bottom:max(10px,env(safe-area-inset-bottom));
   }
@@ -573,8 +571,6 @@ a{color:var(--accent);text-decoration:none}
   height:100%;
   min-height:calc(100vh - var(--nav-h));
   background:var(--bg);
-  /* Keyboard-aware: use dvh on mobile */
-  height:100dvh;
 }
 @media(min-width:901px){
   .dm-chat{
