@@ -4,6 +4,19 @@ import { useAuth } from "../context/AuthContext";
 import { formatTime } from "../utils";
 import { supabase } from "../supabase";
 
+// Telegram-style checkmark SVGs
+const CheckSingle = () => (
+  <svg viewBox="0 0 16 11" width="16" height="11" fill="none" style={{ display: "inline-block", verticalAlign: "middle" }}>
+    <path d="M1 5.5L5.5 10L14.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+const CheckDouble = () => (
+  <svg viewBox="0 0 21 11" width="21" height="11" fill="none" style={{ display: "inline-block", verticalAlign: "middle" }}>
+    <path d="M1 5.5L5.5 10L14.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M6 5.5L10.5 10L19.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, onBack, onUserClick, onMarkAsRead }) {
   const { user, keyPair } = useAuth();
   const [input, setInput] = useState("");
@@ -85,16 +98,16 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
         {messages.map((msg, i) => {
           if (!msg) return null;
           const isMine = msg.sender === user?.username;
+          const showLock = msg.decrypted || (msg.encrypted && msg.content === "[加密消息]");
           return (
             <div key={msg.id || i} className={`dm-msg ${isMine ? "sent" : "received"}`}>
               {msg.content || ''}
-              <div className="dm-msg-time">
-                {formatTime(msg.created_at)}
-                {msg.decrypted && " 🔒"}
-                {msg.encrypted && !msg.decrypted && msg.content === "[加密消息]" && " 🔒"}
+              <div className="dm-msg-meta">
+                <span className="dm-msg-time">{formatTime(msg.created_at)}</span>
+                {showLock && <span className="dm-msg-lock">🔒</span>}
                 {isMine && (
-                  <span className={`dm-read-status ${msg.read ? "read" : ""}`}>
-                    {msg.read ? " ✓✓" : " ✓"}
+                  <span className={`dm-tick ${msg.read ? "read" : "sent"}`}>
+                    {msg.read ? <CheckDouble /> : <CheckSingle />}
                   </span>
                 )}
               </div>

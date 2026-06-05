@@ -1,5 +1,5 @@
 import React, { memo } from "react";
-import { formatTime } from "../utils";
+import { formatTimeShort } from "../utils";
 
 const CommentNode = memo(function CommentNode({ node, user, onDelete, replyTarget, setReplyTarget, replyText, setReplyText, submitting, onSubmitReply, onUserClick }) {
   return (
@@ -9,7 +9,7 @@ const CommentNode = memo(function CommentNode({ node, user, onDelete, replyTarge
         <div className="comment-head">
           <b style={{ cursor: "pointer" }} onClick={() => onUserClick?.(node.author)}>{node.author}</b>
           <span className="handle">@{node.author}</span>
-          <span className="time">{formatTime(node.created_at)}</span>
+          <span className="time">{formatTimeShort(node.created_at)}</span>
           {user && node.author === user.username && (
             <button className="comment-action comment-del" onClick={() => onDelete(node)}>删除</button>
           )}

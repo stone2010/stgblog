@@ -1,6 +1,6 @@
 import React, { memo, useCallback, useState } from "react";
 import { Icons } from "./Icons";
-import { hasLiked, hasBookmarked, formatTime, formatCount, parseContent, getBlockedSet, getMutedSet } from "../utils";
+import { hasLiked, hasBookmarked, formatTimeShort, formatCount, parseContent, getBlockedSet, getMutedSet } from "../utils";
 import { useAuth } from "../context/AuthContext";
 
 function RenderContent({ content, onHashtag, onMention }) {
@@ -49,7 +49,7 @@ const PostCard = memo(function PostCard({ post, onSelect, onLike, onShare, onRep
           <span className="post-author" onClick={handleAuthorClick} style={{ cursor: "pointer" }}>{displayPost.author}</span>
           <span className="post-handle">@{displayPost.author}</span>
           <span className="post-dot">·</span>
-          <span className="post-time">{formatTime(displayPost.created_at)}</span>
+          <span className="post-time">{formatTimeShort(displayPost.created_at)}</span>
           {displayPost.pinned && <span className="post-pin-icon"><Icons.Pin /></span>}
           {displayPost.edited && <span className="post-edited-tag">已编辑</span>}
           {user && displayPost.author !== user.username && !followingSet.has(displayPost.author) && (

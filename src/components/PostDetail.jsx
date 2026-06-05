@@ -3,7 +3,7 @@ import { supabase } from "../supabase";
 import { useAuth } from "../context/AuthContext";
 import { Icons } from "./Icons";
 import CommentNode from "./CommentNode";
-import { hasLiked, hasBookmarked, formatTime, formatCount, buildTree, parseContent } from "../utils";
+import { hasLiked, hasBookmarked, formatTime, formatTimeShort, formatCount, buildTree, parseContent } from "../utils";
 
 function RenderContent({ content }) {
   const parts = parseContent(content);

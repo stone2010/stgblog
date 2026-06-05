@@ -589,6 +589,8 @@ a{color:var(--accent);text-decoration:none}
   border-bottom-left-radius:4px;
 }
 .dm-msg .dm-msg-time{font-size:10px;opacity:0.6;margin-top:4px}
+/* Legacy fallback - hidden */
+.dm-msg .dm-read-status{display:none}
 .dm-chat-input{
   display:flex;gap:8px;padding:12px 16px;
   padding-bottom:max(12px,env(safe-area-inset-bottom));
@@ -772,12 +774,30 @@ a{color:var(--accent);text-decoration:none}
   .install-banner{bottom:calc(var(--bottom-h) + max(8px,env(safe-area-inset-bottom)) + 8px)}
 }
 
-/* ===== DM Read Receipts & Unread ===== */
-.dm-read-status{
-  color:var(--dim);margin-left:4px;font-weight:400;
+/* ===== DM Read Receipts & Unread (Telegram-style) ===== */
+.dm-msg-meta{
+  display:inline-flex;align-items:center;gap:4px;
+  margin-top:2px;
 }
-.dm-read-status.read{
-  color:var(--accent);
+.dm-msg-time{
+  font-size:10px;opacity:0.55;
+}
+.dm-msg-lock{
+  font-size:9px;opacity:0.5;
+}
+.dm-tick{
+  display:inline-flex;align-items:center;
+  color:var(--dim);opacity:0.5;
+  line-height:1;
+}
+.dm-tick.read{
+  color:var(--accent);opacity:0.85;
+}
+.dm-tick svg{
+  width:16px;height:11px;
+}
+.dm-read-status{
+  display:none;
 }
 .dm-unread-item{
   background:rgba(29,155,240,0.04);

@@ -155,8 +155,31 @@ export function parseContent(text) {
   return parts;
 }
 
-// ─── 格式化时间 ───
+// ─── 格式化时间（精确到秒，Telegram 风格）───
 export function formatTime(value) {
+  if (!value) return "";
+  try {
+    const d = new Date(value);
+    const now = new Date();
+    const diff = now - d;
+    const isToday = d.toDateString() === now.toDateString();
+    const pad = (n) => String(n).padStart(2, "0");
+    const time = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+
+    if (isToday) return time;
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (d.toDateString() === yesterday.toDateString()) return `昨天 ${time}`;
+    if (diff < 604800000) {
+      const days = ["日", "一", "二", "三", "四", "五", "六"];
+      return `周${days[d.getDay()]} ${time}`;
+    }
+    return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${time}`;
+  } catch { return String(value); }
+}
+
+// ─── 格式化时间（简短，用于帖子列表）───
+export function formatTimeShort(value) {
   if (!value) return "";
   try {
     const d = new Date(value);
@@ -165,7 +188,8 @@ export function formatTime(value) {
     if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟`;
     if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时`;
     if (diff < 604800000) return `${Math.floor(diff / 86400000)}天`;
-    return new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium" }).format(d);
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getMonth() + 1}/${pad(d.getDate())}`;
   } catch { return String(value); }
 }
 

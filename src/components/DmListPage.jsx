@@ -1,12 +1,24 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { formatTime } from "../utils";
+import { formatTimeShort } from "../utils";
+
+// Telegram-style checkmark SVGs
+const CheckSingle = () => (
+  <svg viewBox="0 0 16 11" width="14" height="10" fill="none" style={{ display: "inline-block", verticalAlign: "middle" }}>
+    <path d="M1 5.5L5.5 10L14.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+const CheckDouble = () => (
+  <svg viewBox="0 0 21 11" width="18" height="10" fill="none" style={{ display: "inline-block", verticalAlign: "middle" }}>
+    <path d="M1 5.5L5.5 10L14.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M6 5.5L10.5 10L19.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
 
 export default function DmListPage({ dmList, onOpenDm, onNewDm }) {
   const { user } = useAuth();
   const [error, setError] = useState(null);
 
-  // Defensive: catch any rendering errors
   const listWithUnread = useMemo(() => {
     try {
       if (!user || !Array.isArray(dmList)) return dmList || [];
@@ -54,10 +66,10 @@ export default function DmListPage({ dmList, onOpenDm, onNewDm }) {
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-            <div className="dm-time">{formatTime(last?.created_at)}</div>
+            <div className="dm-time">{formatTimeShort(last?.created_at)}</div>
             {last?.sender === user.username && (
-              <span className={`dm-read-status ${last?.read ? "read" : ""}`} style={{ fontSize: 12 }}>
-                {last?.read ? "✓✓" : "✓"}
+              <span className={`dm-tick ${last?.read ? "read" : "sent"}`}>
+                {last?.read ? <CheckDouble /> : <CheckSingle />}
               </span>
             )}
             {isUnread && <div className="dm-unread-dot" />}
