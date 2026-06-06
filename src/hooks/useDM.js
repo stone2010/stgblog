@@ -2,19 +2,45 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { supabase } from "../supabase";
 import { encryptMessage, decryptMessage } from "../crypto";
 
+// localStorage helpers for DM conversation cache
+const CACHE_KEY = (username) => `stgblog_dm_conversations_${username}`;
+
+function loadCachedConversations(username) {
+  try {
+    return JSON.parse(localStorage.getItem(CACHE_KEY(username))) || [];
+  } catch { return []; }
+}
+
+function saveCachedConversations(username, list) {
+  try {
+    localStorage.setItem(CACHE_KEY(username), JSON.stringify(list));
+  } catch {}
+}
+
 export function useDM(user, keyPair) {
   const [dmList, setDmList] = useState([]);
   const [dmTarget, setDmTarget] = useState(null);
   const [dmMessages, setDmMessages] = useState([]);
   const [dmSending, setDmSending] = useState(false);
   const [dmUnreadCount, setDmUnreadCount] = useState(0);
+  const dmListRef = useRef(dmList);
+  dmListRef.current = dmList;
 
+  // Load from cache instantly, then refresh from DB
   const loadDmList = useCallback(async () => {
     if (!user) return;
+
+    // 1. Show cached data instantly
+    const cached = loadCachedConversations(user.username);
+    if (cached.length > 0) setDmList(cached);
+
+    // 2. Fetch fresh data from DB
     const { data, error } = await supabase.from("dm_messages").select("*")
       .or(`sender.eq.${user.username},receiver.eq.${user.username}`)
       .order("created_at", { ascending: false });
     if (error || !data) return;
+
+    // Build conversation map from messages
     const conversations = {};
     data.forEach((msg) => {
       const other = msg.sender === user.username ? msg.receiver : msg.sender;
@@ -22,10 +48,37 @@ export function useDM(user, keyPair) {
         conversations[other] = msg;
       }
     });
-    setDmList(Object.entries(conversations).map(([other, last]) => ({ other, last })));
+
+    // 3. Merge with locally persisted conversations (e.g. from NewDmModal)
+    let persisted = [];
+    try { persisted = JSON.parse(localStorage.getItem(`stgblog_dm_opened_${user.username}`)) || []; } catch {}
+    persisted.forEach((u) => {
+      if (!conversations[u]) conversations[u] = null; // placeholder for conversations without messages
+    });
+
+    // 4. Fetch pin states
+    let pinnedSet = new Set();
+    try {
+      const { data: pins } = await supabase.from("dm_pins").select("pinned_user").eq("username", user.username);
+      if (pins) pinnedSet = new Set(pins.map((p) => p.pinned_user));
+    } catch {}
+
+    // 5. Build sorted list: pinned first, then by last message time
+    const list = Object.entries(conversations)
+      .map(([other, last]) => ({ other, last, pinned: pinnedSet.has(other) }))
+      .sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        const ta = a.last?.created_at || "1970-01-01";
+        const tb = b.last?.created_at || "1970-01-01";
+        return new Date(tb) - new Date(ta);
+      });
+
+    setDmList(list);
+    saveCachedConversations(user.username, list);
   }, [user]);
 
-  // Poll unread DM count (graceful if read column missing)
+  // Poll unread DM count
   const checkUnread = useCallback(async () => {
     if (!user) return;
     try {
@@ -34,7 +87,7 @@ export function useDM(user, keyPair) {
         .eq("receiver", user.username)
         .eq("read", false);
       if (!error) setDmUnreadCount(count || 0);
-    } catch { /* read column may not exist yet */ }
+    } catch {}
   }, [user]);
 
   useEffect(() => {
@@ -52,7 +105,6 @@ export function useDM(user, keyPair) {
     if (error || !data) { setDmMessages([]); return; }
 
     if (keyPair && keyPair.privateKey) {
-      // Fetch other user's public key once (fallback for old messages without receiver_pubkey)
       let otherUserPubKeyStr = null;
       const { data: otherUserData } = await supabase.from("users").select("pubkey").eq("username", otherUser).maybeSingle();
       if (otherUserData?.pubkey) otherUserPubKeyStr = otherUserData.pubkey;
@@ -60,39 +112,25 @@ export function useDM(user, keyPair) {
       const decrypted = await Promise.all(data.map(async (msg) => {
         if (msg.encrypted && msg.ciphertext && msg.iv) {
           try {
-            // Determine which public key to use for ECDH:
-            // - Messages I sent: encrypted with recipient's public key → use receiver_pubkey
-            // - Messages I received: encrypted with sender's public key → use sender_pubkey
             const isMine = msg.sender === user.username;
             let peerPubKeyStr = isMine ? msg.receiver_pubkey : msg.sender_pubkey;
-            // Fallback: for old messages without receiver_pubkey, use other user's pubkey
             if (!peerPubKeyStr && isMine) peerPubKeyStr = otherUserPubKeyStr;
-            if (!peerPubKeyStr) {
-              return { ...msg, content: "[加密消息 · 无法解密]", decrypted: false };
-            }
+            if (!peerPubKeyStr) return { ...msg, content: "[加密消息 · 无法解密]", decrypted: false };
             const peerPubKey = JSON.parse(peerPubKeyStr);
             const plain = await decryptMessage(msg.ciphertext, msg.iv, keyPair.privateKey, peerPubKey);
             return { ...msg, content: plain, decrypted: true };
-          } catch {
-            return { ...msg, content: "[加密消息 · 无法解密]", decrypted: false };
-          }
+          } catch { return { ...msg, content: "[加密消息 · 无法解密]", decrypted: false }; }
         }
-        // Legacy unencrypted messages show content as-is
         return { ...msg, decrypted: false };
       }));
       setDmMessages(decrypted);
     } else {
-      // No key pair available — show messages as-is (legacy fallback)
       setDmMessages(data.map((msg) => ({ ...msg, decrypted: false })));
     }
 
-    // Mark as read (graceful if read column missing)
     try {
-      await supabase.from("dm_messages")
-        .update({ read: true })
-        .eq("sender", otherUser)
-        .eq("receiver", user.username)
-        .eq("read", false);
+      await supabase.from("dm_messages").update({ read: true })
+        .eq("sender", otherUser).eq("receiver", user.username).eq("read", false);
       checkUnread();
     } catch {}
   }, [user, keyPair, checkUnread]);
@@ -126,10 +164,7 @@ export function useDM(user, keyPair) {
 
     const { data, error } = await supabase.from("dm_messages").insert([msgData]).select("*").single();
     if (!error && data) {
-      // Verify encryption fields were actually stored (columns might not exist in DB)
       if (usedEncryption && !data.encrypted) {
-        console.warn("Encryption columns missing in DB, re-inserting as plaintext");
-        // Delete the broken record and re-insert as plaintext
         await supabase.from("dm_messages").delete().eq("id", data.id);
         const plainMsg = { sender: user.username, receiver: dmTarget, content, encrypted: false };
         const { data: retry, error: retryErr } = await supabase.from("dm_messages").insert([plainMsg]).select("*").single();
@@ -138,7 +173,6 @@ export function useDM(user, keyPair) {
           loadDmList();
         }
       } else {
-        // Show plaintext in local state for the sender
         setDmMessages((prev) => [...prev, { ...data, content, decrypted: true }]);
         loadDmList();
       }
@@ -150,19 +184,37 @@ export function useDM(user, keyPair) {
   const markAsRead = useCallback(async (otherUser) => {
     if (!user || !otherUser) return;
     try {
-      await supabase.from("dm_messages")
-        .update({ read: true })
-        .eq("sender", otherUser)
-        .eq("receiver", user.username)
-        .eq("read", false);
+      await supabase.from("dm_messages").update({ read: true })
+        .eq("sender", otherUser).eq("receiver", user.username).eq("read", false);
       checkUnread();
     } catch {}
   }, [user, checkUnread]);
 
+  // Persist opened conversation locally (so it shows even without messages)
+  const persistConversation = useCallback((otherUser) => {
+    if (!user || !otherUser) return;
+    const key = `stgblog_dm_opened_${user.username}`;
+    try {
+      const list = JSON.parse(localStorage.getItem(key)) || [];
+      if (!list.includes(otherUser)) {
+        list.push(otherUser);
+        localStorage.setItem(key, JSON.stringify(list));
+      }
+    } catch {}
+  }, [user]);
+
   const openDm = useCallback(async (otherUser) => {
     setDmTarget(otherUser);
+    persistConversation(otherUser);
+    // Also add to local list immediately
+    setDmList((prev) => {
+      if (prev.some((c) => c.other === otherUser)) return prev;
+      const newList = [{ other: otherUser, last: null, pinned: false }, ...prev];
+      saveCachedConversations(user.username, newList);
+      return newList;
+    });
     await loadDmMessages(otherUser);
-  }, [loadDmMessages]);
+  }, [loadDmMessages, persistConversation, user]);
 
   const closeDm = useCallback(() => {
     setDmTarget(null);
@@ -171,9 +223,54 @@ export function useDM(user, keyPair) {
     checkUnread();
   }, [loadDmList, checkUnread]);
 
+  // Pin / Unpin conversation
+  const togglePin = useCallback(async (otherUser) => {
+    if (!user) return;
+    const isPinned = dmListRef.current.find((c) => c.other === otherUser)?.pinned;
+    if (isPinned) {
+      await supabase.from("dm_pins").delete()
+        .eq("username", user.username).eq("pinned_user", otherUser);
+    } else {
+      await supabase.from("dm_pins").insert([{ username: user.username, pinned_user: otherUser }]);
+    }
+    // Update local state immediately
+    setDmList((prev) => {
+      const updated = prev.map((c) => c.other === otherUser ? { ...c, pinned: !isPinned } : c)
+        .sort((a, b) => {
+          if (a.pinned && !b.pinned) return -1;
+          if (!a.pinned && b.pinned) return 1;
+          const ta = a.last?.created_at || "1970-01-01";
+          const tb = b.last?.created_at || "1970-01-01";
+          return new Date(tb) - new Date(ta);
+        });
+      saveCachedConversations(user.username, updated);
+      return updated;
+    });
+  }, [user]);
+
+  // Delete conversation (hide from list)
+  const deleteConversation = useCallback(async (otherUser) => {
+    if (!user) return;
+    // Remove from local persistence
+    const key = `stgblog_dm_opened_${user.username}`;
+    try {
+      const list = JSON.parse(localStorage.getItem(key)) || [];
+      localStorage.setItem(key, JSON.stringify(list.filter((u) => u !== otherUser)));
+    } catch {}
+    // Remove pin if exists
+    await supabase.from("dm_pins").delete()
+      .eq("username", user.username).eq("pinned_user", otherUser);
+    // Update local state
+    setDmList((prev) => {
+      const updated = prev.filter((c) => c.other !== otherUser);
+      saveCachedConversations(user.username, updated);
+      return updated;
+    });
+  }, [user]);
+
   return {
     dmList, dmTarget, dmMessages, dmSending, dmUnreadCount,
     loadDmList, loadDmMessages, sendDm, openDm, closeDm, markAsRead,
-    setDmTarget,
+    setDmTarget, togglePin, deleteConversation,
   };
 }
