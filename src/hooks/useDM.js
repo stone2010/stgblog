@@ -114,12 +114,22 @@ export function useDM(user, keyPair) {
           try {
             const isMine = msg.sender === user.username;
             let peerPubKeyStr = isMine ? msg.receiver_pubkey : msg.sender_pubkey;
-            if (!peerPubKeyStr && isMine) peerPubKeyStr = otherUserPubKeyStr;
+            // Fallback: fetch from users table if not stored in message
+            if (!peerPubKeyStr) peerPubKeyStr = otherUserPubKeyStr;
+            if (!peerPubKeyStr) {
+              // Last resort: fetch the other user's pubkey directly
+              const peerName = isMine ? otherUser : msg.sender;
+              const { data: peerData } = await supabase.from("users").select("pubkey").eq("username", peerName).maybeSingle();
+              if (peerData?.pubkey) peerPubKeyStr = peerData.pubkey;
+            }
             if (!peerPubKeyStr) return { ...msg, content: "[加密消息 · 无法解密]", decrypted: false };
             const peerPubKey = JSON.parse(peerPubKeyStr);
             const plain = await decryptMessage(msg.ciphertext, msg.iv, keyPair.privateKey, peerPubKey);
             return { ...msg, content: plain, decrypted: true };
-          } catch { return { ...msg, content: "[加密消息 · 无法解密]", decrypted: false }; }
+          } catch (e) {
+            console.warn("Decrypt failed for msg", msg.id, e);
+            return { ...msg, content: "[加密消息 · 无法解密]", decrypted: false };
+          }
         }
         return { ...msg, decrypted: false };
       }));
