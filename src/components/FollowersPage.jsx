@@ -12,11 +12,11 @@ export default function FollowersPage({ username, type, onBack, onUserClick }) {
     if (!username) return;
     (async () => {
       setLoading(true);
-      const col = type === "followers" ? "following" : "follower";
-      const eqCol = type === "followers" ? "follower" : "following";
+      const col = type === "followers" ? "follower" : "following";
+      const eqCol = type === "followers" ? "following" : "follower";
       const { data } = await supabase.from("follows").select(col).eq(eqCol, username).limit(200);
       if (data) {
-        const usernames = data.map((r) => r[type === "followers" ? "follower" : "following"]);
+        const usernames = data.map((r) => r[col]);
         // Fetch user info
         if (usernames.length > 0) {
           const { data: users } = await supabase.from("users").select("username, bio").in("username", usernames);
