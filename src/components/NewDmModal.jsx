@@ -18,16 +18,22 @@ export default function NewDmModal({ onClose, onStartDm }) {
     const target = targetUser.trim();
     if (!target) { setError("请输入用户名"); return; }
     if (target === user.username) { setError("不能给自己发消息"); return; }
-    const { data: exists } = await supabase.from("users").select("username, dm_privacy, dm_key").eq("username", target).maybeSingle();
+    // First: check if user exists (only query username to avoid column-missing errors)
+    const { data: exists } = await supabase.from("users").select("username").eq("username", target).maybeSingle();
     if (!exists) { setError("用户不存在"); return; }
 
-    if (exists.dm_privacy === "key_required") {
-      setNeedKey(true);
-      setTargetDmKey(exists.dm_key || "");
-      setTargetPrivacy("key_required");
-    } else {
-      onStartDm(target);
-    }
+    // Second: try to fetch DM privacy settings (columns may not exist yet)
+    try {
+      const { data: privacy } = await supabase.from("users").select("dm_privacy, dm_key").eq("username", target).maybeSingle();
+      if (privacy?.dm_privacy === "key_required") {
+        setNeedKey(true);
+        setTargetDmKey(privacy.dm_key || "");
+        setTargetPrivacy("key_required");
+        return;
+      }
+    } catch { /* dm_privacy/dm_key columns may not exist */ }
+
+    onStartDm(target);
   }, [targetUser, user, onStartDm]);
 
   const handleVerifyKey = useCallback(() => {
