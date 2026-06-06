@@ -433,6 +433,9 @@ function AppInner() {
             <span className="bnav-icon"><Icons.Msg /></span>
             {dmUnreadCount > 0 && <span className="bnav-dot" />}
           </button>
+          <button className={`bnav-btn ${mobileTab === "groups" ? "on" : ""}`} onClick={() => { if (user) navigate("groups"); else setAuthOpen(true); }}>
+            <span className="bnav-icon"><Icons.Group /></span>
+          </button>
           <button className={`bnav-btn ${mobileTab === "me" ? "on" : ""}`} onClick={() => navigate("profile")} style={{ position: "relative" }}>
             <span className="bnav-icon"><Icons.User /></span>
             {unreadCount > 0 && <span className="bnav-dot" />}
