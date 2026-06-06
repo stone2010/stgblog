@@ -445,6 +445,8 @@ function AppInner() {
       {newDmOpen && <NewDmModal onClose={() => setNewDmOpen(false)} onStartDm={(target) => { setNewDmOpen(false); openDm(target); setPage("dm-chat"); }} />}
       {repostModal && <RepostModal post={repostModal} onRepost={doRepost} onQuote={doQuote} onClose={() => setRepostModal(null)} />}
       {editPostModal && <EditPostModal post={editPostModal} onSave={handleEditPost} onClose={() => setEditPostModal(null)} />}
+      {createGroupOpen && <CreateGroupModal onClose={() => setCreateGroupOpen(false)} onCreateGroup={createGroup} />}
+      {joinGroupOpen && <JoinGroupModal onClose={() => setJoinGroupOpen(false)} onJoinGroup={joinGroup} />}
     </div>
   );
 }
