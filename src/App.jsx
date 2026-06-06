@@ -110,6 +110,16 @@ function AppInner() {
     });
   }, [posts]);
 
+  const navigate = useCallback((p) => {
+    setPage(p); setSelectedPost(null);
+    try { setDmTarget(null); } catch {}
+    setViewingProfile(null); setFollowersPage(null);
+    if (p === "dm" && user) { try { loadDmList(); } catch (e) { console.error("loadDmList failed:", e); } }
+    if (p === "groups" && user) { try { loadGroups(); } catch (e) { console.error("loadGroups failed:", e); } }
+    try { closeGroup(); } catch {}
+    setMobileTab(p === "home" ? "home" : p === "dm" ? "dm" : p === "groups" ? "groups" : p === "profile" ? "me" : p === "notifications" ? "notif" : "home");
+  }, [user, loadDmList, setDmTarget, loadGroups, closeGroup]);
+
   // Deep link
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -264,15 +274,6 @@ function AppInner() {
     setSelectedPost(null);
   }, [user]);
 
-  const navigate = useCallback((p) => {
-    setPage(p); setSelectedPost(null);
-    try { setDmTarget(null); } catch {}
-    setViewingProfile(null); setFollowersPage(null);
-    if (p === "dm" && user) { try { loadDmList(); } catch (e) { console.error("loadDmList failed:", e); } }
-    if (p === "groups" && user) { try { loadGroups(); } catch (e) { console.error("loadGroups failed:", e); } }
-    try { closeGroup(); } catch {}
-    setMobileTab(p === "home" ? "home" : p === "dm" ? "dm" : p === "groups" ? "groups" : p === "profile" ? "me" : p === "notifications" ? "notif" : "home");
-  }, [user, loadDmList, setDmTarget, loadGroups, closeGroup]);
 
   const handleHashtag = useCallback((tag) => {
     setSearchKey(tag);
