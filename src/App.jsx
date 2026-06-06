@@ -21,6 +21,7 @@ import GroupListPage from "./components/GroupListPage";
 import GroupChatPage from "./components/GroupChatPage";
 import CreateGroupModal from "./components/CreateGroupModal";
 import JoinGroupModal from "./components/JoinGroupModal";
+import GroupSettingsModal from "./components/GroupSettingsModal";
 import RepostModal from "./components/RepostModal";
 import EditPostModal from "./components/EditPostModal";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -49,6 +50,7 @@ function AppInner() {
   const [editPostModal, setEditPostModal] = useState(null); // post to edit
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
   const [joinGroupOpen, setJoinGroupOpen] = useState(false);
+  const [groupSettingsOpen, setGroupSettingsOpen] = useState(false);
 
   // Theme
   const [theme, setThemeState] = useState(getTheme);
@@ -65,7 +67,7 @@ function AppInner() {
   // Hooks
   const { notifications, unreadCount, markAllRead, markOneRead } = useNotifications(user?.username);
   const { dmList, dmTarget, dmMessages, dmSending, dmUnreadCount, loadDmList, sendDm, openDm, closeDm, markAsRead, setDmTarget, togglePin, deleteConversation } = useDM(user, keyPair);
-  const { groups, activeGroup, groupMessages, groupMembers, groupSending, loadGroups, createGroup, joinGroup, leaveGroup, loadGroupMessages, sendGroupMessage, getGroupMembers, kickMember, deleteGroup, openGroup, closeGroup } = useGroupChat(user, keyPair);
+  const { groups, activeGroup, groupMessages, groupMembers, groupSending, loadGroups, createGroup, joinGroup, leaveGroup, loadGroupMessages, sendGroupMessage, getGroupMembers, kickMember, deleteGroup, openGroup, closeGroup, updateGroupName, setMemberRole, transferOwnership } = useGroupChat(user, keyPair);
 
   // ─── Theme ───
   useEffect(() => { applyTheme(theme); }, [theme]);
@@ -369,7 +371,8 @@ function AppInner() {
       <GroupChatPage group={activeGroup} messages={groupMessages} members={groupMembers} sending={groupSending}
         onSend={sendGroupMessage} onBack={() => { closeGroup(); setPage("groups"); }}
         onUserClick={openUserClick} onKickMember={kickMember} onDeleteGroup={(id) => { deleteGroup(id); setPage("groups"); }}
-        onLeaveGroup={(id) => { leaveGroup(id); setPage("groups"); }} onGetMembers={getGroupMembers} />
+        onLeaveGroup={(id) => { leaveGroup(id); setPage("groups"); }} onGetMembers={getGroupMembers}
+        onOpenSettings={() => setGroupSettingsOpen(true)} />
     );
     if (page === "profile-view" && viewingProfile) return <ProfileViewPage viewingProfile={viewingProfile} posts={posts} onBack={() => { setViewingProfile(null); setPage("home"); setMobileTab("home"); }} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} />;
     if (page === "profile") return <ProfilePage posts={posts} onAuthOpen={() => setAuthOpen(true)} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onFollowersPage={(type) => setFollowersPage({ username: user.username, type })} />;
@@ -463,7 +466,8 @@ function AppInner() {
           <GroupChatPage group={activeGroup} messages={groupMessages} members={groupMembers} sending={groupSending}
             onSend={sendGroupMessage} onBack={() => { closeGroup(); setPage("groups"); }}
             onUserClick={openUserClick} onKickMember={kickMember} onDeleteGroup={(id) => { deleteGroup(id); setPage("groups"); }}
-            onLeaveGroup={(id) => { leaveGroup(id); setPage("groups"); }} onGetMembers={getGroupMembers} />
+            onLeaveGroup={(id) => { leaveGroup(id); setPage("groups"); }} onGetMembers={getGroupMembers}
+            onOpenSettings={() => setGroupSettingsOpen(true)} />
         </div>
       )}
 
@@ -494,6 +498,15 @@ function AppInner() {
       {editPostModal && <EditPostModal post={editPostModal} onSave={handleEditPost} onClose={() => setEditPostModal(null)} />}
       {createGroupOpen && <CreateGroupModal onClose={() => setCreateGroupOpen(false)} onCreateGroup={createGroup} />}
       {joinGroupOpen && <JoinGroupModal onClose={() => setJoinGroupOpen(false)} onJoinGroup={joinGroup} />}
+      {groupSettingsOpen && activeGroup && (
+        <GroupSettingsModal group={activeGroup} members={groupMembers}
+          onClose={() => setGroupSettingsOpen(false)}
+          onUpdateName={updateGroupName} onSetRole={setMemberRole}
+          onKickMember={kickMember} onTransferOwnership={transferOwnership}
+          onDeleteGroup={(id) => { deleteGroup(id); setGroupSettingsOpen(false); setPage("groups"); }}
+          onLeaveGroup={(id) => { leaveGroup(id); setGroupSettingsOpen(false); setPage("groups"); }}
+          onGetMembers={getGroupMembers} />
+      )}
     </div>
   );
 }

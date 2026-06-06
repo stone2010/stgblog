@@ -9,7 +9,7 @@ const CheckSingle = () => (
   </svg>
 );
 
-export default function GroupChatPage({ group, messages, members, sending, onSend, onBack, onUserClick, onKickMember, onDeleteGroup, onLeaveGroup, onGetMembers }) {
+export default function GroupChatPage({ group, messages, members, sending, onSend, onBack, onUserClick, onKickMember, onDeleteGroup, onLeaveGroup, onGetMembers, onOpenSettings }) {
   const { user } = useAuth();
   const [input, setInput] = useState("");
   const [showInfo, setShowInfo] = useState(false);
@@ -116,6 +116,15 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
           {group.name}
         </span>
         <span className="dm-chat-lock"><Icons.Lock /> {members?.length || 0}人</span>
+        {onOpenSettings && (
+          <button className="group-settings-btn" onClick={onOpenSettings} title="群组设置" style={{
+            marginLeft: "auto", background: "none", border: "none", cursor: "pointer",
+            padding: "4px 8px", borderRadius: 8, display: "flex", alignItems: "center",
+            color: "var(--dim)", transition: "all 0.15s"
+          }}>
+            ⚙️
+          </button>
+        )}
       </div>
 
       {showInfo && (

@@ -321,6 +321,85 @@ export function useGroupChat(user, keyPair) {
     await loadGroups();
   }, [user, activeGroup, loadGroups]);
 
+  // Update group name (admin only)
+  const updateGroupName = useCallback(async (groupId, newName) => {
+    if (!user || !newName.trim()) return { error: "名称不能为空" };
+    const { data: me } = await supabase.from("group_members")
+      .select("role")
+      .eq("group_id", groupId)
+      .eq("username", user.username)
+      .maybeSingle();
+    if (me?.role !== "admin") return { error: "只有管理员可以修改群名" };
+    const { error } = await supabase.from("group_chats")
+      .update({ name: newName.trim() })
+      .eq("id", groupId);
+    if (error) return { error: error.message };
+    // Update local state
+    setActiveGroup((prev) => prev && prev.id === groupId ? { ...prev, name: newName.trim() } : prev);
+    setGroups((prev) => prev.map((g) => g.id === groupId ? { ...g, name: newName.trim() } : g));
+    return { ok: true };
+  }, [user]);
+
+  // Set member role (admin can promote/demote, creator can manage admins)
+  const setMemberRole = useCallback(async (groupId, targetUsername, newRole) => {
+    if (!user) return { error: "未登录" };
+    // Check current user's role
+    const { data: me } = await supabase.from("group_members")
+      .select("role")
+      .eq("group_id", groupId)
+      .eq("username", user.username)
+      .maybeSingle();
+    if (me?.role !== "admin") return { error: "只有管理员可以修改角色" };
+    // Get group info to check creator
+    const { data: chat } = await supabase.from("group_chats")
+      .select("creator")
+      .eq("id", groupId)
+      .maybeSingle();
+    // Only creator can change other admins' roles
+    if (chat?.creator !== user.username) {
+      const { data: target } = await supabase.from("group_members")
+        .select("role")
+        .eq("group_id", groupId)
+        .eq("username", targetUsername)
+        .maybeSingle();
+      if (target?.role === "admin") return { error: "只有创建者可以修改管理员角色" };
+    }
+    // Can't demote the creator
+    if (targetUsername === chat?.creator && newRole !== "admin") {
+      return { error: "不能修改创建者的角色" };
+    }
+    const { error } = await supabase.from("group_members")
+      .update({ role: newRole })
+      .eq("group_id", groupId)
+      .eq("username", targetUsername);
+    if (error) return { error: error.message };
+    await getGroupMembers(groupId);
+    return { ok: true };
+  }, [user, getGroupMembers]);
+
+  // Transfer ownership (creator only)
+  const transferOwnership = useCallback(async (groupId, newCreator) => {
+    if (!user) return { error: "未登录" };
+    const { data: chat } = await supabase.from("group_chats")
+      .select("creator")
+      .eq("id", groupId)
+      .maybeSingle();
+    if (chat?.creator !== user.username) return { error: "只有创建者可以转让群组" };
+    const { error: chatErr } = await supabase.from("group_chats")
+      .update({ creator: newCreator })
+      .eq("id", groupId);
+    if (chatErr) return { error: chatErr.message };
+    // Make new creator admin
+    await supabase.from("group_members")
+      .update({ role: "admin" })
+      .eq("group_id", groupId)
+      .eq("username", newCreator);
+    setActiveGroup((prev) => prev && prev.id === groupId ? { ...prev, creator: newCreator } : prev);
+    await getGroupMembers(groupId);
+    await loadGroups();
+    return { ok: true };
+  }, [user, getGroupMembers, loadGroups]);
+
   const openGroup = useCallback(async (group) => {
     setActiveGroup(group);
     await loadGroupMessages(group.id);
@@ -345,5 +424,6 @@ export function useGroupChat(user, keyPair) {
     loadGroupMessages, sendGroupMessage,
     getGroupMembers, kickMember, deleteGroup,
     openGroup, closeGroup,
+    updateGroupName, setMemberRole, transferOwnership,
   };
 }
