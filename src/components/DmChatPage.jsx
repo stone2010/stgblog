@@ -36,11 +36,16 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
     const updateHeight = () => {
       const vv = window.visualViewport;
       if (vv) {
-        // visualViewport.height gives the visible area (excludes keyboard)
         document.documentElement.style.setProperty('--app-height', `${vv.height}px`);
       } else {
         document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
       }
+    };
+
+    const scrollToBottom = () => {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 200);
     };
 
     const vv = window.visualViewport;
@@ -51,12 +56,21 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
     window.addEventListener("resize", updateHeight);
     updateHeight();
 
-    // Also scroll to bottom when keyboard opens
-    const scrollToBottom = () => {
+    // Also listen for keyboard events on the input
+    const inputEl = chatRef.current?.querySelector('.dm-input');
+    const onFocus = () => setTimeout(scrollToBottom, 300);
+    const onBlur = () => {
+      // Reset height when keyboard closes
       setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-      }, 150);
+        document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+      }, 100);
     };
+    if (inputEl) {
+      inputEl.addEventListener('focus', onFocus);
+      inputEl.addEventListener('blur', onBlur);
+    }
+
+    // Scroll to bottom when viewport resizes (keyboard open/close)
     if (vv) vv.addEventListener("resize", scrollToBottom);
 
     return () => {
@@ -66,6 +80,10 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
         vv.removeEventListener("resize", scrollToBottom);
       }
       window.removeEventListener("resize", updateHeight);
+      if (inputEl) {
+        inputEl.removeEventListener('focus', onFocus);
+        inputEl.removeEventListener('blur', onBlur);
+      }
       // Reset height when leaving chat
       document.documentElement.style.removeProperty('--app-height');
     };

@@ -16,6 +16,7 @@ ALTER TABLE dm_messages ADD COLUMN IF NOT EXISTS encrypted BOOLEAN DEFAULT FALSE
 ALTER TABLE dm_messages ADD COLUMN IF NOT EXISTS ciphertext TEXT;
 ALTER TABLE dm_messages ADD COLUMN IF NOT EXISTS iv TEXT;
 ALTER TABLE dm_messages ADD COLUMN IF NOT EXISTS sender_pubkey TEXT;
+ALTER TABLE dm_messages ADD COLUMN IF NOT EXISTS receiver_pubkey TEXT;
 ALTER TABLE dm_messages ADD COLUMN IF NOT EXISTS read BOOLEAN DEFAULT FALSE;
 CREATE INDEX IF NOT EXISTS idx_dm_messages_read ON dm_messages(receiver, read);
 

@@ -532,12 +532,10 @@ a{color:var(--accent);text-decoration:none}
   .dm-overlay{
     display:block;
     position:fixed;
-    top:0;left:0;right:0;bottom:0;
+    top:0;left:0;right:0;
     z-index:200;
     background:var(--bg);
-    /* JS will set exact height to handle keyboard */
-    height:100dvh;
-    height:calc(var(--app-height, 100dvh));
+    height:var(--app-height, 100dvh);
     overflow:hidden;
   }
   .dm-overlay .dm-chat{
@@ -556,10 +554,15 @@ a{color:var(--accent);text-decoration:none}
     min-height:0;
     overflow-y:auto;
     -webkit-overflow-scrolling:touch;
+    padding-bottom:70px;
   }
   .dm-overlay .dm-chat-input{
-    flex-shrink:0;
+    position:fixed;
+    bottom:0;left:0;right:0;
+    z-index:210;
     background:var(--bg);
+    border-top:1px solid var(--border);
+    padding:10px 16px;
     padding-bottom:max(10px,env(safe-area-inset-bottom));
   }
 }
@@ -757,12 +760,12 @@ a{color:var(--accent);text-decoration:none}
     width:54px;height:36px;font-size:22px;
   }
   .bnav-btn{padding:8px 12px}
-  .dm-chat-messages{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:20px}
+  .dm-chat-messages{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:70px}
   .dm-chat-input{
     padding:10px 16px;
     padding-bottom:max(10px,env(safe-area-inset-bottom));
     background:var(--bg);border-top:1px solid var(--border);
-    position:sticky;bottom:0;
+    position:fixed;bottom:0;left:0;right:0;z-index:210;
   }
   .dm-input{font-size:16px;min-height:44px;padding:12px 14px}
   .dm-send-btn{width:44px;height:44px;font-size:18px}

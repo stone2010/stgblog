@@ -53,9 +53,18 @@ export function useDM(user, keyPair) {
 
     if (keyPair && keyPair.privateKey) {
       const decrypted = await Promise.all(data.map(async (msg) => {
-        if (msg.encrypted && msg.ciphertext && msg.iv && msg.sender_pubkey) {
+        if (msg.encrypted && msg.ciphertext && msg.iv) {
           try {
-            const plain = await decryptMessage(msg.ciphertext, msg.iv, keyPair.privateKey, msg.sender_pubkey);
+            // Determine which public key to use for ECDH:
+            // - Messages I sent: encrypted with recipient's public key → use receiver_pubkey
+            // - Messages I received: encrypted with sender's public key → use sender_pubkey
+            const isMine = msg.sender === user.username;
+            const peerPubKeyStr = isMine ? msg.receiver_pubkey : msg.sender_pubkey;
+            if (!peerPubKeyStr) {
+              return { ...msg, content: "[加密消息 · 无法解密]", decrypted: false };
+            }
+            const peerPubKey = JSON.parse(peerPubKeyStr);
+            const plain = await decryptMessage(msg.ciphertext, msg.iv, keyPair.privateKey, peerPubKey);
             return { ...msg, content: plain, decrypted: true };
           } catch {
             return { ...msg, content: "[加密消息 · 无法解密]", decrypted: false };
@@ -97,6 +106,7 @@ export function useDM(user, keyPair) {
           sender: user.username, receiver: dmTarget,
           content: "[加密消息]", ciphertext, iv, encrypted: true,
           sender_pubkey: JSON.stringify(keyPair.publicKey),
+          receiver_pubkey: recipient.pubkey,
         };
         usedEncryption = true;
       } catch (e) {

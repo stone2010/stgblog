@@ -25,14 +25,23 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
       const vv = window.visualViewport;
       if (vv) document.documentElement.style.setProperty('--app-height', `${vv.height}px`);
     };
-    const scrollToBottom = () => setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 150);
+    const scrollToBottom = () => setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 200);
     const vv = window.visualViewport;
-    if (vv) { vv.addEventListener("resize", updateHeight); vv.addEventListener("scroll", updateHeight); vv.addEventListener("resize", scrollToBottom); }
+    if (vv) { vv.addEventListener("resize", updateHeight); vv.addEventListener("scroll", updateHeight); }
     window.addEventListener("resize", updateHeight);
     updateHeight();
+
+    const chatEl = messagesEndRef.current?.closest('.dm-chat');
+    const inputEl = chatEl?.querySelector('.dm-input');
+    const onFocus = () => setTimeout(scrollToBottom, 300);
+    const onBlur = () => setTimeout(() => document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`), 100);
+    if (inputEl) { inputEl.addEventListener('focus', onFocus); inputEl.addEventListener('blur', onBlur); }
+    if (vv) vv.addEventListener("resize", scrollToBottom);
+
     return () => {
       if (vv) { vv.removeEventListener("resize", updateHeight); vv.removeEventListener("scroll", updateHeight); vv.removeEventListener("resize", scrollToBottom); }
       window.removeEventListener("resize", updateHeight);
+      if (inputEl) { inputEl.removeEventListener('focus', onFocus); inputEl.removeEventListener('blur', onBlur); }
       document.documentElement.style.removeProperty('--app-height');
     };
   }, []);
