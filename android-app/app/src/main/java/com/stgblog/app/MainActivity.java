@@ -11,7 +11,6 @@ import android.webkit.WebResourceRequest;
 import android.webkit.SslErrorHandler;
 import android.net.http.SslError;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 public class MainActivity extends AppCompatActivity {
 
