@@ -558,7 +558,8 @@ a{color:var(--accent);text-decoration:none}
   }
   .dm-overlay .dm-chat-input{
     position:fixed;
-    bottom:0;left:0;right:0;
+    bottom:var(--keyboard-offset, 0px);
+    left:0;right:0;
     z-index:210;
     background:var(--bg);
     border-top:1px solid var(--border);
@@ -765,7 +766,9 @@ a{color:var(--accent);text-decoration:none}
     padding:10px 16px;
     padding-bottom:max(10px,env(safe-area-inset-bottom));
     background:var(--bg);border-top:1px solid var(--border);
-    position:fixed;bottom:0;left:0;right:0;z-index:210;
+    position:fixed;
+    bottom:var(--keyboard-offset, 0px);
+    left:0;right:0;z-index:210;
   }
   .dm-input{font-size:16px;min-height:44px;padding:12px 14px}
   .dm-send-btn{width:44px;height:44px;font-size:18px}

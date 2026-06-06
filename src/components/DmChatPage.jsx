@@ -32,13 +32,18 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
 
   // Mobile keyboard handling (WeChat/QQ style)
   // Dynamically set --app-height so chat container shrinks when keyboard opens
+  // Set --keyboard-offset so input bar floats above the keyboard
   useEffect(() => {
     const updateHeight = () => {
       const vv = window.visualViewport;
       if (vv) {
         document.documentElement.style.setProperty('--app-height', `${vv.height}px`);
+        // Calculate keyboard offset: difference between window height and visual viewport
+        const offset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+        document.documentElement.style.setProperty('--keyboard-offset', `${offset}px`);
       } else {
         document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+        document.documentElement.style.setProperty('--keyboard-offset', '0px');
       }
     };
 
@@ -63,6 +68,7 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
       // Reset height when keyboard closes
       setTimeout(() => {
         document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+        document.documentElement.style.setProperty('--keyboard-offset', '0px');
       }, 100);
     };
     if (inputEl) {
@@ -86,6 +92,7 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
       }
       // Reset height when leaving chat
       document.documentElement.style.removeProperty('--app-height');
+      document.documentElement.style.removeProperty('--keyboard-offset');
     };
   }, []);
 

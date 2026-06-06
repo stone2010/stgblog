@@ -23,7 +23,11 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
   useEffect(() => {
     const updateHeight = () => {
       const vv = window.visualViewport;
-      if (vv) document.documentElement.style.setProperty('--app-height', `${vv.height}px`);
+      if (vv) {
+        document.documentElement.style.setProperty('--app-height', `${vv.height}px`);
+        const offset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+        document.documentElement.style.setProperty('--keyboard-offset', `${offset}px`);
+      }
     };
     const scrollToBottom = () => setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 200);
     const vv = window.visualViewport;
@@ -34,7 +38,12 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
     const chatEl = messagesEndRef.current?.closest('.dm-chat');
     const inputEl = chatEl?.querySelector('.dm-input');
     const onFocus = () => setTimeout(scrollToBottom, 300);
-    const onBlur = () => setTimeout(() => document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`), 100);
+    const onBlur = () => {
+      setTimeout(() => {
+        document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+        document.documentElement.style.setProperty('--keyboard-offset', '0px');
+      }, 100);
+    };
     if (inputEl) { inputEl.addEventListener('focus', onFocus); inputEl.addEventListener('blur', onBlur); }
     if (vv) vv.addEventListener("resize", scrollToBottom);
 
@@ -43,6 +52,7 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
       window.removeEventListener("resize", updateHeight);
       if (inputEl) { inputEl.removeEventListener('focus', onFocus); inputEl.removeEventListener('blur', onBlur); }
       document.documentElement.style.removeProperty('--app-height');
+      document.documentElement.style.removeProperty('--keyboard-offset');
     };
   }, []);
 
