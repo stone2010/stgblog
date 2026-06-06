@@ -827,6 +827,32 @@ a{color:var(--accent);text-decoration:none}
   flex-shrink:0;
 }
 
+/* ===== DM Pinned & Context Menu ===== */
+.dm-pinned-item{
+  background:rgba(29,155,240,0.03);
+}
+.dm-pinned-item:hover{
+  background:rgba(29,155,240,0.06);
+}
+.dm-pin-icon{
+  font-size:11px;margin-left:4px;opacity:0.7;
+}
+.dm-context-menu{
+  position:fixed;z-index:300;
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:var(--r2);box-shadow:var(--shadow);
+  min-width:160px;overflow:hidden;
+  animation:fadeIn 0.1s ease;
+}
+.dm-context-menu button{
+  display:flex;align-items:center;gap:8px;
+  width:100%;padding:12px 16px;
+  font-size:13px;color:var(--text);
+  transition:background 0.15s var(--ease);
+}
+.dm-context-menu button:hover{background:var(--card-hover)}
+.dm-context-delete{color:var(--red)}
+
 /* ===== STGBLOG v4.0 New Features ===== */
 
 /* Repost indicator */
