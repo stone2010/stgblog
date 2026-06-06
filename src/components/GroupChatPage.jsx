@@ -14,45 +14,62 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
   const [input, setInput] = useState("");
   const [showInfo, setShowInfo] = useState(false);
   const messagesEndRef = useRef(null);
+  const inputBarRef = useRef(null);
 
   useEffect(() => {
     try { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); } catch {}
   }, [messages]);
 
-  // Mobile keyboard handling
+  // Mobile keyboard handling — flex layout approach
   useEffect(() => {
-    const updateHeight = () => {
+    const updateLayout = () => {
       const vv = window.visualViewport;
-      if (vv) {
-        document.documentElement.style.setProperty('--app-height', `${vv.height}px`);
-        const offset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-        document.documentElement.style.setProperty('--keyboard-offset', `${offset}px`);
-      }
+      if (!vv) return;
+      const h = Math.round(vv.height);
+      document.documentElement.style.setProperty('--app-height', `${h}px`);
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 150);
     };
-    const scrollToBottom = () => setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 200);
-    const vv = window.visualViewport;
-    if (vv) { vv.addEventListener("resize", updateHeight); vv.addEventListener("scroll", updateHeight); }
-    window.addEventListener("resize", updateHeight);
-    updateHeight();
 
-    const chatEl = messagesEndRef.current?.closest('.dm-chat');
-    const inputEl = chatEl?.querySelector('.dm-input');
-    const onFocus = () => setTimeout(scrollToBottom, 300);
+    const onFocus = () => {
+      setTimeout(updateLayout, 300);
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 500);
+    };
+
     const onBlur = () => {
       setTimeout(() => {
         document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
-        document.documentElement.style.setProperty('--keyboard-offset', '0px');
-      }, 100);
+      }, 150);
     };
-    if (inputEl) { inputEl.addEventListener('focus', onFocus); inputEl.addEventListener('blur', onBlur); }
-    if (vv) vv.addEventListener("resize", scrollToBottom);
+
+    const vv = window.visualViewport;
+    if (vv) {
+      vv.addEventListener("resize", updateLayout);
+      vv.addEventListener("scroll", updateLayout);
+    }
+    window.addEventListener("resize", updateLayout);
+    updateLayout();
+
+    const inputEl = inputBarRef.current?.querySelector('.dm-input');
+    if (inputEl) {
+      inputEl.addEventListener('focus', onFocus);
+      inputEl.addEventListener('blur', onBlur);
+    }
 
     return () => {
-      if (vv) { vv.removeEventListener("resize", updateHeight); vv.removeEventListener("scroll", updateHeight); vv.removeEventListener("resize", scrollToBottom); }
-      window.removeEventListener("resize", updateHeight);
-      if (inputEl) { inputEl.removeEventListener('focus', onFocus); inputEl.removeEventListener('blur', onBlur); }
+      if (vv) {
+        vv.removeEventListener("resize", updateLayout);
+        vv.removeEventListener("scroll", updateLayout);
+      }
+      window.removeEventListener("resize", updateLayout);
+      if (inputEl) {
+        inputEl.removeEventListener('focus', onFocus);
+        inputEl.removeEventListener('blur', onBlur);
+      }
       document.documentElement.style.removeProperty('--app-height');
-      document.documentElement.style.removeProperty('--keyboard-offset');
     };
   }, []);
 
@@ -87,7 +104,7 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
   const safeMessages = Array.isArray(messages) ? messages : [];
 
   return (
-    <div className="dm-chat">
+    <div className="dm-chat" ref={null}>
       <div className="dm-chat-top">
         <button className="dm-chat-back" onClick={onBack}><Icons.Back /></button>
         <div className="dm-avatar" style={{ width: 32, height: 32, fontSize: 13, background: "linear-gradient(135deg, #6366f1, #a855f7)", cursor: "pointer" }}
@@ -176,7 +193,7 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="dm-chat-input">
+      <div className="dm-chat-input" ref={inputBarRef}>
         <textarea className="dm-input" value={input} onChange={(e) => setInput(e.target.value)}
           placeholder="发送群消息..." rows={1}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }} />

@@ -138,18 +138,62 @@ function AppInner() {
     }
   }, [posts, user, navigate]);
 
-  // ─── PWA Badge (unread count on app icon) ───
+  // ─── PWA Notification Permission ───
+  useEffect(() => {
+    if (!user) return;
+    // Request notification permission on login
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, [user]);
+
+  // ─── PWA Badge + Native Notifications ───
+  const prevTotalRef = useRef(0);
   useEffect(() => {
     if (!user) {
       try { navigator.clearAppBadge?.(); } catch {}
+      prevTotalRef.current = 0;
       return;
     }
     const total = (dmUnreadCount || 0) + (unreadCount || 0);
+
+    // Update badge (direct API + via service worker)
     try {
       if (total > 0) navigator.setAppBadge?.(total);
       else navigator.clearAppBadge?.();
     } catch {}
-  }, [user, dmUnreadCount, unreadCount]);
+    // Also tell the service worker to update badge (for when app is backgrounded)
+    try {
+      navigator.serviceWorker?.controller?.postMessage({ type: "BADGE_UPDATE", count: total });
+    } catch {}
+
+    // Show native notification for new unread items (only when count increases and app is in background)
+    if (total > prevTotalRef.current && prevTotalRef.current > 0) {
+      const newCount = total - prevTotalRef.current;
+      if ("Notification" in window && Notification.permission === "granted" && document.visibilityState !== "visible") {
+        const notifTitle = dmUnreadCount > 0 ? "新私信" : "新通知";
+        const notifBody = dmUnreadCount > 0
+          ? `你有 ${dmUnreadCount} 条未读私信`
+          : `你有 ${unreadCount} 条新通知`;
+        try {
+          const n = new Notification(notifTitle, {
+            body: notifBody,
+            icon: "./icon-192.png",
+            badge: "./icon-192.png",
+            tag: "stgblog-unread",
+            vibrate: [200, 100, 200],
+          });
+          n.onclick = () => {
+            window.focus();
+            if (dmUnreadCount > 0) navigate("dm");
+            else navigate("notifications");
+            n.close();
+          };
+        } catch {}
+      }
+    }
+    prevTotalRef.current = total;
+  }, [user, dmUnreadCount, unreadCount, navigate]);
 
   // ─── Handlers ───
   const handlePublish = useCallback(async () => {

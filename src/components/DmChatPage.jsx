@@ -24,75 +24,72 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
   const [remotePubKey, setRemotePubKey] = useState(null);
   const messagesEndRef = useRef(null);
   const chatRef = useRef(null);
+  const inputBarRef = useRef(null);
 
   // Auto scroll to bottom
   useEffect(() => {
     try { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); } catch {}
   }, [dmMessages]);
 
-  // Mobile keyboard handling (WeChat/QQ style)
-  // Dynamically set --app-height so chat container shrinks when keyboard opens
-  // Set --keyboard-offset so input bar floats above the keyboard
+  // Mobile keyboard handling — flex layout approach
+  // The overlay uses height: var(--app-height). When keyboard opens,
+  // visualViewport shrinks, we update --app-height, and the input bar
+  // (at the bottom of the flex container) naturally stays visible.
   useEffect(() => {
-    const updateHeight = () => {
+    const updateLayout = () => {
       const vv = window.visualViewport;
-      if (vv) {
-        document.documentElement.style.setProperty('--app-height', `${vv.height}px`);
-        // Calculate keyboard offset: difference between window height and visual viewport
-        const offset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-        document.documentElement.style.setProperty('--keyboard-offset', `${offset}px`);
-      } else {
-        document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
-        document.documentElement.style.setProperty('--keyboard-offset', '0px');
-      }
-    };
-
-    const scrollToBottom = () => {
+      if (!vv) return;
+      const h = Math.round(vv.height);
+      document.documentElement.style.setProperty('--app-height', `${h}px`);
+      // Scroll to bottom when keyboard opens
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-      }, 200);
+      }, 150);
+    };
+
+    const onFocus = () => {
+      // Give keyboard time to open, then update layout and scroll
+      setTimeout(updateLayout, 300);
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 500);
+    };
+
+    const onBlur = () => {
+      // Reset when keyboard closes
+      setTimeout(() => {
+        document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+      }, 150);
     };
 
     const vv = window.visualViewport;
     if (vv) {
-      vv.addEventListener("resize", updateHeight);
-      vv.addEventListener("scroll", updateHeight);
+      vv.addEventListener("resize", updateLayout);
+      vv.addEventListener("scroll", updateLayout);
     }
-    window.addEventListener("resize", updateHeight);
-    updateHeight();
+    window.addEventListener("resize", updateLayout);
 
-    // Also listen for keyboard events on the input
-    const inputEl = chatRef.current?.querySelector('.dm-input');
-    const onFocus = () => setTimeout(scrollToBottom, 300);
-    const onBlur = () => {
-      // Reset height when keyboard closes
-      setTimeout(() => {
-        document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
-        document.documentElement.style.setProperty('--keyboard-offset', '0px');
-      }, 100);
-    };
+    // Initial set
+    updateLayout();
+
+    // Listen on input focus/blur
+    const inputEl = inputBarRef.current?.querySelector('.dm-input');
     if (inputEl) {
       inputEl.addEventListener('focus', onFocus);
       inputEl.addEventListener('blur', onBlur);
     }
 
-    // Scroll to bottom when viewport resizes (keyboard open/close)
-    if (vv) vv.addEventListener("resize", scrollToBottom);
-
     return () => {
       if (vv) {
-        vv.removeEventListener("resize", updateHeight);
-        vv.removeEventListener("scroll", updateHeight);
-        vv.removeEventListener("resize", scrollToBottom);
+        vv.removeEventListener("resize", updateLayout);
+        vv.removeEventListener("scroll", updateLayout);
       }
-      window.removeEventListener("resize", updateHeight);
+      window.removeEventListener("resize", updateLayout);
       if (inputEl) {
         inputEl.removeEventListener('focus', onFocus);
         inputEl.removeEventListener('blur', onBlur);
       }
-      // Reset height when leaving chat
       document.documentElement.style.removeProperty('--app-height');
-      document.documentElement.style.removeProperty('--keyboard-offset');
     };
   }, []);
 
@@ -183,7 +180,7 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
         })}
         <div ref={messagesEndRef} />
       </div>
-      <div className="dm-chat-input">
+      <div className="dm-chat-input" ref={inputBarRef}>
         <textarea className="dm-input" value={input} onChange={(e) => setInput(e.target.value)}
           placeholder="发送加密消息..." rows={1}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }} />
