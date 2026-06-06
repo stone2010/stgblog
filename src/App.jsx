@@ -112,11 +112,34 @@ function AppInner() {
 
   // Deep link
   useEffect(() => {
-    const pid = new URLSearchParams(window.location.search).get("post");
-    if (!pid || !posts.length) return;
-    const found = posts.find((p) => String(p.id) === String(pid));
-    if (found) setSelectedPost(found);
-  }, [posts]);
+    const params = new URLSearchParams(window.location.search);
+    const pid = params.get("post");
+    if (pid && posts.length) {
+      const found = posts.find((p) => String(p.id) === String(pid));
+      if (found) setSelectedPost(found);
+    }
+    // PWA shortcut deep link: ?page=dm or ?page=groups
+    const pageParam = params.get("page");
+    if (pageParam && user) {
+      if (pageParam === "dm") { navigate("dm"); }
+      else if (pageParam === "groups") { navigate("groups"); }
+      // Clean URL
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [posts, user, navigate]);
+
+  // ─── PWA Badge (unread count on app icon) ───
+  useEffect(() => {
+    if (!user) {
+      try { navigator.clearAppBadge?.(); } catch {}
+      return;
+    }
+    const total = (dmUnreadCount || 0) + (unreadCount || 0);
+    try {
+      if (total > 0) navigator.setAppBadge?.(total);
+      else navigator.clearAppBadge?.();
+    } catch {}
+  }, [user, dmUnreadCount, unreadCount]);
 
   // ─── Handlers ───
   const handlePublish = useCallback(async () => {
