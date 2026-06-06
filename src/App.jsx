@@ -64,7 +64,7 @@ function AppInner() {
 
   // Hooks
   const { notifications, unreadCount, markAllRead, markOneRead } = useNotifications(user?.username);
-  const { dmList, dmTarget, dmMessages, dmSending, dmUnreadCount, loadDmList, sendDm, openDm, closeDm, markAsRead, setDmTarget } = useDM(user, keyPair);
+  const { dmList, dmTarget, dmMessages, dmSending, dmUnreadCount, loadDmList, sendDm, openDm, closeDm, markAsRead, setDmTarget, togglePin, deleteConversation } = useDM(user, keyPair);
   const { groups, activeGroup, groupMessages, groupMembers, groupSending, loadGroups, createGroup, joinGroup, leaveGroup, loadGroupMessages, sendGroupMessage, getGroupMembers, kickMember, deleteGroup, openGroup, closeGroup } = useGroupChat(user, keyPair);
 
   // ─── Theme ───
@@ -319,7 +319,7 @@ function AppInner() {
     );
     if (page === "notifications") return <NotificationPage notifications={notifications} onNotifClick={handleNotifClick} onBack={() => navigate("home")} />;
     if (page === "search") return <SearchPage searchKey={searchKey} setSearchKey={setSearchKey} posts={posts} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} />;
-    if (page === "dm") return <DmListPage dmList={dmList} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} onNewDm={() => setNewDmOpen(true)} />;
+    if (page === "dm") return <DmListPage dmList={dmList} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} onNewDm={() => setNewDmOpen(true)} onTogglePin={togglePin} onDeleteConversation={deleteConversation} />;
     if (page === "groups") return <GroupListPage groups={groups} onOpenGroup={(g) => { openGroup(g); setPage("group-chat"); }} onCreateGroup={() => setCreateGroupOpen(true)} onJoinGroup={() => setJoinGroupOpen(true)} />;
     if (page === "group-chat" && activeGroup) return (
       <GroupChatPage group={activeGroup} messages={groupMessages} members={groupMembers} sending={groupSending}
