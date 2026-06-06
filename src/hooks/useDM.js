@@ -52,6 +52,11 @@ export function useDM(user, keyPair) {
     if (error || !data) { setDmMessages([]); return; }
 
     if (keyPair && keyPair.privateKey) {
+      // Fetch other user's public key once (fallback for old messages without receiver_pubkey)
+      let otherUserPubKeyStr = null;
+      const { data: otherUserData } = await supabase.from("users").select("pubkey").eq("username", otherUser).maybeSingle();
+      if (otherUserData?.pubkey) otherUserPubKeyStr = otherUserData.pubkey;
+
       const decrypted = await Promise.all(data.map(async (msg) => {
         if (msg.encrypted && msg.ciphertext && msg.iv) {
           try {
@@ -59,7 +64,9 @@ export function useDM(user, keyPair) {
             // - Messages I sent: encrypted with recipient's public key → use receiver_pubkey
             // - Messages I received: encrypted with sender's public key → use sender_pubkey
             const isMine = msg.sender === user.username;
-            const peerPubKeyStr = isMine ? msg.receiver_pubkey : msg.sender_pubkey;
+            let peerPubKeyStr = isMine ? msg.receiver_pubkey : msg.sender_pubkey;
+            // Fallback: for old messages without receiver_pubkey, use other user's pubkey
+            if (!peerPubKeyStr && isMine) peerPubKeyStr = otherUserPubKeyStr;
             if (!peerPubKeyStr) {
               return { ...msg, content: "[加密消息 · 无法解密]", decrypted: false };
             }
