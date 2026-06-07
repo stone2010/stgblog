@@ -90,24 +90,30 @@ const PostCard = memo(function PostCard({ post, onSelect, onLike, onShare, onRep
           </div>
         )}
         <div className="post-actions">
-          <button className="post-action" onClick={(e) => { e.stopPropagation(); onSelect(displayPost); }}>
+          <button className="post-action" onClick={(e) => { e.stopPropagation(); onSelect(displayPost); }} title="评论">
             <span className="pa-icon">💬</span>
-            <span>{formatCount(displayPost.comment_count || 0)}</span>
+            <span className="pa-count">{formatCount(displayPost.comment_count || 0)}</span>
           </button>
-          <button className={`post-action retweet ${isRepost ? "reposted" : ""}`} onClick={(e) => { e.stopPropagation(); onRepost?.(displayPost); }}>
+          <button className={`post-action retweet ${isRepost ? "reposted" : ""}`} onClick={(e) => { e.stopPropagation(); onRepost?.(displayPost); }} title="转发">
             <span className="pa-icon"><Icons.RT /></span>
-            <span>{formatCount(displayPost.reposts || 0)}</span>
+            <span className="pa-count">{formatCount(displayPost.reposts || 0)}</span>
           </button>
-          <button className={`post-action ${liked ? "liked" : ""}`} onClick={(e) => { e.stopPropagation(); onLike(displayPost); }}>
+          <button className={`post-action ${liked ? "liked" : ""}`} onClick={(e) => { e.stopPropagation(); onLike(displayPost); }} title="喜欢">
             <span className="pa-icon">{liked ? <Icons.HeartFill /> : <Icons.Heart />}</span>
-            <span>{formatCount(displayPost.likes || 0)}</span>
+            <span className="pa-count">{formatCount(displayPost.likes || 0)}</span>
           </button>
-          <button className={`post-action ${bookmarked ? "bookmarked" : ""}`} onClick={(e) => { e.stopPropagation(); onBookmark?.(displayPost); }}>
-            <span className="pa-icon">{bookmarked ? <Icons.BookmarkFill /> : <Icons.Bookmark />}</span>
+          <button className="post-action views-action" title="浏览">
+            <span className="pa-icon"><Icons.Views /></span>
+            <span className="pa-count">{formatCount(displayPost.views || 0)}</span>
           </button>
-          <button className="post-action" onClick={(e) => { e.stopPropagation(); onShare(displayPost); }}>
-            <span className="pa-icon"><Icons.Share /></span>
-          </button>
+          <div className="post-actions-right">
+            <button className={`post-action bookmark-action ${bookmarked ? "bookmarked" : ""}`} onClick={(e) => { e.stopPropagation(); onBookmark?.(displayPost); }} title="书签">
+              <span className="pa-icon">{bookmarked ? <Icons.BookmarkFill /> : <Icons.Bookmark />}</span>
+            </button>
+            <button className="post-action share-action" onClick={(e) => { e.stopPropagation(); onShare(displayPost); }} title="分享">
+              <span className="pa-icon"><Icons.Share /></span>
+            </button>
+          </div>
         </div>
       </div>
     </article>
