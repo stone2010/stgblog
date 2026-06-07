@@ -1190,3 +1190,101 @@ a{color:var(--accent);text-decoration:none}
 .group-settings-save-btn:disabled{
   opacity:0.5;cursor:not-allowed;
 }
+
+
+/* ═══ Click Feedback ═══ */
+button, .sidebar-btn, .feed-tab, .bnav-btn, .bnav-compose,
+.dm-item, .group-member-item, .notif-item, .post,
+.follow-inline-btn, .topnav-login, .auth-btn, .dm-send-btn,
+.cmt-send, .group-kick-btn, .group-action-btn, .group-copy-btn,
+.detail-action, .post-action, .compose-tool, .group-settings-btn {
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+button:active, .sidebar-btn:active, .feed-tab:active,
+.bnav-btn:active, .bnav-compose:active,
+.dm-item:active, .post:active,
+.follow-inline-btn:active, .topnav-login:active,
+.auth-btn:active, .dm-send-btn:active, .cmt-send:active,
+.group-kick-btn:active, .group-action-btn:active, .group-copy-btn:active,
+.detail-action:active, .post-action:active, .compose-tool:active {
+  transform: scale(0.95);
+  opacity: 0.7;
+  transition: transform 0.08s ease, opacity 0.08s ease;
+}
+
+.bnav-compose:active {
+  transform: scale(0.85);
+}
+
+.post-action:active .pa-icon,
+.detail-action:active .pa-icon {
+  transform: scale(1.15);
+  transition: transform 0.08s ease;
+}
+
+.post-action.liked:active .pa-icon {
+  animation: likePop 0.3s ease;
+}
+
+.hashtag:active, .mention:active {
+  opacity: 0.6;
+  transform: scale(0.97);
+  transition: all 0.08s ease;
+}
+
+.notif-item:active {
+  background: var(--hover);
+  transform: scale(0.98);
+  transition: all 0.08s ease;
+}
+
+.group-member-item:active {
+  background: var(--hover);
+  transform: scale(0.98);
+}
+
+/* Hover lift effect for cards */
+.post:hover {
+  background: var(--hover);
+}
+
+/* Ripple effect for action buttons */
+.post-action::after, .detail-action::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  background: var(--accent);
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.post-action, .detail-action {
+  position: relative;
+  overflow: hidden;
+}
+
+.post-action:active::after, .detail-action:active::after {
+  opacity: 0.08;
+  transition: opacity 0.05s ease;
+}
+
+/* Smooth press for input fields */
+input:active, textarea:active {
+  border-color: var(--accent);
+  transition: border-color 0.1s ease;
+}
+
+/* Nav button bounce */
+.bnav-btn:active .bnav-icon {
+  transform: translateY(1px);
+  transition: transform 0.08s ease;
+}
+
+.sidebar-btn:active .sb-icon {
+  transform: scale(0.9);
+  transition: transform 0.08s ease;
+}
