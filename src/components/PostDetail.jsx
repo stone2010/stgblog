@@ -155,15 +155,18 @@ export default function PostDetail({ post, onClose, onLike, onShare, onRepost, o
         <span><b>{comments.length}</b> 评论</span>
       </div>
       <div className="detail-actions">
-        <button className="detail-action">💬</button>
-        <button className="detail-action retweet" onClick={() => onRepost?.(post)}><Icons.RT /></button>
+        <button className="detail-action">💬 <span className="pa-count">{comments.length}</span></button>
+        <button className="detail-action retweet" onClick={() => onRepost?.(post)}><Icons.RT /> <span className="pa-count">{post.reposts || 0}</span></button>
         <button className={`detail-action ${liked ? "liked" : ""}`} onClick={() => onLike(post)}>
-          {liked ? <Icons.HeartFill /> : <Icons.Heart />}
+          {liked ? <Icons.HeartFill /> : <Icons.Heart />} <span className="pa-count">{post.likes || 0}</span>
         </button>
-        <button className={`detail-action ${bookmarked ? "bookmarked" : ""}`} onClick={() => onBookmark?.(post)}>
-          {bookmarked ? <Icons.BookmarkFill /> : <Icons.Bookmark />}
-        </button>
-        <button className="detail-action" onClick={() => onShare(post)}><Icons.Share /></button>
+        <button className="detail-action views-action"><Icons.Views /> <span className="pa-count">{post.views || 0}</span></button>
+        <div style={{marginLeft:"auto",display:"flex",gap:4}}>
+          <button className={`detail-action bookmark-action ${bookmarked ? "bookmarked" : ""}`} onClick={() => onBookmark?.(post)}>
+            {bookmarked ? <Icons.BookmarkFill /> : <Icons.Bookmark />}
+          </button>
+          <button className="detail-action" onClick={() => onShare(post)}><Icons.Share /></button>
+        </div>
       </div>
       <div className="cmt-section">
         {user && (
