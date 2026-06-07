@@ -269,6 +269,12 @@ a{color:var(--accent);text-decoration:none}
   transition:all 0.15s var(--ease);
 }
 .post-action .pa-icon{font-size:16px}
+.post-action .pa-count{font-size:13px;min-width:20px}
+.post-action.views-action{cursor:default}
+.post-action.views-action .pa-icon{color:var(--dim)}
+.post-action.views-action .pa-count{color:var(--dim)}
+.post-action.bookmark-action,.post-action.share-action{padding:4px 6px}
+.post-action.bookmark-action .pa-icon,.post-action.share-action .pa-icon{color:var(--dim)}
 .post-action:hover{color:var(--accent);background:var(--accent-glow)}
 .post-action.liked{color:var(--pink)}
 .post-action.liked .pa-icon{animation:likePop 0.3s ease}
