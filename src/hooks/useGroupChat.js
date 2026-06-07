@@ -183,45 +183,106 @@ export function useGroupChat(user, keyPair) {
       .maybeSingle();
     if (existing) return { error: "Already a member" };
 
-    // Get creator's public key to encrypt the group key for this new member
-    const { data: creatorUser } = await supabase.from("users")
-      .select("pubkey")
-      .eq("username", chat.creator)
-      .maybeSingle();
-    if (!creatorUser?.pubkey) return { error: "Failed to get group info" };
+    // Insert member first (without encrypted key)
+    const { error: insertErr } = await supabase.from("group_members")
+      .insert([{
+        group_id: chat.id,
+        username: user.username,
+        role: "member",
+        encrypted_key: null,
+      }]);
+    if (insertErr) return { error: insertErr.message };
 
-    // We need the group key. Ask the creator's encrypted key record
-    const { data: creatorMember } = await supabase.from("group_members")
+    // Try to get group key from any existing member who has it
+    try {
+      const { data: membersWithKey } = await supabase.from("group_members")
+        .select("username, encrypted_key")
+        .eq("group_id", chat.id)
+        .not("encrypted_key", "is", null);
+
+      if (membersWithKey && membersWithKey.length > 0) {
+        // Try each member until one works
+        for (const m of membersWithKey) {
+          try {
+            const { data: memberUser } = await supabase.from("users")
+              .select("pubkey")
+              .eq("username", m.username)
+              .maybeSingle();
+            if (!memberUser?.pubkey) continue;
+
+            const memberPubKey = JSON.parse(memberUser.pubkey);
+            const parsed = JSON.parse(m.encrypted_key);
+            // The encrypted_key was created by the creator FOR this member
+            // We need the creator's private key to decrypt, which we don't have
+            // So we need a different approach: use the creator's key pair
+            // Actually, the key was encrypted with the member's own public key
+            // So only that member can decrypt it with their private key
+            // We can't decrypt someone else's key
+            break;
+          } catch {}
+        }
+      }
+    } catch {}
+
+    // Key sharing will happen when an existing member opens the group
+    // and sees a member with no key. For now, just add to group.
+    await loadGroups();
+    return { ok: true, group: chat, needsKeyShare: true };
+  }, [user, keyPair, loadGroups]);
+
+  // Share group key with a new member (called by existing member)
+  const shareGroupKey = useCallback(async (groupId, targetUsername) => {
+    if (!user || !keyPair) return { error: "Not logged in" };
+    // Get our encrypted group key
+    const { data: myMember } = await supabase.from("group_members")
       .select("encrypted_key")
-      .eq("group_id", chat.id)
-      .eq("username", chat.creator)
+      .eq("group_id", groupId)
+      .eq("username", user.username)
       .maybeSingle();
-    if (!creatorMember?.encrypted_key) return { error: "Failed to get group key" };
+    if (!myMember?.encrypted_key) return { error: "You don't have the group key" };
+
+    // Get target user's public key
+    const { data: targetUser } = await supabase.from("users")
+      .select("pubkey")
+      .eq("username", targetUsername)
+      .maybeSingle();
+    if (!targetUser?.pubkey) return { error: "Failed to get user info" };
 
     try {
+      const targetPubKey = JSON.parse(targetUser.pubkey);
+      // We need to decrypt the group key first
+      // Our encrypted_key was encrypted by the creator with our public key
+      // We need the creator's public key to do ECDH
+      const { data: chat } = await supabase.from("group_chats")
+        .select("creator")
+        .eq("id", groupId)
+        .maybeSingle();
+      if (!chat) return { error: "Group not found" };
+
+      const { data: creatorUser } = await supabase.from("users")
+        .select("pubkey")
+        .eq("username", chat.creator)
+        .maybeSingle();
+      if (!creatorUser?.pubkey) return { error: "Failed to get creator info" };
+
       const creatorPubKey = JSON.parse(creatorUser.pubkey);
-      const parsed = JSON.parse(creatorMember.encrypted_key);
+      const parsed = JSON.parse(myMember.encrypted_key);
       const groupKey = await decryptGroupKeyFromMember(parsed.ciphertext, parsed.iv, creatorPubKey, keyPair.privateKey);
 
-      // Re-encrypt group key for the new member
-      const { ciphertext, iv } = await encryptGroupKeyForMember(groupKey, keyPair.publicKey, keyPair.privateKey);
+      // Re-encrypt for target user
+      const { ciphertext, iv } = await encryptGroupKeyForMember(groupKey, targetPubKey, keyPair.privateKey);
 
       await supabase.from("group_members")
-        .insert([{
-          group_id: chat.id,
-          username: user.username,
-          role: "member",
-          encrypted_key: JSON.stringify({ ciphertext, iv, from_pubkey: JSON.stringify(keyPair.publicKey) }),
-        }]);
+        .update({ encrypted_key: JSON.stringify({ ciphertext, iv, from_pubkey: JSON.stringify(keyPair.publicKey) }) })
+        .eq("group_id", groupId)
+        .eq("username", targetUsername);
 
-      setGroupKeyCache((prev) => ({ ...prev, [chat.id]: groupKey }));
-      await loadGroups();
-      return { ok: true, group: chat };
+      return { ok: true };
     } catch (e) {
-      console.error("Join group failed:", e);
-      return { error: "Failed to join group" };
+      console.error("Share group key failed:", e);
+      return { error: "Failed to share group key" };
     }
-  }, [user, keyPair, loadGroups]);
+  }, [user, keyPair]);
 
   const leaveGroup = useCallback(async (groupId) => {
     if (!user) return;
@@ -420,7 +481,7 @@ export function useGroupChat(user, keyPair) {
 
   return {
     groups, activeGroup, groupMessages, groupMembers, groupSending,
-    loadGroups, createGroup, joinGroup, leaveGroup,
+    loadGroups, createGroup, joinGroup, shareGroupKey, leaveGroup,
     loadGroupMessages, sendGroupMessage,
     getGroupMembers, kickMember, deleteGroup,
     openGroup, closeGroup,
