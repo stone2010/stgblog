@@ -67,7 +67,7 @@ function AppInner() {
   // Hooks
   const { notifications, unreadCount, markAllRead, markOneRead } = useNotifications(user?.username);
   const { dmList, dmTarget, dmMessages, dmSending, dmUnreadCount, loadDmList, sendDm, openDm, closeDm, markAsRead, setDmTarget, togglePin, deleteConversation } = useDM(user, keyPair);
-  const { groups, activeGroup, groupMessages, groupMembers, groupSending, loadGroups, createGroup, joinGroup, leaveGroup, loadGroupMessages, sendGroupMessage, getGroupMembers, kickMember, deleteGroup, openGroup, closeGroup, updateGroupName, setMemberRole, transferOwnership } = useGroupChat(user, keyPair);
+  const { groups, activeGroup, groupMessages, groupMembers, groupSending, loadGroups, createGroup, joinGroup, shareGroupKey, leaveGroup, loadGroupMessages, sendGroupMessage, getGroupMembers, kickMember, deleteGroup, openGroup, closeGroup, updateGroupName, setMemberRole, transferOwnership } = useGroupChat(user, keyPair);
 
   // ─── Theme ───
   useEffect(() => { applyTheme(theme); }, [theme]);
@@ -372,7 +372,7 @@ function AppInner() {
         onSend={sendGroupMessage} onBack={() => { closeGroup(); setPage("groups"); }}
         onUserClick={openUserClick} onKickMember={kickMember} onDeleteGroup={(id) => { deleteGroup(id); setPage("groups"); }}
         onLeaveGroup={(id) => { leaveGroup(id); setPage("groups"); }} onGetMembers={getGroupMembers}
-        onOpenSettings={() => setGroupSettingsOpen(true)} />
+        onOpenSettings={() => setGroupSettingsOpen(true)} onShareKey={shareGroupKey} />
     );
     if (page === "profile-view" && viewingProfile) return <ProfileViewPage viewingProfile={viewingProfile} posts={posts} onBack={() => { setViewingProfile(null); setPage("home"); setMobileTab("home"); }} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} />;
     if (page === "profile") return <ProfilePage posts={posts} onAuthOpen={() => setAuthOpen(true)} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onFollowersPage={(type) => setFollowersPage({ username: user.username, type })} />;
@@ -467,7 +467,7 @@ function AppInner() {
             onSend={sendGroupMessage} onBack={() => { closeGroup(); setPage("groups"); }}
             onUserClick={openUserClick} onKickMember={kickMember} onDeleteGroup={(id) => { deleteGroup(id); setPage("groups"); }}
             onLeaveGroup={(id) => { leaveGroup(id); setPage("groups"); }} onGetMembers={getGroupMembers}
-            onOpenSettings={() => setGroupSettingsOpen(true)} />
+            onOpenSettings={() => setGroupSettingsOpen(true)} onShareKey={shareGroupKey} />
         </div>
       )}
 
