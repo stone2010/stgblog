@@ -9,10 +9,11 @@ const CheckSingle = () => (
   </svg>
 );
 
-export default function GroupChatPage({ group, messages, members, sending, onSend, onBack, onUserClick, onKickMember, onDeleteGroup, onLeaveGroup, onGetMembers, onOpenSettings }) {
+export default function GroupChatPage({ group, messages, members, sending, onSend, onBack, onUserClick, onKickMember, onDeleteGroup, onLeaveGroup, onGetMembers, onOpenSettings, onShareKey }) {
   const { user } = useAuth();
   const [input, setInput] = useState("");
   const [showInfo, setShowInfo] = useState(false);
+  const [keySharing, setKeySharing] = useState({});
   const messagesEndRef = useRef(null);
   const inputBarRef = useRef(null);
 
@@ -101,6 +102,18 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
     }
   }, [group, onLeaveGroup]);
 
+  const handleShareKey = useCallback(async (username) => {
+    if (!onShareKey) return;
+    setKeySharing((prev) => ({ ...prev, [username]: true }));
+    const result = await onShareKey(group.id, username);
+    setKeySharing((prev) => ({ ...prev, [username]: false }));
+    if (result?.error) {
+      alert("密钥分享失败: " + result.error);
+    }
+    // Refresh members to update key status
+    onGetMembers(group.id);
+  }, [group, onShareKey, onGetMembers]);
+
   const safeMessages = Array.isArray(messages) ? messages : [];
 
   return (
@@ -152,6 +165,12 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
                     {m.username === group.creator && <span className="group-creator-badge">创建者</span>}
                   </div>
                 </div>
+                {(isAdmin || isCreator) && m.username !== user.username && !m.encrypted_key && (
+                  <button className="group-kick-btn" onClick={() => handleShareKey(m.username)} disabled={keySharing[m.username]}
+                    style={{ background: "var(--green)", color: "#fff", marginRight: 4 }}>
+                    {keySharing[m.username] ? "..." : "🔑"}
+                  </button>
+                )}
                 {isAdmin && m.username !== user.username && m.username !== group.creator && (
                   <button className="group-kick-btn" onClick={() => handleKick(m.username)}>移出</button>
                 )}
