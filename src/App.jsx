@@ -79,7 +79,20 @@ function AppInner() {
   const loadPosts = useCallback(async () => {
     setPostsLoading(true);
     const { data, error } = await supabase.from("posts").select("*").order("created_at", { ascending: false });
-    if (!error) setPosts(data || []);
+    if (!error && data) {
+      // Fetch comment counts for all posts
+      const postIds = data.map((p) => p.id);
+      const { data: commentCounts } = await supabase
+        .from("comments")
+        .select("post_id")
+        .in("post_id", postIds);
+      const countMap = {};
+      if (commentCounts) {
+        commentCounts.forEach((c) => { countMap[c.post_id] = (countMap[c.post_id] || 0) + 1; });
+      }
+      const enriched = data.map((p) => ({ ...p, comment_count: countMap[p.id] || 0 }));
+      setPosts(enriched);
+    }
     setPostsLoading(false);
   }, []);
   useEffect(() => { loadPosts(); }, [loadPosts]);
