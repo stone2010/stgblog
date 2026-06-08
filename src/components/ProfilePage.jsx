@@ -42,7 +42,7 @@ export default function ProfilePage({ posts, onAuthOpen, onSelectPost, onLike, o
     setPwError("");
     setPwSuccess("");
     if (!oldPw) { setPwError("请输入旧密码"); return; }
-    if (!newPw || newPw.length < 4) { setPwError("新密码至少4位"); return; }
+    if (!newPw || newPw.length < 6) { setPwError("新密码至少6位"); return; }
     if (newPw !== confirmPw) { setPwError("两次输入的新密码不一致"); return; }
     setPwLoading(true);
     // Verify old password

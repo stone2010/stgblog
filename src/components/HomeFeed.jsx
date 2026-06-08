@@ -1,15 +1,16 @@
-import React, { useMemo, useCallback } from "react";
+import React, { useMemo, useCallback, useRef, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { getHotPosts, getRecommendPosts, getLikedSet, getBlockedSet, getMutedSet } from "../utils";
 import PostCard from "./PostCard";
 import ComposeBar from "./ComposeBar";
 
 export default function HomeFeed({
-  posts, postsLoading, tab, setTab, searchKey,
+  posts, postsLoading, hasMore, loadMorePosts, tab, setTab, searchKey,
   composeText, setComposeText, onPublish,
   onSelectPost, onLike, onShare, onRepost, onBookmark, onHashtag,
 }) {
   const { user, followingSet } = useAuth();
+  const sentinelRef = useRef(null);
 
   const displayedPosts = useMemo(() => {
     const kw = searchKey.trim().toLowerCase();
@@ -36,6 +37,21 @@ export default function HomeFeed({
     return [...f].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }, [posts, searchKey, tab, user, followingSet]);
 
+  // Infinite scroll: observe sentinel at bottom
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !postsLoading) {
+          loadMorePosts();
+        }
+      },
+      { rootMargin: "200px" }
+    );
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, postsLoading, loadMorePosts]);
+
   return (
     <>
       <div className="feed-header">
@@ -58,6 +74,11 @@ export default function HomeFeed({
         {displayedPosts.map((post) => (
           <PostCard key={post.id} post={post} onSelect={onSelectPost} onLike={onLike} onShare={onShare} onRepost={onRepost} onBookmark={onBookmark} onHashtag={onHashtag} />
         ))}
+        {/* Infinite scroll sentinel */}
+        <div ref={sentinelRef} style={{ height: 1 }} />
+        {hasMore && !postsLoading && displayedPosts.length > 0 && (
+          <div style={{ textAlign: "center", padding: 16, color: "var(--muted)", fontSize: 13 }}>加载更多...</div>
+        )}
       </div>
     </>
   );

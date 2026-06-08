@@ -77,11 +77,45 @@ function AppInner() {
   }, []);
 
   // ─── Load posts ───
+  const PAGE_SIZE = 30;
+  const [hasMore, setHasMore] = useState(true);
+
   const loadPosts = useCallback(async () => {
     setPostsLoading(true);
-    const { data, error } = await supabase.from("posts").select("*").order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("posts")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(PAGE_SIZE);
     if (!error && data) {
-      // Fetch comment counts for all posts
+      const postIds = data.map((p) => p.id);
+      if (postIds.length > 0) {
+        const { data: commentCounts } = await supabase
+          .from("comments")
+          .select("post_id")
+          .in("post_id", postIds);
+        const countMap = {};
+        if (commentCounts) {
+          commentCounts.forEach((c) => { countMap[c.post_id] = (countMap[c.post_id] || 0) + 1; });
+        }
+        const enriched = data.map((p) => ({ ...p, comment_count: countMap[p.id] || 0 }));
+        setPosts(enriched);
+      } else {
+        setPosts([]);
+      }
+      setHasMore(data.length >= PAGE_SIZE);
+    }
+    setPostsLoading(false);
+  }, []);
+
+  const loadMorePosts = useCallback(async () => {
+    if (!posts.length || !hasMore) return;
+    const last = posts[posts.length - 1];
+    const { data, error } = await supabase.from("posts")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .lt("created_at", last.created_at)
+      .limit(PAGE_SIZE);
+    if (!error && data && data.length > 0) {
       const postIds = data.map((p) => p.id);
       const { data: commentCounts } = await supabase
         .from("comments")
@@ -92,10 +126,12 @@ function AppInner() {
         commentCounts.forEach((c) => { countMap[c.post_id] = (countMap[c.post_id] || 0) + 1; });
       }
       const enriched = data.map((p) => ({ ...p, comment_count: countMap[p.id] || 0 }));
-      setPosts(enriched);
+      setPosts((prev) => [...prev, ...enriched]);
+      setHasMore(data.length >= PAGE_SIZE);
+    } else {
+      setHasMore(false);
     }
-    setPostsLoading(false);
-  }, []);
+  }, [posts, hasMore]);
   useEffect(() => { loadPosts(); }, [loadPosts]);
 
   // ─── PWA install ───
@@ -147,31 +183,34 @@ function AppInner() {
   }, [posts]);
 
   const navigate = useCallback((p) => {
-    setPage(p); setSelectedPost(null);
-    try { setDmTarget(null); } catch {}
-    setViewingProfile(null); setFollowersPage(null);
-    if (p === "dm" && user) { try { loadDmList(); } catch (e) { console.error("loadDmList failed:", e); } }
-    if (p === "groups" && user) { try { loadGroups(); } catch (e) { console.error("loadGroups failed:", e); } }
-    try { closeGroup(); } catch {}
+    setPage(p);
+    setSelectedPost(null);
+    setDmTarget(null);
+    setViewingProfile(null);
+    setFollowersPage(null);
+    if (p === "dm" && user) loadDmList();
+    if (p === "groups" && user) loadGroups();
+    closeGroup();
     setMobileTab(p === "home" ? "home" : p === "dm" ? "dm" : p === "groups" ? "groups" : p === "profile" ? "me" : p === "notifications" ? "notif" : "home");
   }, [user, loadDmList, setDmTarget, loadGroups, closeGroup]);
 
-  // Deep link
+  // Deep link (run once when posts load)
+  const deepLinkDone = useRef(false);
   useEffect(() => {
+    if (deepLinkDone.current || !posts.length) return;
     const params = new URLSearchParams(window.location.search);
     const pid = params.get("post");
-    if (pid && posts.length) {
+    if (pid) {
       const found = posts.find((p) => String(p.id) === String(pid));
       if (found) setSelectedPost(found);
     }
-    // PWA shortcut deep link: ?page=dm or ?page=groups
     const pageParam = params.get("page");
     if (pageParam && user) {
-      if (pageParam === "dm") { navigate("dm"); }
-      else if (pageParam === "groups") { navigate("groups"); }
-      // Clean URL
+      if (pageParam === "dm") navigate("dm");
+      else if (pageParam === "groups") navigate("groups");
       window.history.replaceState({}, "", window.location.pathname);
     }
+    deepLinkDone.current = true;
   }, [posts, user, navigate]);
 
   // ─── PWA Notification Permission ───
@@ -454,7 +493,7 @@ function AppInner() {
     );
     if (page === "profile-view" && viewingProfile) return <ProfileViewPage viewingProfile={viewingProfile} posts={posts} onBack={() => { setViewingProfile(null); setPage("home"); setMobileTab("home"); }} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} />;
     if (page === "profile") return <ProfilePage posts={posts} onAuthOpen={() => setAuthOpen(true)} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onFollowersPage={(type) => setFollowersPage({ username: user.username, type })} />;
-    return <HomeFeed posts={posts} postsLoading={postsLoading} tab={tab} setTab={setTab} searchKey={searchKey} composeText={composeText} setComposeText={setComposeText} onPublish={handlePublish} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onHashtag={handleHashtag} />;
+    return <HomeFeed posts={posts} postsLoading={postsLoading} hasMore={hasMore} loadMorePosts={loadMorePosts} tab={tab} setTab={setTab} searchKey={searchKey} composeText={composeText} setComposeText={setComposeText} onPublish={handlePublish} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onHashtag={handleHashtag} />;
   };
 
   return (
