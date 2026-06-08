@@ -11,6 +11,7 @@ import android.webkit.WebResourceRequest;
 import android.webkit.SslErrorHandler;
 import android.net.http.SslError;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.activity.OnBackPressedCallback;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -51,7 +52,8 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
-                handler.proceed();
+                // 不再盲目接受所有 SSL 错误，取消连接以防止中间人攻击
+                handler.cancel();
             }
         });
 
@@ -62,20 +64,24 @@ public class MainActivity extends AppCompatActivity {
         } else {
             webView.loadUrl("https://stone2010.github.io/stgblog/");
         }
+
+        // 使用现代 OnBackPressedCallback 替代已废弃的 onBackPressed
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (webView.canGoBack()) {
+                    webView.goBack();
+                } else {
+                    setEnabled(false);
+                    getOnBackPressedDispatcher().onBackPressed();
+                }
+            }
+        });
     }
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         webView.saveState(outState);
-    }
-
-    @Override
-    public void onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack();
-        } else {
-            super.onBackPressed();
-        }
     }
 }

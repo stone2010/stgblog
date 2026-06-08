@@ -112,17 +112,37 @@ function AppInner() {
     return () => document.removeEventListener("mousedown", h);
   }, [notifOpen]);
 
-  // ─── View counting ───
+  // ─── View counting (debounced, only for first page of posts) ───
+  const viewCountTimerRef = useRef(null);
   useEffect(() => {
-    posts.slice(0, 8).forEach((post) => {
-      if (countedViewRef.current.has(post.id)) return;
-      if (hasViewed(post.id)) { countedViewRef.current.add(post.id); return; }
-      countedViewRef.current.add(post.id);
-      saveViewed(post.id);
-      const next = (post.views || 0) + 1;
-      setPosts((prev) => prev.map((i) => i.id === post.id ? { ...i, views: next } : i));
-      supabase.from("posts").update({ views: next }).eq("id", post.id);
-    });
+    if (!posts.length) return;
+    // Debounce: only count views after posts stop changing for 2s
+    clearTimeout(viewCountTimerRef.current);
+    viewCountTimerRef.current = setTimeout(() => {
+      const batch = [];
+      posts.slice(0, 8).forEach((post) => {
+        if (countedViewRef.current.has(post.id)) return;
+        if (hasViewed(post.id)) { countedViewRef.current.add(post.id); return; }
+        countedViewRef.current.add(post.id);
+        saveViewed(post.id);
+        batch.push({ id: post.id, views: (post.views || 0) + 1 });
+      });
+      if (batch.length === 0) return;
+      // Update local state once
+      setPosts((prev) => {
+        const updated = [...prev];
+        batch.forEach(({ id, views }) => {
+          const idx = updated.findIndex((p) => p.id === id);
+          if (idx >= 0) updated[idx] = { ...updated[idx], views };
+        });
+        return updated;
+      });
+      // Batch update Supabase (fire and forget)
+      batch.forEach(({ id, views }) => {
+        supabase.from("posts").update({ views }).eq("id", id);
+      });
+    }, 2000);
+    return () => clearTimeout(viewCountTimerRef.current);
   }, [posts]);
 
   const navigate = useCallback((p) => {
@@ -211,16 +231,23 @@ function AppInner() {
   }, [user, dmUnreadCount, unreadCount, navigate]);
 
   // ─── Handlers ───
+  const [publishing, setPublishing] = useState(false);
   const handlePublish = useCallback(async () => {
     if (!user) { setAuthOpen(true); return; }
+    if (publishing) return;
     const content = composeText.trim();
     if (!content || content.length > 2000) return;
-    const { data, error } = await supabase.from("posts").insert([{
-      title: content.slice(0, 60), content, author: user.username,
-      category: "动态", likes: 0, views: 0, reposts: 0, pinned: false, edited: false,
-    }]).select("*").single();
-    if (!error) { setPosts((prev) => [data, ...prev]); setComposeText(""); }
-  }, [user, composeText]);
+    setPublishing(true);
+    try {
+      const { data, error } = await supabase.from("posts").insert([{
+        title: content.slice(0, 60), content, author: user.username,
+        category: "动态", likes: 0, views: 0, reposts: 0, pinned: false, edited: false,
+      }]).select("*").single();
+      if (!error) { setPosts((prev) => [data, ...prev]); setComposeText(""); }
+    } finally {
+      setPublishing(false);
+    }
+  }, [user, composeText, publishing]);
 
   const handleDeletePost = useCallback(async (post) => {
     if (!post || !user || post.author !== user.username) return;
@@ -243,7 +270,12 @@ function AppInner() {
     setPosts((prev) => prev.map((i) => i.id === post.id ? { ...i, likes: next } : i));
     if (selectedPost?.id === post.id) setSelectedPost((s) => s ? { ...s, likes: next } : s);
     saveLiked(post.id);
-    await supabase.from("posts").update({ likes: next }).eq("id", post.id);
+    // 使用原子操作，避免并发覆盖；若 RPC 不存在则回退到 update
+    try {
+      await supabase.rpc("increment_likes", { post_id: post.id });
+    } catch {
+      await supabase.from("posts").update({ likes: next }).eq("id", post.id);
+    }
     if (user && post.author !== user.username) {
       await supabase.from("notifications").insert([{ user_to: post.author, user_from: user.username, type: "like", post_id: post.id }]);
     }
