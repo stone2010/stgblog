@@ -51,10 +51,17 @@ export default function PostDetail({ post, onClose, onLike, onShare, onRepost, o
       setComments((prev) => [...prev, data]);
       setCommentText("");
       if (post.author !== user.username) {
-        await supabase.from("notifications").insert([{
-          user_to: post.author, user_from: user.username,
-          type: "comment", post_id: post.id, comment_id: data.id,
-        }]);
+        try {
+          await supabase.rpc("send_notification", {
+            p_user_to: post.author, p_user_from: user.username,
+            p_type: "comment", p_post_id: post.id, p_comment_id: data.id,
+          });
+        } catch {
+          await supabase.from("notifications").insert([{
+            user_to: post.author, user_from: user.username,
+            type: "comment", post_id: post.id, comment_id: data.id,
+          }]);
+        }
       }
     }
     setCommentLoading(false);
@@ -73,10 +80,17 @@ export default function PostDetail({ post, onClose, onLike, onShare, onRepost, o
       setReplyText(""); setReplyTarget(null);
       const parentComment = comments.find((c) => c.id === parentId);
       if (parentComment && parentComment.author !== user.username) {
-        await supabase.from("notifications").insert([{
-          user_to: parentComment.author, user_from: user.username,
-          type: "reply", post_id: post.id, comment_id: data.id,
-        }]);
+        try {
+          await supabase.rpc("send_notification", {
+            p_user_to: parentComment.author, p_user_from: user.username,
+            p_type: "reply", p_post_id: post.id, p_comment_id: data.id,
+          });
+        } catch {
+          await supabase.from("notifications").insert([{
+            user_to: parentComment.author, user_from: user.username,
+            type: "reply", post_id: post.id, comment_id: data.id,
+          }]);
+        }
       }
     }
     setReplySubmitting(false);

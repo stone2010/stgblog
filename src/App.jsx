@@ -58,6 +58,7 @@ function AppInner() {
   // PWA
   const [installPrompt, setInstallPrompt] = useState(null);
   const [canInstall, setCanInstall] = useState(false);
+  const [publishing, setPublishing] = useState(false);
 
   // Refs
   const countedViewRef = useRef(new Set());
@@ -139,7 +140,7 @@ function AppInner() {
       });
       // Batch update Supabase (fire and forget)
       batch.forEach(({ id, views }) => {
-        supabase.from("posts").update({ views }).eq("id", id);
+        try { supabase.rpc("increment_views", { p_post_id: id }); } catch {}
       });
     }, 2000);
     return () => clearTimeout(viewCountTimerRef.current);
@@ -231,19 +232,26 @@ function AppInner() {
   }, [user, dmUnreadCount, unreadCount, navigate]);
 
   // ─── Handlers ───
-  const [publishing, setPublishing] = useState(false);
   const handlePublish = useCallback(async () => {
     if (!user) { setAuthOpen(true); return; }
     if (publishing) return;
     const content = composeText.trim();
-    if (!content || content.length > 2000) return;
+    if (!content || content.length > 5000) return;
     setPublishing(true);
     try {
-      const { data, error } = await supabase.from("posts").insert([{
-        title: content.slice(0, 60), content, author: user.username,
-        category: "动态", likes: 0, views: 0, reposts: 0, pinned: false, edited: false,
-      }]).select("*").single();
-      if (!error) { setPosts((prev) => [data, ...prev]); setComposeText(""); }
+      const { data, error } = await supabase.rpc("create_post", {
+        p_username: user.username,
+        p_content: content,
+        p_category: "动态",
+      });
+      if (!error && data) {
+        // RPC 返回的是单个对象，不是数组
+        const post = Array.isArray(data) ? data[0] : data;
+        setPosts((prev) => [post, ...prev]);
+        setComposeText("");
+      }
+    } catch (e) {
+      console.error("发帖失败:", e);
     } finally {
       setPublishing(false);
     }
@@ -252,17 +260,26 @@ function AppInner() {
   const handleDeletePost = useCallback(async (post) => {
     if (!post || !user || post.author !== user.username) return;
     if (!window.confirm("确定删除？")) return;
-    await supabase.from("posts").delete().eq("id", post.id);
+    try {
+      await supabase.rpc("delete_post", { p_username: user.username, p_post_id: post.id });
+    } catch {
+      await supabase.from("posts").delete().eq("id", post.id);
+    }
     setPosts((prev) => prev.filter((p) => p.id !== post.id));
     setSelectedPost(null);
   }, [user]);
 
   const handleEditPost = useCallback(async (postId, newContent) => {
-    await supabase.from("posts").update({ content: newContent, title: newContent.slice(0, 60), edited: true }).eq("id", postId);
+    if (!user) return;
+    try {
+      await supabase.rpc("edit_post", { p_username: user.username, p_post_id: postId, p_content: newContent });
+    } catch {
+      await supabase.from("posts").update({ content: newContent, title: newContent.slice(0, 60), edited: true }).eq("id", postId);
+    }
     setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, content: newContent, title: newContent.slice(0, 60), edited: true } : p));
     if (selectedPost?.id === postId) setSelectedPost((s) => s ? { ...s, content: newContent, title: newContent.slice(0, 60), edited: true } : s);
     setEditPostModal(null);
-  }, [selectedPost]);
+  }, [user, selectedPost]);
 
   const handleLike = useCallback(async (post) => {
     if (!post || hasLiked(post.id)) return;
@@ -272,12 +289,18 @@ function AppInner() {
     saveLiked(post.id);
     // 使用原子操作，避免并发覆盖；若 RPC 不存在则回退到 update
     try {
-      await supabase.rpc("increment_likes", { post_id: post.id });
+      await supabase.rpc("increment_likes", { p_post_id: post.id });
     } catch {
       await supabase.from("posts").update({ likes: next }).eq("id", post.id);
     }
     if (user && post.author !== user.username) {
-      await supabase.from("notifications").insert([{ user_to: post.author, user_from: user.username, type: "like", post_id: post.id }]);
+      try {
+        await supabase.rpc("send_notification", {
+          p_user_to: post.author, p_user_from: user.username, p_type: "like", p_post_id: post.id,
+        });
+      } catch {
+        await supabase.from("notifications").insert([{ user_to: post.author, user_from: user.username, type: "like", post_id: post.id }]);
+      }
     }
   }, [user, selectedPost]);
 
@@ -298,15 +321,19 @@ function AppInner() {
       repost_of: post.id,
     }]).select("*").single();
     if (!error) {
-      // Attach original post data for display
       data.repost_data = post;
       setPosts((prev) => [data, ...prev]);
-      // Increment repost count on original
+      try { await supabase.rpc("increment_reposts", { p_post_id: post.id }); } catch {}
       const next = (post.reposts || 0) + 1;
-      await supabase.from("posts").update({ reposts: next }).eq("id", post.id);
       setPosts((prev) => prev.map((p) => p.id === post.id ? { ...p, reposts: next } : p));
       if (user.username !== post.author) {
-        await supabase.from("notifications").insert([{ user_to: post.author, user_from: user.username, type: "repost", post_id: post.id }]);
+        try {
+          await supabase.rpc("send_notification", {
+            p_user_to: post.author, p_user_from: user.username, p_type: "repost", p_post_id: post.id,
+          });
+        } catch {
+          await supabase.from("notifications").insert([{ user_to: post.author, user_from: user.username, type: "repost", post_id: post.id }]);
+        }
       }
     }
   }, [user, posts]);
@@ -323,7 +350,13 @@ function AppInner() {
       data.quote_data = post;
       setPosts((prev) => [data, ...prev]);
       if (user.username !== post.author) {
-        await supabase.from("notifications").insert([{ user_to: post.author, user_from: user.username, type: "quote", post_id: post.id }]);
+        try {
+          await supabase.rpc("send_notification", {
+            p_user_to: post.author, p_user_from: user.username, p_type: "quote", p_post_id: post.id,
+          });
+        } catch {
+          await supabase.from("notifications").insert([{ user_to: post.author, user_from: user.username, type: "quote", post_id: post.id }]);
+        }
       }
     }
   }, [user]);

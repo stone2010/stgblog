@@ -86,10 +86,20 @@ export function AuthProvider({ children }) {
   const follow = useCallback(async (targetUser) => {
     if (!user || targetUser === user.username) return;
     setFollowingSet((prev) => new Set([...prev, targetUser]));
-    await supabase.from("follows").insert([{ follower: user.username, following: targetUser }]);
-    await supabase.from("notifications").insert([{
-      user_to: targetUser, user_from: user.username, type: "follow",
-    }]);
+    try {
+      await supabase.rpc("follow_user", { p_follower: user.username, p_following: targetUser });
+    } catch {
+      await supabase.from("follows").insert([{ follower: user.username, following: targetUser }]);
+    }
+    try {
+      await supabase.rpc("send_notification", {
+        p_user_to: targetUser, p_user_from: user.username, p_type: "follow",
+      });
+    } catch {
+      await supabase.from("notifications").insert([{
+        user_to: targetUser, user_from: user.username, type: "follow",
+      }]);
+    }
   }, [user]);
 
   const unfollow = useCallback(async (targetUser) => {
