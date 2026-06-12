@@ -1,3 +1,5 @@
 node_modules/
 dist/
-android-app/.gradle/
+.env
+.env.local
+.env.*.local

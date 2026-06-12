@@ -35,36 +35,41 @@ export function AuthProvider({ children }) {
   }, [user]);
 
   const login = useCallback(async (name, pass) => {
-    const { data, error } = await supabase.from("users")
-      .select("username, hash_id, pubkey, bio")
-      .eq("username", name).eq("password", pass).maybeSingle();
-    if (error || !data) return { error: "用户名或密码错误" };
+    // 使用安全 RPC 函数，密码在服务端用 bcrypt 验证
+    const { data, error } = await supabase.rpc("secure_login", {
+      p_username: name,
+      p_password: pass,
+    });
+    if (error || !data || data.length === 0) return { error: "用户名或密码错误" };
+    const userData = data[0];
     // Sync local key pair with database on login
     try {
       const kp = await getOrCreateKeyPair(name);
       const localPubKeyStr = JSON.stringify(kp.publicKey);
-      // Update pubkey in database if it doesn't match local key
-      if (data.pubkey !== localPubKeyStr) {
+      const { data: existing } = await supabase.from("users").select("pubkey").eq("username", name).maybeSingle();
+      if (existing && existing.pubkey !== localPubKeyStr) {
         await supabase.from("users").update({ pubkey: localPubKeyStr }).eq("username", name);
       }
     } catch (e) { console.warn("Key sync on login failed:", e); }
-    const u = { username: data.username, hash_id: data.hash_id, bio: data.bio || "" };
+    const u = { username: userData.username, hash_id: userData.hash_id, bio: userData.bio || "" };
     localStorage.setItem("stgblog_user", JSON.stringify(u));
     setUser(u);
     return { ok: true };
   }, []);
 
   const register = useCallback(async (name, pass) => {
-    const { data: ex } = await supabase.from("users").select("id").eq("username", name).maybeSingle();
-    if (ex) return { error: "用户名已存在" };
     const hashId = generateHash();
     const kp = await getOrCreateKeyPair(name);
-    const { data, error } = await supabase.from("users").insert([{
-      username: name, password: pass, hash_id: hashId,
-      pubkey: JSON.stringify(kp.publicKey), bio: "",
-    }]).select("username, hash_id, pubkey, bio").single();
+    // 使用安全 RPC 函数，密码在服务端用 bcrypt 哈希后存储
+    const { data, error } = await supabase.rpc("secure_register", {
+      p_username: name,
+      p_password: pass,
+      p_hash_id: hashId,
+      p_pubkey: JSON.stringify(kp.publicKey),
+    });
     if (error) return { error: error.message || "注册失败" };
-    const u = { username: data.username, hash_id: data.hash_id, bio: data.bio || "" };
+    const userData = data[0];
+    const u = { username: userData.username, hash_id: userData.hash_id, bio: userData.bio || "" };
     localStorage.setItem("stgblog_user", JSON.stringify(u));
     setUser(u);
     return { ok: true };
