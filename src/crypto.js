@@ -66,20 +66,4 @@ export async function getOrCreateKeyPair(username) {
   return keyPair;
 }
 
-// 简单 XOR 混淆（用于 Supabase 存储，防止明文泄露）
-export function obfuscate(text, key) {
-  let result = '';
-  for (let i = 0; i < text.length; i++) {
-    result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
-  }
-  return btoa(result);
-}
 
-export function deobfuscate(encoded, key) {
-  const text = atob(encoded);
-  let result = '';
-  for (let i = 0; i < text.length; i++) {
-    result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
-  }
-  return result;
-}
