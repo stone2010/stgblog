@@ -1,7 +1,7 @@
 import React, { useRef, useCallback ,useState} from "react";
 import { useAuth } from "../context/AuthContext";
 
-export default function ComposeBar({ value, onChange, onPublish }) {
+export default function ComposeBar({ value, onChange, onPublish, publishing }) {
   const { user } = useAuth();
   const textareaRef = useRef(null);
   const [showEmoji, setShowEmoji] = useState(false);
@@ -70,7 +70,7 @@ export default function ComposeBar({ value, onChange, onPublish }) {
             {showEmoji && (<div className="emoji-panel">{emojis.map((e) => (<button key={e}type="button" onClick={() => insertEmoji(e)}>{e}</button>))}</div>)}
             {charCount > 0 && <span className={`char-counter ${charClass}`}>{charCount}/2000</span>}
           </div>
-          <button className="compose-submit" onClick={handlePublish} disabled={!value.trim()}>发帖</button>
+          <button className="compose-submit" onClick={handlePublish} disabled={!value.trim() || publishing}>{publishing ? "发送中..." : "发帖"}</button>
         </div>
       </div>
     </div>

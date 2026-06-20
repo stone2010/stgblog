@@ -275,7 +275,8 @@ function AppInner() {
     if (!user) { setAuthOpen(true); return; }
     if (publishing) return;
     const content = composeText.trim();
-    if (!content || content.length > 5000) return;
+    if (!content) return;
+    if (content.length > 5000) { alert("内容不能超过5000字"); return; }
     setPublishing(true);
     try {
       const { data, error } = await supabase.rpc("create_post", {
@@ -283,14 +284,19 @@ function AppInner() {
         p_content: content,
         p_category: "动态",
       });
-      if (!error && data) {
-        // RPC 返回的是单个对象，不是数组
+      if (error) {
+        console.error("发帖RPC错误:", error);
+        alert("发帖失败: " + (error.message || "服务器错误"));
+        return;
+      }
+      if (data) {
         const post = Array.isArray(data) ? data[0] : data;
         setPosts((prev) => [post, ...prev]);
         setComposeText("");
       }
     } catch (e) {
-      console.error("发帖失败:", e);
+      console.error("发帖异常:", e);
+      alert("发帖失败: " + (e.message || "网络错误"));
     } finally {
       setPublishing(false);
     }
@@ -493,7 +499,7 @@ function AppInner() {
     );
     if (page === "profile-view" && viewingProfile) return <ProfileViewPage viewingProfile={viewingProfile} posts={posts} onBack={() => { setViewingProfile(null); setPage("home"); setMobileTab("home"); }} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} />;
     if (page === "profile") return <ProfilePage posts={posts} onAuthOpen={() => setAuthOpen(true)} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onFollowersPage={(type) => setFollowersPage({ username: user.username, type })} />;
-    return <HomeFeed posts={posts} postsLoading={postsLoading} hasMore={hasMore} loadMorePosts={loadMorePosts} tab={tab} setTab={setTab} searchKey={searchKey} composeText={composeText} setComposeText={setComposeText} onPublish={handlePublish} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onHashtag={handleHashtag} />;
+    return <HomeFeed posts={posts} postsLoading={postsLoading} hasMore={hasMore} loadMorePosts={loadMorePosts} tab={tab} setTab={setTab} searchKey={searchKey} composeText={composeText} setComposeText={setComposeText} onPublish={handlePublish} publishing={publishing} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onHashtag={handleHashtag} />;
   };
 
   return (
