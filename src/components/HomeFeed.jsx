@@ -6,7 +6,7 @@ import ComposeBar from "./ComposeBar";
 
 export default function HomeFeed({
   posts, postsLoading, hasMore, loadMorePosts, tab, setTab, searchKey,
-  composeText, setComposeText, onPublish, publishing,
+  composeText, setComposeText, onPublish, publishing, composeRef,
   onSelectPost, onLike, onShare, onRepost, onBookmark, onHashtag,
 }) {
   const { user, followingSet } = useAuth();
@@ -62,7 +62,7 @@ export default function HomeFeed({
         </div>
       </div>
       <div className="feed">
-        <ComposeBar value={composeText} onChange={setComposeText} onPublish={onPublish} publishing={publishing} />
+        <ComposeBar value={composeText} onChange={setComposeText} onPublish={onPublish} publishing={publishing} composeRef={composeRef} />
         {postsLoading && <div className="loader" />}
         {!postsLoading && displayedPosts.length === 0 && (
           <div className="empty-state">

@@ -1,7 +1,7 @@
 import React, { useRef, useCallback ,useState} from "react";
 import { useAuth } from "../context/AuthContext";
 
-export default function ComposeBar({ value, onChange, onPublish, publishing }) {
+export default function ComposeBar({ value, onChange, onPublish, publishing, composeRef }) {
   const { user } = useAuth();
   const textareaRef = useRef(null);
   const [showEmoji, setShowEmoji] = useState(false);
@@ -54,7 +54,7 @@ export default function ComposeBar({ value, onChange, onPublish, publishing }) {
       <div className="compose-avatar">{user.username[0]}</div>
       <div className="compose-input">
         <textarea
-          ref={textareaRef}
+          ref={(el) => { textareaRef.current = el; if (composeRef) composeRef.current = el; }}
           className="compose-textarea"
           value={value}
           onChange={(e) => onChange(e.target.value)}

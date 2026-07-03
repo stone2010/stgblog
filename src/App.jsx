@@ -63,6 +63,7 @@ function AppInner() {
   // Refs
   const countedViewRef = useRef(new Set());
   const notifRef = useRef(null);
+  const composeRef = useRef(null);
   const [notifOpen, setNotifOpen] = useState(false);
 
   // Hooks
@@ -279,23 +280,33 @@ function AppInner() {
     if (content.length > 5000) { alert("内容不能超过5000字"); return; }
     setPublishing(true);
     try {
-      const { data, error } = await supabase.rpc("create_post", {
-        p_username: user.username,
-        p_content: content,
-        p_category: "动态",
-      });
-      if (error) {
-        console.error("发帖RPC错误:", error);
-        alert("发帖失败: " + (error.message || "服务器错误"));
-        return;
+      let post = null;
+      try {
+        const { data, error } = await supabase.rpc("create_post", {
+          p_username: user.username,
+          p_content: content,
+          p_category: "动态",
+        });
+        if (error) throw error;
+        if (data) post = Array.isArray(data) ? data[0] : data;
+      } catch (rpcErr) {
+        console.warn("RPC create_post 失败，回退到直接插入:", rpcErr);
+        const { data, error } = await supabase.from("posts").insert([{
+          title: content.slice(0, 60),
+          content,
+          author: user.username,
+          category: "动态",
+          likes: 0, views: 0, reposts: 0, pinned: false, edited: false,
+        }]).select("*").single();
+        if (error) throw error;
+        post = data;
       }
-      if (data) {
-        const post = Array.isArray(data) ? data[0] : data;
+      if (post) {
         setPosts((prev) => [post, ...prev]);
         setComposeText("");
       }
     } catch (e) {
-      console.error("发帖异常:", e);
+      console.error("发帖失败:", e);
       alert("发帖失败: " + (e.message || "网络错误"));
     } finally {
       setPublishing(false);
@@ -499,7 +510,7 @@ function AppInner() {
     );
     if (page === "profile-view" && viewingProfile) return <ProfileViewPage viewingProfile={viewingProfile} posts={posts} onBack={() => { setViewingProfile(null); setPage("home"); setMobileTab("home"); }} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} />;
     if (page === "profile") return <ProfilePage posts={posts} onAuthOpen={() => setAuthOpen(true)} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onFollowersPage={(type) => setFollowersPage({ username: user.username, type })} />;
-    return <HomeFeed posts={posts} postsLoading={postsLoading} hasMore={hasMore} loadMorePosts={loadMorePosts} tab={tab} setTab={setTab} searchKey={searchKey} composeText={composeText} setComposeText={setComposeText} onPublish={handlePublish} publishing={publishing} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onHashtag={handleHashtag} />;
+    return <HomeFeed posts={posts} postsLoading={postsLoading} hasMore={hasMore} loadMorePosts={loadMorePosts} tab={tab} setTab={setTab} searchKey={searchKey} composeText={composeText} setComposeText={setComposeText} onPublish={handlePublish} publishing={publishing} composeRef={composeRef} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onHashtag={handleHashtag} />;
   };
 
   return (
@@ -567,7 +578,7 @@ function AppInner() {
           {user && <button className="sidebar-btn" onClick={() => navigate("profile")}><span className="sb-icon"><Icons.User /></span>个人</button>}
           <button className="sidebar-btn" onClick={toggleTheme}><span className="sb-icon">{theme === "dark" ? <Icons.ThemeLight /> : <Icons.ThemeDark />}</span>{theme === "dark" ? "亮色模式" : "暗色模式"}</button>
           {user ? (
-            <button className="sidebar-compose" onClick={() => { navigate("home"); setMobileTab("home"); }}>发帖</button>
+            <button className="sidebar-compose" onClick={() => { navigate("home"); setMobileTab("home"); setTimeout(() => composeRef.current?.focus(), 100); }}>发帖</button>
           ) : (
             <button className="sidebar-compose" onClick={() => setAuthOpen(true)}>登录</button>
           )}
@@ -599,7 +610,7 @@ function AppInner() {
         <nav className="bnav">
           <button className={`bnav-btn ${mobileTab === "home" ? "on" : ""}`} onClick={() => navigate("home")}><span className="bnav-icon"><Icons.Home /></span></button>
           <button className={`bnav-btn ${mobileTab === "search" ? "on" : ""}`} onClick={() => navigate("search")}><span className="bnav-icon"><Icons.Search /></span></button>
-          <button className="bnav-compose" onClick={() => { if (user) { navigate("home"); setMobileTab("home"); } else setAuthOpen(true); }}>✦</button>
+          <button className="bnav-compose" onClick={() => { if (user) { navigate("home"); setMobileTab("home"); setTimeout(() => composeRef.current?.focus(), 100); } else setAuthOpen(true); }}>✦</button>
           <button className={`bnav-btn ${mobileTab === "dm" ? "on" : ""}`} onClick={() => { if (user) navigate("dm"); else setAuthOpen(true); }} style={{ position: "relative" }}>
             <span className="bnav-icon"><Icons.Msg /></span>
             {dmUnreadCount > 0 && <span className="bnav-dot" />}
