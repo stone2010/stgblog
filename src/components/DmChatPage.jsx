@@ -17,49 +17,64 @@ const CheckDouble = () => (
   </svg>
 );
 
-export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, onBack, onUserClick, onMarkAsRead }) {
+export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, onBack, onUserClick, onMarkAsRead, onLoadMore }) {
   const { user, keyPair } = useAuth();
   const [input, setInput] = useState("");
   const [showVerify, setShowVerify] = useState(false);
   const [remotePubKey, setRemotePubKey] = useState(null);
-  const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const chatRef = useRef(null);
   const inputBarRef = useRef(null);
 
-  // Auto scroll to bottom
+  const scrollToBottom = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }, []);
+
   useEffect(() => {
-    try { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); } catch {}
-  }, [dmMessages]);
+    const container = messagesContainerRef.current;
+    if (container && dmMessages && dmMessages.length > 0) {
+      requestAnimationFrame(() => {
+        container.scrollTop = container.scrollHeight;
+      });
+    }
+  }, [dmMessages, dmTarget]);
 
   // Mobile keyboard handling — flex layout approach
-  // The overlay uses height: var(--app-height). When keyboard opens,
-  // visualViewport shrinks, we update --app-height, and the input bar
-  // (at the bottom of the flex container) naturally stays visible.
   useEffect(() => {
     const updateLayout = () => {
       const vv = window.visualViewport;
       if (!vv) return;
       const h = Math.round(vv.height);
       document.documentElement.style.setProperty('--app-height', `${h}px`);
-      // Scroll to bottom when keyboard opens
       setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        const container = messagesContainerRef.current;
+        if (container) container.scrollTop = container.scrollHeight;
       }, 150);
     };
 
     const onFocus = () => {
-      // Give keyboard time to open, then update layout and scroll
       setTimeout(updateLayout, 300);
       setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        const container = messagesContainerRef.current;
+        if (container) container.scrollTop = container.scrollHeight;
       }, 500);
     };
 
     const onBlur = () => {
-      // Reset when keyboard closes
       setTimeout(() => {
         document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
       }, 150);
+    };
+
+    const onScroll = () => {
+      const container = messagesContainerRef.current;
+      if (!container) return;
+      if (container.scrollTop <= 50 && onLoadMore) {
+        onLoadMore();
+      }
     };
 
     const vv = window.visualViewport;
@@ -69,10 +84,13 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
     }
     window.addEventListener("resize", updateLayout);
 
-    // Initial set
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.addEventListener("scroll", onScroll);
+    }
+
     updateLayout();
 
-    // Listen on input focus/blur
     const inputEl = inputBarRef.current?.querySelector('.dm-input');
     if (inputEl) {
       inputEl.addEventListener('focus', onFocus);
@@ -85,13 +103,16 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
         vv.removeEventListener("scroll", updateLayout);
       }
       window.removeEventListener("resize", updateLayout);
+      if (container) {
+        container.removeEventListener("scroll", onScroll);
+      }
       if (inputEl) {
         inputEl.removeEventListener('focus', onFocus);
         inputEl.removeEventListener('blur', onBlur);
       }
       document.documentElement.style.removeProperty('--app-height');
     };
-  }, []);
+  }, [onLoadMore]);
 
   // Mark as read when opening chat
   useEffect(() => {
@@ -148,13 +169,13 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
           </div>
         </div>
       )}
-      <div className="dm-chat-messages">
+      <div className="dm-chat-messages" ref={messagesContainerRef}>
         {messages.length === 0 && (
           <div className="dm-empty">
             <div className="dm-empty-icon">🔐</div>
             <h3>端到端加密对话</h3>
-            <p style={{ fontSize: 13, color: "var(--dim)", marginBottom: 8 }}>消息使用 ECDH + AES-256-GCM 加密，只有你和 {dmTarget} 能看到</p>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", background: "rgba(0,186,124,0.1)", borderRadius: 99, fontSize: 12, color: "var(--green)" }}>
+            <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 8 }}>消息使用 ECDH + AES-256-GCM 加密，只有你和 {dmTarget} 能看到</p>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", background: "rgba(34,197,94,0.1)", borderRadius: 99, fontSize: 12, color: "var(--green)" }}>
               <Icons.Lock /> 加密已启用
             </div>
           </div>
@@ -178,7 +199,6 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
             </div>
           );
         })}
-        <div ref={messagesEndRef} />
       </div>
       <div className="dm-chat-input" ref={inputBarRef}>
         <textarea className="dm-input" value={input} onChange={(e) => setInput(e.target.value)}

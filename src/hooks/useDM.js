@@ -17,12 +17,16 @@ function saveCachedConversations(username, list) {
   } catch {}
 }
 
+const DM_PAGE_SIZE = 50;
+
 export function useDM(user, keyPair) {
   const [dmList, setDmList] = useState([]);
   const [dmTarget, setDmTarget] = useState(null);
   const [dmMessages, setDmMessages] = useState([]);
   const [dmSending, setDmSending] = useState(false);
   const [dmUnreadCount, setDmUnreadCount] = useState(0);
+  const [dmHasMore, setDmHasMore] = useState(true);
+  const [dmLoadingMore, setDmLoadingMore] = useState(false);
   const dmListRef = useRef(dmList);
   dmListRef.current = dmList;
 
@@ -97,53 +101,88 @@ export function useDM(user, keyPair) {
     return () => clearInterval(interval);
   }, [user, checkUnread]);
 
+  const decryptMessages = useCallback(async (data, otherUser) => {
+    if (!keyPair?.privateKey) {
+      return data.map((msg) => ({ ...msg, decrypted: false }));
+    }
+
+    let otherUserPubKeyStr = null;
+    const { data: otherUserData } = await supabase.from("users").select("pubkey").eq("username", otherUser).maybeSingle();
+    if (otherUserData?.pubkey) otherUserPubKeyStr = otherUserData.pubkey;
+
+    const decrypted = await Promise.all(data.map(async (msg) => {
+      if (msg.encrypted && msg.ciphertext && msg.iv) {
+        try {
+          const isMine = msg.sender === user.username;
+          let peerPubKeyStr = isMine ? msg.receiver_pubkey : msg.sender_pubkey;
+          if (!peerPubKeyStr) peerPubKeyStr = otherUserPubKeyStr;
+          if (!peerPubKeyStr) {
+            const peerName = isMine ? otherUser : msg.sender;
+            const { data: peerData } = await supabase.from("users").select("pubkey").eq("username", peerName).maybeSingle();
+            if (peerData?.pubkey) peerPubKeyStr = peerData.pubkey;
+          }
+          if (!peerPubKeyStr) return { ...msg, content: "[加密消息 · 无法解密]", decrypted: false };
+          const peerPubKey = JSON.parse(peerPubKeyStr);
+          const plain = await decryptMessage(msg.ciphertext, msg.iv, keyPair.privateKey, peerPubKey);
+          return { ...msg, content: plain, decrypted: true };
+        } catch (e) {
+          console.warn("Decrypt failed for msg", msg.id, e);
+          return { ...msg, content: "[加密消息 · 无法解密]", decrypted: false };
+        }
+      }
+      return { ...msg, decrypted: false };
+    }));
+    return decrypted;
+  }, [user, keyPair]);
+
   const loadDmMessages = useCallback(async (otherUser) => {
     if (!user || !otherUser) return;
+    setDmHasMore(true);
+    setDmMessages([]);
+
     const { data, error } = await supabase.from("dm_messages").select("*")
       .or(`and(sender.eq.${user.username},receiver.eq.${otherUser}),and(sender.eq.${otherUser},receiver.eq.${user.username})`)
-      .order("created_at", { ascending: true });
-    if (error || !data) { setDmMessages([]); return; }
+      .order("created_at", { ascending: false })
+      .limit(DM_PAGE_SIZE);
+    if (error || !data) { setDmMessages([]); setDmHasMore(false); return; }
 
-    if (keyPair && keyPair.privateKey) {
-      let otherUserPubKeyStr = null;
-      const { data: otherUserData } = await supabase.from("users").select("pubkey").eq("username", otherUser).maybeSingle();
-      if (otherUserData?.pubkey) otherUserPubKeyStr = otherUserData.pubkey;
+    setDmHasMore(data.length >= DM_PAGE_SIZE);
 
-      const decrypted = await Promise.all(data.map(async (msg) => {
-        if (msg.encrypted && msg.ciphertext && msg.iv) {
-          try {
-            const isMine = msg.sender === user.username;
-            let peerPubKeyStr = isMine ? msg.receiver_pubkey : msg.sender_pubkey;
-            // Fallback: fetch from users table if not stored in message
-            if (!peerPubKeyStr) peerPubKeyStr = otherUserPubKeyStr;
-            if (!peerPubKeyStr) {
-              // Last resort: fetch the other user's pubkey directly
-              const peerName = isMine ? otherUser : msg.sender;
-              const { data: peerData } = await supabase.from("users").select("pubkey").eq("username", peerName).maybeSingle();
-              if (peerData?.pubkey) peerPubKeyStr = peerData.pubkey;
-            }
-            if (!peerPubKeyStr) return { ...msg, content: "[加密消息 · 无法解密]", decrypted: false };
-            const peerPubKey = JSON.parse(peerPubKeyStr);
-            const plain = await decryptMessage(msg.ciphertext, msg.iv, keyPair.privateKey, peerPubKey);
-            return { ...msg, content: plain, decrypted: true };
-          } catch (e) {
-            console.warn("Decrypt failed for msg", msg.id, e);
-            return { ...msg, content: "[加密消息 · 无法解密]", decrypted: false };
-          }
-        }
-        return { ...msg, decrypted: false };
-      }));
-      setDmMessages(decrypted);
-    } else {
-      setDmMessages(data.map((msg) => ({ ...msg, decrypted: false })));
-    }
+    const reversed = [...data].reverse();
+    const decrypted = await decryptMessages(reversed, otherUser);
+    setDmMessages(decrypted);
 
     try {
       await supabase.from("dm_messages").update({ read: true })
         .eq("sender", otherUser).eq("receiver", user.username).eq("read", false);
       checkUnread();
     } catch {}
-  }, [user, keyPair, checkUnread]);
+  }, [user, decryptMessages, checkUnread]);
+
+  const loadMoreDmMessages = useCallback(async () => {
+    if (!user || !dmTarget || dmLoadingMore || !dmHasMore) return;
+    setDmLoadingMore(true);
+
+    const oldestMsg = dmMessages[0];
+    const { data, error } = await supabase.from("dm_messages").select("*")
+      .or(`and(sender.eq.${user.username},receiver.eq.${dmTarget}),and(sender.eq.${dmTarget},receiver.eq.${user.username})`)
+      .order("created_at", { ascending: false })
+      .limit(DM_PAGE_SIZE)
+      .lt("created_at", oldestMsg?.created_at || new Date().toISOString());
+
+    setDmLoadingMore(false);
+
+    if (error || !data || data.length === 0) {
+      setDmHasMore(false);
+      return;
+    }
+
+    setDmHasMore(data.length >= DM_PAGE_SIZE);
+
+    const reversed = [...data].reverse();
+    const decrypted = await decryptMessages(reversed, dmTarget);
+    setDmMessages((prev) => [...decrypted, ...prev]);
+  }, [user, dmTarget, dmMessages, dmLoadingMore, dmHasMore, decryptMessages]);
 
   const sendDm = useCallback(async (content) => {
     if (!user || !dmTarget || !content.trim()) return false;
@@ -274,7 +313,8 @@ export function useDM(user, keyPair) {
 
   return {
     dmList, dmTarget, dmMessages, dmSending, dmUnreadCount,
-    loadDmList, loadDmMessages, sendDm, openDm, closeDm, markAsRead,
+    dmHasMore, dmLoadingMore,
+    loadDmList, loadDmMessages, loadMoreDmMessages, sendDm, openDm, closeDm, markAsRead,
     setDmTarget, togglePin, deleteConversation,
   };
 }

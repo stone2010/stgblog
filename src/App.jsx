@@ -68,8 +68,8 @@ function AppInner() {
 
   // Hooks
   const { notifications, unreadCount, markAllRead, markOneRead } = useNotifications(user?.username);
-  const { dmList, dmTarget, dmMessages, dmSending, dmUnreadCount, loadDmList, sendDm, openDm, closeDm, markAsRead, setDmTarget, togglePin, deleteConversation } = useDM(user, keyPair);
-  const { groups, activeGroup, groupMessages, groupMembers, groupSending, loadGroups, createGroup, joinGroup, shareGroupKey, leaveGroup, loadGroupMessages, sendGroupMessage, getGroupMembers, kickMember, deleteGroup, openGroup, closeGroup, updateGroupName, setMemberRole, transferOwnership } = useGroupChat(user, keyPair);
+  const { dmList, dmTarget, dmMessages, dmSending, dmUnreadCount, loadDmList, loadMoreDmMessages, sendDm, openDm, closeDm, markAsRead, setDmTarget, togglePin, deleteConversation } = useDM(user, keyPair);
+  const { groups, activeGroup, groupMessages, groupMembers, groupSending, loadGroups, createGroup, joinGroup, shareGroupKey, leaveGroup, loadGroupMessages, loadMoreGroupMessages, sendGroupMessage, getGroupMembers, kickMember, deleteGroup, openGroup, closeGroup, updateGroupName, setMemberRole, transferOwnership } = useGroupChat(user, keyPair);
 
   // ─── Theme ───
   useEffect(() => { applyTheme(theme); }, [theme]);
@@ -495,7 +495,8 @@ function AppInner() {
     );
     if (page === "dm-chat" && dmTarget) return (
       <DmChatPage dmTarget={dmTarget} dmMessages={dmMessages} dmSending={dmSending}
-        onSend={sendDm} onBack={() => { closeDm(); setPage("dm"); }} onUserClick={openUserClick} onMarkAsRead={markAsRead} />
+        onSend={sendDm} onBack={() => { closeDm(); setPage("dm"); }} onUserClick={openUserClick} onMarkAsRead={markAsRead}
+        onLoadMore={loadMoreDmMessages} />
     );
     if (page === "notifications") return <NotificationPage notifications={notifications} onNotifClick={handleNotifClick} onBack={() => navigate("home")} />;
     if (page === "search") return <SearchPage searchKey={searchKey} setSearchKey={setSearchKey} posts={posts} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} />;
@@ -506,7 +507,8 @@ function AppInner() {
         onSend={sendGroupMessage} onBack={() => { closeGroup(); setPage("groups"); }}
         onUserClick={openUserClick} onKickMember={kickMember} onDeleteGroup={(id) => { deleteGroup(id); setPage("groups"); }}
         onLeaveGroup={(id) => { leaveGroup(id); setPage("groups"); }} onGetMembers={getGroupMembers}
-        onOpenSettings={() => setGroupSettingsOpen(true)} onShareKey={shareGroupKey} />
+        onOpenSettings={() => setGroupSettingsOpen(true)} onShareKey={shareGroupKey}
+        onLoadMore={loadMoreGroupMessages} />
     );
     if (page === "profile-view" && viewingProfile) return <ProfileViewPage viewingProfile={viewingProfile} posts={posts} onBack={() => { setViewingProfile(null); setPage("home"); setMobileTab("home"); }} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} />;
     if (page === "profile") return <ProfilePage posts={posts} onAuthOpen={() => setAuthOpen(true)} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onFollowersPage={(type) => setFollowersPage({ username: user.username, type })} />;
@@ -590,7 +592,8 @@ function AppInner() {
       {page === "dm-chat" && dmTarget && (
         <div className="dm-overlay">
           <DmChatPage dmTarget={dmTarget} dmMessages={dmMessages} dmSending={dmSending}
-            onSend={sendDm} onBack={() => { closeDm(); setPage("dm"); }} onUserClick={openUserClick} onMarkAsRead={markAsRead} />
+            onSend={sendDm} onBack={() => { closeDm(); setPage("dm"); }} onUserClick={openUserClick} onMarkAsRead={markAsRead}
+            onLoadMore={loadMoreDmMessages} />
         </div>
       )}
 
@@ -601,7 +604,8 @@ function AppInner() {
             onSend={sendGroupMessage} onBack={() => { closeGroup(); setPage("groups"); }}
             onUserClick={openUserClick} onKickMember={kickMember} onDeleteGroup={(id) => { deleteGroup(id); setPage("groups"); }}
             onLeaveGroup={(id) => { leaveGroup(id); setPage("groups"); }} onGetMembers={getGroupMembers}
-            onOpenSettings={() => setGroupSettingsOpen(true)} onShareKey={shareGroupKey} />
+            onOpenSettings={() => setGroupSettingsOpen(true)} onShareKey={shareGroupKey}
+            onLoadMore={loadMoreGroupMessages} />
         </div>
       )}
 

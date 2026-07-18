@@ -58,6 +58,8 @@ async function decryptWithGroupKey(ciphertext, iv, groupKeyB64) {
   return new TextDecoder().decode(dec);
 }
 
+const GROUP_PAGE_SIZE = 50;
+
 export function useGroupChat(user, keyPair) {
   const [groups, setGroups] = useState([]);
   const [activeGroup, setActiveGroup] = useState(null);
@@ -65,6 +67,8 @@ export function useGroupChat(user, keyPair) {
   const [groupMembers, setGroupMembers] = useState([]);
   const [groupSending, setGroupSending] = useState(false);
   const [groupKeyCache, setGroupKeyCache] = useState({});
+  const [groupHasMore, setGroupHasMore] = useState(true);
+  const [groupLoadingMore, setGroupLoadingMore] = useState(false);
   const groupKeyCacheRef = useRef(groupKeyCache);
   groupKeyCacheRef.current = groupKeyCache;
 
@@ -299,14 +303,7 @@ export function useGroupChat(user, keyPair) {
     await loadGroups();
   }, [user, activeGroup, loadGroups]);
 
-  const loadGroupMessages = useCallback(async (groupId) => {
-    if (!user || !groupId) return;
-    const { data } = await supabase.from("group_messages")
-      .select("*")
-      .eq("group_id", groupId)
-      .order("created_at", { ascending: true });
-    if (!data) { setGroupMessages([]); return; }
-
+  const decryptGroupMessages = useCallback(async (data, groupId) => {
     const groupKey = await getGroupKey(groupId);
     const decrypted = await Promise.all(data.map(async (msg) => {
       if (msg.encrypted && msg.ciphertext && msg.iv && groupKey) {
@@ -319,8 +316,53 @@ export function useGroupChat(user, keyPair) {
       }
       return { ...msg, decrypted: false };
     }));
+    return decrypted;
+  }, [getGroupKey]);
+
+  const loadGroupMessages = useCallback(async (groupId) => {
+    if (!user || !groupId) return;
+    setGroupHasMore(true);
+    setGroupMessages([]);
+
+    const { data } = await supabase.from("group_messages")
+      .select("*")
+      .eq("group_id", groupId)
+      .order("created_at", { ascending: false })
+      .limit(GROUP_PAGE_SIZE);
+    if (!data) { setGroupMessages([]); setGroupHasMore(false); return; }
+
+    setGroupHasMore(data.length >= GROUP_PAGE_SIZE);
+
+    const reversed = [...data].reverse();
+    const decrypted = await decryptGroupMessages(reversed, groupId);
     setGroupMessages(decrypted);
-  }, [user, getGroupKey]);
+  }, [user, decryptGroupMessages]);
+
+  const loadMoreGroupMessages = useCallback(async () => {
+    if (!user || !activeGroup || groupLoadingMore || !groupHasMore) return;
+    setGroupLoadingMore(true);
+
+    const oldestMsg = groupMessages[0];
+    const { data } = await supabase.from("group_messages")
+      .select("*")
+      .eq("group_id", activeGroup.id)
+      .order("created_at", { ascending: false })
+      .limit(GROUP_PAGE_SIZE)
+      .lt("created_at", oldestMsg?.created_at || new Date().toISOString());
+
+    setGroupLoadingMore(false);
+
+    if (!data || data.length === 0) {
+      setGroupHasMore(false);
+      return;
+    }
+
+    setGroupHasMore(data.length >= GROUP_PAGE_SIZE);
+
+    const reversed = [...data].reverse();
+    const decrypted = await decryptGroupMessages(reversed, activeGroup.id);
+    setGroupMessages((prev) => [...decrypted, ...prev]);
+  }, [user, activeGroup, groupMessages, groupLoadingMore, groupHasMore, decryptGroupMessages]);
 
   const sendGroupMessage = useCallback(async (groupId, content) => {
     if (!user || !groupId || !content.trim()) return false;
@@ -487,8 +529,9 @@ export function useGroupChat(user, keyPair) {
 
   return {
     groups, activeGroup, groupMessages, groupMembers, groupSending,
+    groupHasMore, groupLoadingMore,
     loadGroups, createGroup, joinGroup, shareGroupKey, leaveGroup,
-    loadGroupMessages, sendGroupMessage,
+    loadGroupMessages, loadMoreGroupMessages, sendGroupMessage,
     getGroupMembers, kickMember, deleteGroup,
     openGroup, closeGroup,
     updateGroupName, setMemberRole, transferOwnership,

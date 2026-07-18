@@ -9,17 +9,22 @@ const CheckSingle = () => (
   </svg>
 );
 
-export default function GroupChatPage({ group, messages, members, sending, onSend, onBack, onUserClick, onKickMember, onDeleteGroup, onLeaveGroup, onGetMembers, onOpenSettings, onShareKey }) {
+export default function GroupChatPage({ group, messages, members, sending, onSend, onBack, onUserClick, onKickMember, onDeleteGroup, onLeaveGroup, onGetMembers, onOpenSettings, onShareKey, onLoadMore }) {
   const { user } = useAuth();
   const [input, setInput] = useState("");
   const [showInfo, setShowInfo] = useState(false);
   const [keySharing, setKeySharing] = useState({});
-  const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const inputBarRef = useRef(null);
 
   useEffect(() => {
-    try { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); } catch {}
-  }, [messages]);
+    const container = messagesContainerRef.current;
+    if (container && messages && messages.length > 0) {
+      requestAnimationFrame(() => {
+        container.scrollTop = container.scrollHeight;
+      });
+    }
+  }, [messages, group]);
 
   // Mobile keyboard handling — flex layout approach
   useEffect(() => {
@@ -29,14 +34,16 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
       const h = Math.round(vv.height);
       document.documentElement.style.setProperty('--app-height', `${h}px`);
       setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        const container = messagesContainerRef.current;
+        if (container) container.scrollTop = container.scrollHeight;
       }, 150);
     };
 
     const onFocus = () => {
       setTimeout(updateLayout, 300);
       setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        const container = messagesContainerRef.current;
+        if (container) container.scrollTop = container.scrollHeight;
       }, 500);
     };
 
@@ -46,12 +53,26 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
       }, 150);
     };
 
+    const onScroll = () => {
+      const container = messagesContainerRef.current;
+      if (!container) return;
+      if (container.scrollTop <= 50 && onLoadMore) {
+        onLoadMore();
+      }
+    };
+
     const vv = window.visualViewport;
     if (vv) {
       vv.addEventListener("resize", updateLayout);
       vv.addEventListener("scroll", updateLayout);
     }
     window.addEventListener("resize", updateLayout);
+
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.addEventListener("scroll", onScroll);
+    }
+
     updateLayout();
 
     const inputEl = inputBarRef.current?.querySelector('.dm-input');
@@ -66,13 +87,16 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
         vv.removeEventListener("scroll", updateLayout);
       }
       window.removeEventListener("resize", updateLayout);
+      if (container) {
+        container.removeEventListener("scroll", onScroll);
+      }
       if (inputEl) {
         inputEl.removeEventListener('focus', onFocus);
         inputEl.removeEventListener('blur', onBlur);
       }
       document.documentElement.style.removeProperty('--app-height');
     };
-  }, []);
+  }, [onLoadMore]);
 
   const isCreator = group?.creator === user?.username;
   const isAdmin = members?.find((m) => m.username === user?.username)?.role === "admin";
@@ -188,13 +212,13 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
         </div>
       )}
 
-      <div className="dm-chat-messages">
+      <div className="dm-chat-messages" ref={messagesContainerRef}>
         {safeMessages.length === 0 && (
           <div className="dm-empty">
             <div className="dm-empty-icon">👥</div>
             <h3>{group.name}</h3>
-            <p style={{ fontSize: 13, color: "var(--dim)", marginBottom: 8 }}>群组消息已加密保护</p>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", background: "rgba(0,186,124,0.1)", borderRadius: 99, fontSize: 12, color: "var(--green)" }}>
+            <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 8 }}>群组消息已加密保护</p>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", background: "rgba(34,197,94,0.1)", borderRadius: 99, fontSize: 12, color: "var(--green)" }}>
               <Icons.Lock /> 端到端加密
             </div>
           </div>
@@ -218,7 +242,6 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
             </div>
           );
         })}
-        <div ref={messagesEndRef} />
       </div>
 
       <div className="dm-chat-input" ref={inputBarRef}>
