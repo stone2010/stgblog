@@ -24,15 +24,20 @@ async function importPrivateKey(jwk) {
 
 // 派生共享 AES 密钥
 async function deriveSharedKey(privateKeyJwk, publicKeyJwk) {
-  const privKey = await importPrivateKey(privateKeyJwk);
-  const pubKey = await importPublicKey(publicKeyJwk);
-  return crypto.subtle.deriveKey(
-    { name: 'ECDH', public: pubKey },
-    privKey,
-    AES_PARAMS,
-    false,
-    ['encrypt', 'decrypt']
-  );
+  try {
+    const privKey = await importPrivateKey(privateKeyJwk);
+    const pubKey = await importPublicKey(publicKeyJwk);
+    return crypto.subtle.deriveKey(
+      { name: 'ECDH', public: pubKey },
+      privKey,
+      AES_PARAMS,
+      false,
+      ['encrypt', 'decrypt']
+    );
+  } catch (e) {
+    console.error("Failed to derive shared key:", e);
+    throw new Error("密钥派生失败");
+  }
 }
 
 // 加密消息

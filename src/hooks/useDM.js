@@ -153,7 +153,7 @@ export function useDM(user, keyPair) {
     let msgData;
     let usedEncryption = false;
 
-    if (recipient?.pubkey && keyPair) {
+    if (recipient?.pubkey && keyPair?.privateKey) {
       try {
         const recipientPubKey = JSON.parse(recipient.pubkey);
         const { ciphertext, iv } = await encryptMessage(content, keyPair.privateKey, recipientPubKey);
@@ -174,18 +174,12 @@ export function useDM(user, keyPair) {
 
     const { data, error } = await supabase.from("dm_messages").insert([msgData]).select("*").single();
     if (!error && data) {
-      if (usedEncryption && !data.encrypted) {
-        await supabase.from("dm_messages").delete().eq("id", data.id);
-        const plainMsg = { sender: user.username, receiver: dmTarget, content, encrypted: false };
-        const { data: retry, error: retryErr } = await supabase.from("dm_messages").insert([plainMsg]).select("*").single();
-        if (!retryErr && retry) {
-          setDmMessages((prev) => [...prev, { ...retry, content, decrypted: false }]);
-          loadDmList();
-        }
+      if (usedEncryption) {
+        setDmMessages((prev) => [...prev, { ...data, content, decrypted: true, encrypted: true }]);
       } else {
-        setDmMessages((prev) => [...prev, { ...data, content, decrypted: true }]);
-        loadDmList();
+        setDmMessages((prev) => [...prev, { ...data, content, decrypted: false, encrypted: false }]);
       }
+      loadDmList();
     }
     setDmSending(false);
     return !error;

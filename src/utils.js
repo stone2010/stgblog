@@ -22,34 +22,107 @@ export function getHotPosts(posts) {
   });
 }
 
-// ─── 智能推荐算法（优化版）───
-export function getRecommendPosts(posts, { followingSet = new Set(), likedPosts = new Set() } = {}) {
+// ─── X (Twitter) 风格智能推荐算法 ───
+export function getRecommendPosts(posts, { followingSet = new Set(), likedPosts = new Set(), viewedPosts = new Set() } = {}) {
   const now = Date.now();
+  
+  const authorStats = {};
+  posts.forEach((post) => {
+    if (!authorStats[post.author]) {
+      authorStats[post.author] = { posts: 0, totalLikes: 0, totalComments: 0, avgEngagement: 0 };
+    }
+    authorStats[post.author].posts++;
+    authorStats[post.author].totalLikes += post.likes || 0;
+    authorStats[post.author].totalComments += post.comment_count || 0;
+  });
+  
+  Object.keys(authorStats).forEach((author) => {
+    const stats = authorStats[author];
+    stats.avgEngagement = stats.posts > 0 
+      ? (stats.totalLikes * 2 + stats.totalComments * 5) / stats.posts 
+      : 0;
+    stats.authorScore = Math.min(10, 1 + Math.log1p(stats.avgEngagement) * 0.5);
+  });
+
   const scored = posts.map((post) => {
-    const ageHours = (now - new Date(post.created_at).getTime()) / 3600000;
-    const timeFactor = Math.exp(-ageHours / 48);
+    const createdAt = new Date(post.created_at).getTime();
+    const ageHours = (now - createdAt) / 3600000;
+    
+    const timeFactor = ageHours < 1 ? 1.0 :
+                       ageHours < 6 ? 0.9 :
+                       ageHours < 24 ? 0.7 :
+                       ageHours < 48 ? 0.5 :
+                       ageHours < 72 ? 0.3 : 0.15;
+
     const likes = post.likes || 0;
     const views = post.views || 0;
     const comments = post.comment_count || 0;
-    const engagementScore = Math.log1p(likes * 3 + comments * 5 + views * 0.05);
+    const reposts = post.reposts || 0;
+    
+    const engagementScore = Math.log1p(likes * 3 + comments * 5 + reposts * 4 + views * 0.1);
+    
     const len = post.content?.length || 0;
-    const qualityBonus = len > 50 && len < 500 ? 1.3 : len >= 500 ? 1.1 : 1.0;
-    const followBonus = followingSet.has(post.author) ? 2.5 : 1.0;
-    const likedBonus = likedPosts.has(post.id) ? 0.3 : 1.0;
-    const pinBonus = post.pinned ? 500 : 0;
-    const exploreBonus = (views < 10) ? 1.5 : (views < 50) ? 1.2 : 1.0;
-    const score = (engagementScore * qualityBonus * followBonus * likedBonus * exploreBonus + pinBonus) * timeFactor;
-    return { ...post, _score: score };
+    const qualityBonus = len > 50 && len < 800 ? 1.4 : 
+                         len >= 800 ? 1.1 : 
+                         len > 0 ? 1.0 : 0.8;
+    
+    const followBonus = followingSet.has(post.author) ? 3.0 : 1.0;
+    
+    const authorScore = authorStats[post.author]?.authorScore || 1.0;
+    
+    const recencyBoost = ageHours < 0.5 ? 2.0 : 
+                         ageHours < 2 ? 1.5 : 1.0;
+    
+    const hasMedia = post.image_url || post.video_url ? 1.2 : 1.0;
+    
+    const pinBonus = post.pinned ? 1000 : 0;
+    
+    const topicDiversityBonus = 1.0;
+    
+    const score = (
+      engagementScore * 
+      qualityBonus * 
+      followBonus * 
+      authorScore * 
+      recencyBoost * 
+      hasMedia * 
+      topicDiversityBonus + 
+      pinBonus
+    ) * timeFactor;
+
+    return { ...post, _score: score, _age: ageHours, _isFollowed: followingSet.has(post.author) };
   });
+
   scored.sort((a, b) => b._score - a._score);
+
   const result = [];
   const authorLastIdx = {};
+  const categoryLastIdx = {};
+  const followedCount = { included: 0, total: scored.filter(p => p._isFollowed).length };
+
   for (const post of scored) {
-    const lastIdx = authorLastIdx[post.author] ?? -1;
-    if (lastIdx >= 0 && result.length - lastIdx < 3 && result.length > 5) continue;
+    const lastAuthorIdx = authorLastIdx[post.author] ?? -1;
+    if (lastAuthorIdx >= 0 && result.length - lastAuthorIdx < 4 && result.length > 6) continue;
+
+    const category = post.category || "uncategorized";
+    const lastCatIdx = categoryLastIdx[category] ?? -1;
+    if (lastCatIdx >= 0 && result.length - lastCatIdx < 3 && result.length > 4) continue;
+
+    if (post._isFollowed && followedCount.included >= 3 && followedCount.total > 3) {
+      const unfollowedRatio = result.filter(p => !p._isFollowed).length / Math.max(result.length, 1);
+      if (unfollowedRatio < 0.3) continue;
+    }
+
+    if (post._age > 72 && result.length > 20) continue;
+
     result.push(post);
     authorLastIdx[post.author] = result.length - 1;
+    categoryLastIdx[category] = result.length - 1;
+    if (post._isFollowed) followedCount.included++;
+
+    if (result.length >= 100) break;
   }
+
   return result;
 }
 
@@ -81,6 +154,9 @@ export function saveViewed(postId) {
     const entries = Object.entries(v).sort((a, b) => b[1] - a[1]).slice(0, 100);
     localStorage.setItem("viewedPosts", JSON.stringify(Object.fromEntries(entries)));
   } catch {}
+}
+export function getViewedSet() {
+  try { return new Set(Object.keys(JSON.parse(localStorage.getItem("viewedPosts")) || {})); } catch { return new Set(); }
 }
 
 // ─── 书签 ───

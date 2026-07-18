@@ -201,7 +201,6 @@ export function useGroupChat(user, keyPair) {
         .not("encrypted_key", "is", null);
 
       if (membersWithKey && membersWithKey.length > 0) {
-        // Try each member until one works
         for (const m of membersWithKey) {
           try {
             const { data: memberUser } = await supabase.from("users")
@@ -212,20 +211,27 @@ export function useGroupChat(user, keyPair) {
 
             const memberPubKey = JSON.parse(memberUser.pubkey);
             const parsed = JSON.parse(m.encrypted_key);
-            // The encrypted_key was created by the creator FOR this member
-            // We need the creator's private key to decrypt, which we don't have
-            // So we need a different approach: use the creator's key pair
-            // Actually, the key was encrypted with the member's own public key
-            // So only that member can decrypt it with their private key
-            // We can't decrypt someone else's key
+            
+            const groupKey = await decryptGroupKeyFromMember(parsed.ciphertext, parsed.iv, memberPubKey, keyPair.privateKey);
+            
+            const { ciphertext, iv } = await encryptGroupKeyForMember(groupKey, keyPair.publicKey, keyPair.privateKey);
+            
+            await supabase.from("group_members")
+              .update({ encrypted_key: JSON.stringify({ ciphertext, iv, from_pubkey: JSON.stringify(keyPair.publicKey) }) })
+              .eq("group_id", chat.id)
+              .eq("username", user.username);
+            
+            setGroupKeyCache((prev) => ({ ...prev, [chat.id]: groupKey }));
             break;
-          } catch {}
+          } catch (e) {
+            console.warn("Failed to get group key from member", m.username, e);
+            continue;
+          }
         }
       }
-    } catch {}
-
-    // Key sharing will happen when an existing member opens the group
-    // and sees a member with no key. For now, just add to group.
+    } catch (e) {
+      console.warn("Key sharing on join failed:", e);
+    }
     await loadGroups();
     return { ok: true, group: chat, needsKeyShare: true };
   }, [user, keyPair, loadGroups]);

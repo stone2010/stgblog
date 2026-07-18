@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback, useRef, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
-import { getHotPosts, getRecommendPosts, getLikedSet, getBlockedSet, getMutedSet } from "../utils";
+import { getHotPosts, getRecommendPosts, getLikedSet, getBlockedSet, getMutedSet, getViewedSet } from "../utils";
 import PostCard from "./PostCard";
 import ComposeBar from "./ComposeBar";
 
@@ -29,7 +29,7 @@ export default function HomeFeed({
       return [...f].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     }
     if (tab === "热门") return getHotPosts(f);
-    if (tab === "推荐") return getRecommendPosts(f, { followingSet, likedPosts: getLikedSet() });
+    if (tab === "推荐") return getRecommendPosts(f, { followingSet, likedPosts: getLikedSet(), viewedPosts: getViewedSet() });
     if (tab === "书签") {
       const bm = new Set(JSON.parse(localStorage.getItem("bookmarkedPosts") || "[]"));
       return f.filter((p) => bm.has(p.id));
