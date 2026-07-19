@@ -152,36 +152,38 @@ function AppInner() {
 
   // ─── View counting (debounced, only for first page of posts) ───
   const viewCountTimerRef = useRef(null);
+  const countViewsForPosts = useCallback((postList) => {
+    if (!postList || postList.length === 0) return;
+    const batch = [];
+    postList.slice(0, 8).forEach((post) => {
+      if (countedViewRef.current.has(post.id)) return;
+      if (hasViewed(post.id)) { countedViewRef.current.add(post.id); return; }
+      countedViewRef.current.add(post.id);
+      saveViewed(post.id);
+      batch.push({ id: post.id, views: (post.views || 0) + 1 });
+    });
+    if (batch.length === 0) return;
+    setPosts((prev) => {
+      const updated = [...prev];
+      batch.forEach(({ id, views }) => {
+        const idx = updated.findIndex((p) => p.id === id);
+        if (idx >= 0) updated[idx] = { ...updated[idx], views };
+      });
+      return updated;
+    });
+    batch.forEach(({ id }) => {
+      try { supabase.rpc("increment_views", { p_post_id: id }); } catch {}
+    });
+  }, []);
+
   useEffect(() => {
     if (!posts.length) return;
-    // Debounce: only count views after posts stop changing for 2s
     clearTimeout(viewCountTimerRef.current);
     viewCountTimerRef.current = setTimeout(() => {
-      const batch = [];
-      posts.slice(0, 8).forEach((post) => {
-        if (countedViewRef.current.has(post.id)) return;
-        if (hasViewed(post.id)) { countedViewRef.current.add(post.id); return; }
-        countedViewRef.current.add(post.id);
-        saveViewed(post.id);
-        batch.push({ id: post.id, views: (post.views || 0) + 1 });
-      });
-      if (batch.length === 0) return;
-      // Update local state once
-      setPosts((prev) => {
-        const updated = [...prev];
-        batch.forEach(({ id, views }) => {
-          const idx = updated.findIndex((p) => p.id === id);
-          if (idx >= 0) updated[idx] = { ...updated[idx], views };
-        });
-        return updated;
-      });
-      // Batch update Supabase (fire and forget)
-      batch.forEach(({ id, views }) => {
-        try { supabase.rpc("increment_views", { p_post_id: id }); } catch {}
-      });
+      countViewsForPosts(posts);
     }, 2000);
     return () => clearTimeout(viewCountTimerRef.current);
-  }, [posts]);
+  }, [posts, countViewsForPosts]);
 
   const navigate = useCallback((p) => {
     setPage(p);
