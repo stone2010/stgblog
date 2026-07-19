@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, useLayoutEffect } from "react";
 import { Icons } from "./Icons";
 import { useAuth } from "../context/AuthContext";
 import { formatTime } from "../utils";
@@ -23,21 +23,41 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
   const [remotePubKey, setRemotePubKey] = useState(null);
   const messagesContainerRef = useRef(null);
   const inputBarRef = useRef(null);
+  const messagesEndRef = useRef(null);
 
   const scrollToBottom = useCallback(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
-    requestAnimationFrame(() => {
-      container.scrollTop = container.scrollHeight;
-    });
+    container.scrollTop = container.scrollHeight;
   }, []);
 
   useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+  }, [dmMessages]);
+
+  useEffect(() => {
     if (!dmTarget || !dmMessages || dmMessages.length === 0) return;
-    const timer = setTimeout(() => {
-      scrollToBottom();
-    }, 100);
-    return () => clearTimeout(timer);
+    let retries = 0;
+    const maxRetries = 10;
+    const tryScroll = () => {
+      const container = messagesContainerRef.current;
+      if (!container) {
+        if (retries < maxRetries) {
+          retries++;
+          setTimeout(tryScroll, 50);
+        }
+        return;
+      }
+      if (container.scrollHeight === 0) {
+        if (retries < maxRetries) {
+          retries++;
+          setTimeout(tryScroll, 50);
+        }
+        return;
+      }
+      container.scrollTop = container.scrollHeight;
+    };
+    tryScroll();
   }, [dmTarget, dmMessages]);
 
   useEffect(() => {
@@ -191,6 +211,7 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
             </div>
           );
         })}
+        <div ref={messagesEndRef} />
       </div>
       <div className="dm-chat-input" ref={inputBarRef}>
         <textarea className="dm-input" value={input} onChange={(e) => setInput(e.target.value)}
