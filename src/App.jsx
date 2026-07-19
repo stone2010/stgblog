@@ -193,7 +193,23 @@ function AppInner() {
     if (p === "groups" && user) loadGroups();
     closeGroup();
     setMobileTab(p === "home" ? "home" : p === "dm" ? "dm" : p === "groups" ? "groups" : p === "profile" ? "me" : p === "notifications" ? "notif" : "home");
+    window.history.pushState({ page: p }, "", `#${p}`);
   }, [user, loadDmList, setDmTarget, loadGroups, closeGroup]);
+
+  useEffect(() => {
+    const handlePopState = (e) => {
+      if (e.state?.page) {
+        setPage(e.state.page);
+        setSelectedPost(null);
+        setDmTarget(null);
+        setViewingProfile(null);
+        setFollowersPage(null);
+        closeGroup();
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [closeGroup]);
 
   // Deep link (run once when posts load)
   const deepLinkDone = useRef(false);
@@ -499,7 +515,7 @@ function AppInner() {
         onLoadMore={loadMoreDmMessages} />
     );
     if (page === "notifications") return <NotificationPage notifications={notifications} onNotifClick={handleNotifClick} onBack={() => navigate("home")} />;
-    if (page === "search") return <SearchPage searchKey={searchKey} setSearchKey={setSearchKey} posts={posts} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} />;
+    if (page === "search") return <SearchPage searchKey={searchKey} setSearchKey={setSearchKey} posts={posts} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onBack={() => navigate("home")} />;
     if (page === "dm") return <DmListPage dmList={dmList} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} onNewDm={() => setNewDmOpen(true)} onTogglePin={togglePin} onDeleteConversation={deleteConversation} />;
     if (page === "groups") return <GroupListPage groups={groups} onOpenGroup={(g) => { openGroup(g); setPage("group-chat"); }} onCreateGroup={() => setCreateGroupOpen(true)} onJoinGroup={() => setJoinGroupOpen(true)} />;
     if (page === "group-chat" && activeGroup) return (

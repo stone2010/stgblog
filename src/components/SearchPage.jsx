@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import { Icons } from "./Icons";
 import PostCard from "./PostCard";
 
-export default function SearchPage({ searchKey, setSearchKey, posts, onSelectPost, onLike, onShare, onRepost, onBookmark }) {
+export default function SearchPage({ searchKey, setSearchKey, posts, onSelectPost, onLike, onShare, onRepost, onBookmark, onBack }) {
   const results = useMemo(() => {
     if (!searchKey.trim()) return [];
     const kw = searchKey.trim().toLowerCase();
@@ -32,6 +32,7 @@ export default function SearchPage({ searchKey, setSearchKey, posts, onSelectPos
   return (
     <>
       <div className="search-bar">
+        {onBack && <button className="detail-back" onClick={onBack}><Icons.Back /></button>}
         <span className="search-icon"><Icons.Search /></span>
         <input type="text" placeholder="搜索帖子、用户或 #话题..." value={searchKey} onChange={(e) => setSearchKey(e.target.value)} autoFocus />
       </div>
