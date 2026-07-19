@@ -29,6 +29,8 @@ export function useDM(user, keyPair) {
   const [dmLoadingMore, setDmLoadingMore] = useState(false);
   const dmListRef = useRef(dmList);
   dmListRef.current = dmList;
+  const dmMessagesRef = useRef(dmMessages);
+  dmMessagesRef.current = dmMessages;
 
   // Load from cache instantly, then refresh from DB
   const loadDmList = useCallback(async () => {
@@ -163,7 +165,8 @@ export function useDM(user, keyPair) {
     if (!user || !dmTarget || dmLoadingMore || !dmHasMore) return;
     setDmLoadingMore(true);
 
-    const oldestMsg = dmMessages[0];
+    const currentMessages = dmMessagesRef.current;
+    const oldestMsg = currentMessages[0];
     const { data, error } = await supabase.from("dm_messages").select("*")
       .or(`and(sender.eq.${user.username},receiver.eq.${dmTarget}),and(sender.eq.${dmTarget},receiver.eq.${user.username})`)
       .order("created_at", { ascending: false })
@@ -182,7 +185,7 @@ export function useDM(user, keyPair) {
     const reversed = [...data].reverse();
     const decrypted = await decryptMessages(reversed, dmTarget);
     setDmMessages((prev) => [...decrypted, ...prev]);
-  }, [user, dmTarget, dmMessages, dmLoadingMore, dmHasMore, decryptMessages]);
+  }, [user, dmTarget, dmLoadingMore, dmHasMore, decryptMessages]);
 
   const sendDm = useCallback(async (content) => {
     if (!user || !dmTarget || !content.trim()) return false;

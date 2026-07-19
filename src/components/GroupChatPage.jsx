@@ -16,17 +16,41 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
   const [keySharing, setKeySharing] = useState({});
   const messagesContainerRef = useRef(null);
   const inputBarRef = useRef(null);
+  const messagesRef = useRef([]);
+  const shouldScrollRef = useRef(true);
 
-  useEffect(() => {
+  messagesRef.current = Array.isArray(messages) ? messages : [];
+
+  const scrollToBottom = useCallback((smooth = false) => {
     const container = messagesContainerRef.current;
-    if (container && messages && messages.length > 0) {
+    if (!container) return;
+    if (smooth) {
+      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+    } else {
       requestAnimationFrame(() => {
         container.scrollTop = container.scrollHeight;
       });
     }
-  }, [messages, group]);
+  }, []);
 
-  // Mobile keyboard handling — flex layout approach
+  useEffect(() => {
+    if (!group) return;
+    shouldScrollRef.current = true;
+    const timer = setTimeout(() => {
+      scrollToBottom();
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [group]);
+
+  useEffect(() => {
+    if (!messages || messages.length === 0) return;
+    if (shouldScrollRef.current) {
+      requestAnimationFrame(() => {
+        scrollToBottom();
+      });
+    }
+  }, [messages]);
+
   useEffect(() => {
     const updateLayout = () => {
       const vv = window.visualViewport;
@@ -34,16 +58,20 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
       const h = Math.round(vv.height);
       document.documentElement.style.setProperty('--app-height', `${h}px`);
       setTimeout(() => {
-        const container = messagesContainerRef.current;
-        if (container) container.scrollTop = container.scrollHeight;
+        if (shouldScrollRef.current) {
+          const container = messagesContainerRef.current;
+          if (container) container.scrollTop = container.scrollHeight;
+        }
       }, 150);
     };
 
     const onFocus = () => {
       setTimeout(updateLayout, 300);
       setTimeout(() => {
-        const container = messagesContainerRef.current;
-        if (container) container.scrollTop = container.scrollHeight;
+        if (shouldScrollRef.current) {
+          const container = messagesContainerRef.current;
+          if (container) container.scrollTop = container.scrollHeight;
+        }
       }, 500);
     };
 
@@ -56,6 +84,7 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
     const onScroll = () => {
       const container = messagesContainerRef.current;
       if (!container) return;
+      shouldScrollRef.current = container.scrollTop >= container.scrollHeight - container.clientHeight - 100;
       if (container.scrollTop <= 50 && onLoadMore) {
         onLoadMore();
       }
@@ -105,8 +134,12 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
   const handleSend = useCallback(async () => {
     if (!input.trim()) return;
     const ok = await onSend(group.id, input);
-    if (ok) setInput("");
-  }, [input, group, onSend]);
+    if (ok) {
+      setInput("");
+      shouldScrollRef.current = true;
+      setTimeout(() => scrollToBottom(), 100);
+    }
+  }, [input, group, onSend, scrollToBottom]);
 
   const handleKick = useCallback((username) => {
     if (window.confirm(`确定将 ${username} 移出群组？`)) {
@@ -134,7 +167,6 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
     if (result?.error) {
       alert("密钥分享失败: " + result.error);
     }
-    // Refresh members to update key status
     onGetMembers(group.id);
   }, [group, onShareKey, onGetMembers]);
 

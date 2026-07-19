@@ -71,6 +71,8 @@ export function useGroupChat(user, keyPair) {
   const [groupLoadingMore, setGroupLoadingMore] = useState(false);
   const groupKeyCacheRef = useRef(groupKeyCache);
   groupKeyCacheRef.current = groupKeyCache;
+  const groupMessagesRef = useRef(groupMessages);
+  groupMessagesRef.current = groupMessages;
 
   const loadGroups = useCallback(async () => {
     if (!user) return;
@@ -342,7 +344,8 @@ export function useGroupChat(user, keyPair) {
     if (!user || !activeGroup || groupLoadingMore || !groupHasMore) return;
     setGroupLoadingMore(true);
 
-    const oldestMsg = groupMessages[0];
+    const currentMessages = groupMessagesRef.current;
+    const oldestMsg = currentMessages[0];
     const { data } = await supabase.from("group_messages")
       .select("*")
       .eq("group_id", activeGroup.id)
@@ -362,7 +365,7 @@ export function useGroupChat(user, keyPair) {
     const reversed = [...data].reverse();
     const decrypted = await decryptGroupMessages(reversed, activeGroup.id);
     setGroupMessages((prev) => [...decrypted, ...prev]);
-  }, [user, activeGroup, groupMessages, groupLoadingMore, groupHasMore, decryptGroupMessages]);
+  }, [user, activeGroup, groupLoadingMore, groupHasMore, decryptGroupMessages]);
 
   const sendGroupMessage = useCallback(async (groupId, content) => {
     if (!user || !groupId || !content.trim()) return false;

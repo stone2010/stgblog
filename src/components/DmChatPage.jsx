@@ -4,7 +4,6 @@ import { useAuth } from "../context/AuthContext";
 import { formatTime } from "../utils";
 import { supabase } from "../supabase";
 
-// Telegram-style checkmark SVGs
 const CheckSingle = () => (
   <svg viewBox="0 0 16 11" width="16" height="11" fill="none" style={{ display: "inline-block", verticalAlign: "middle" }}>
     <path d="M1 5.5L5.5 10L14.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -25,24 +24,41 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
   const messagesContainerRef = useRef(null);
   const chatRef = useRef(null);
   const inputBarRef = useRef(null);
+  const messagesRef = useRef([]);
+  const shouldScrollRef = useRef(true);
 
-  const scrollToBottom = useCallback(() => {
-    const container = messagesContainerRef.current;
-    if (container) {
-      container.scrollTop = container.scrollHeight;
-    }
-  }, []);
+  messagesRef.current = Array.isArray(dmMessages) ? dmMessages : [];
 
-  useEffect(() => {
+  const scrollToBottom = useCallback((smooth = false) => {
     const container = messagesContainerRef.current;
-    if (container && dmMessages && dmMessages.length > 0) {
+    if (!container) return;
+    if (smooth) {
+      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+    } else {
       requestAnimationFrame(() => {
         container.scrollTop = container.scrollHeight;
       });
     }
-  }, [dmMessages, dmTarget]);
+  }, []);
 
-  // Mobile keyboard handling — flex layout approach
+  useEffect(() => {
+    if (!dmTarget) return;
+    shouldScrollRef.current = true;
+    const timer = setTimeout(() => {
+      scrollToBottom();
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [dmTarget]);
+
+  useEffect(() => {
+    if (!dmMessages || dmMessages.length === 0) return;
+    if (shouldScrollRef.current) {
+      requestAnimationFrame(() => {
+        scrollToBottom();
+      });
+    }
+  }, [dmMessages]);
+
   useEffect(() => {
     const updateLayout = () => {
       const vv = window.visualViewport;
@@ -50,16 +66,20 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
       const h = Math.round(vv.height);
       document.documentElement.style.setProperty('--app-height', `${h}px`);
       setTimeout(() => {
-        const container = messagesContainerRef.current;
-        if (container) container.scrollTop = container.scrollHeight;
+        if (shouldScrollRef.current) {
+          const container = messagesContainerRef.current;
+          if (container) container.scrollTop = container.scrollHeight;
+        }
       }, 150);
     };
 
     const onFocus = () => {
       setTimeout(updateLayout, 300);
       setTimeout(() => {
-        const container = messagesContainerRef.current;
-        if (container) container.scrollTop = container.scrollHeight;
+        if (shouldScrollRef.current) {
+          const container = messagesContainerRef.current;
+          if (container) container.scrollTop = container.scrollHeight;
+        }
       }, 500);
     };
 
@@ -72,6 +92,7 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
     const onScroll = () => {
       const container = messagesContainerRef.current;
       if (!container) return;
+      shouldScrollRef.current = container.scrollTop >= container.scrollHeight - container.clientHeight - 100;
       if (container.scrollTop <= 50 && onLoadMore) {
         onLoadMore();
       }
@@ -114,12 +135,10 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
     };
   }, [onLoadMore]);
 
-  // Mark as read when opening chat
   useEffect(() => {
     try { if (dmTarget && onMarkAsRead) onMarkAsRead(dmTarget); } catch {}
   }, [dmTarget, onMarkAsRead]);
 
-  // Fetch remote public key for verification
   useEffect(() => {
     if (!dmTarget) { setRemotePubKey(null); return; }
     (async () => {
@@ -137,11 +156,15 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
     if (!input.trim()) return;
     try {
       const ok = await onSend(input);
-      if (ok) setInput("");
+      if (ok) {
+        setInput("");
+        shouldScrollRef.current = true;
+        setTimeout(() => scrollToBottom(), 100);
+      }
     } catch (e) {
       console.error("Send failed:", e);
     }
-  }, [input, onSend]);
+  }, [input, onSend, scrollToBottom]);
 
   const messages = Array.isArray(dmMessages) ? dmMessages : [];
 
