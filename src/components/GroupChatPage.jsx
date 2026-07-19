@@ -18,6 +18,7 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
   const inputBarRef = useRef(null);
   const messagesRef = useRef([]);
   const shouldScrollRef = useRef(true);
+  const targetChangedRef = useRef(false);
 
   messagesRef.current = Array.isArray(messages) ? messages : [];
 
@@ -36,6 +37,7 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
   useEffect(() => {
     if (!group) return;
     shouldScrollRef.current = true;
+    targetChangedRef.current = true;
     const timer = setTimeout(() => {
       scrollToBottom();
     }, 50);
@@ -44,9 +46,10 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
 
   useEffect(() => {
     if (!messages || messages.length === 0) return;
-    if (shouldScrollRef.current) {
+    if (shouldScrollRef.current || targetChangedRef.current) {
       requestAnimationFrame(() => {
         scrollToBottom();
+        targetChangedRef.current = false;
       });
     }
   }, [messages]);

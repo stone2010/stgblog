@@ -26,6 +26,7 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
   const inputBarRef = useRef(null);
   const messagesRef = useRef([]);
   const shouldScrollRef = useRef(true);
+  const targetChangedRef = useRef(false);
 
   messagesRef.current = Array.isArray(dmMessages) ? dmMessages : [];
 
@@ -44,6 +45,7 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
   useEffect(() => {
     if (!dmTarget) return;
     shouldScrollRef.current = true;
+    targetChangedRef.current = true;
     const timer = setTimeout(() => {
       scrollToBottom();
     }, 50);
@@ -52,9 +54,10 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
 
   useEffect(() => {
     if (!dmMessages || dmMessages.length === 0) return;
-    if (shouldScrollRef.current) {
+    if (shouldScrollRef.current || targetChangedRef.current) {
       requestAnimationFrame(() => {
         scrollToBottom();
+        targetChangedRef.current = false;
       });
     }
   }, [dmMessages]);
