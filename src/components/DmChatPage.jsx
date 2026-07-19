@@ -22,45 +22,23 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
   const [showVerify, setShowVerify] = useState(false);
   const [remotePubKey, setRemotePubKey] = useState(null);
   const messagesContainerRef = useRef(null);
-  const chatRef = useRef(null);
   const inputBarRef = useRef(null);
-  const messagesRef = useRef([]);
-  const shouldScrollRef = useRef(true);
-  const targetChangedRef = useRef(false);
 
-  messagesRef.current = Array.isArray(dmMessages) ? dmMessages : [];
-
-  const scrollToBottom = useCallback((smooth = false) => {
+  const scrollToBottom = useCallback(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
-    if (smooth) {
-      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
-    } else {
-      requestAnimationFrame(() => {
-        container.scrollTop = container.scrollHeight;
-      });
-    }
+    requestAnimationFrame(() => {
+      container.scrollTop = container.scrollHeight;
+    });
   }, []);
 
   useEffect(() => {
-    if (!dmTarget) return;
-    shouldScrollRef.current = true;
-    targetChangedRef.current = true;
+    if (!dmTarget || !dmMessages || dmMessages.length === 0) return;
     const timer = setTimeout(() => {
       scrollToBottom();
-    }, 50);
+    }, 100);
     return () => clearTimeout(timer);
-  }, [dmTarget]);
-
-  useEffect(() => {
-    if (!dmMessages || dmMessages.length === 0) return;
-    if (shouldScrollRef.current || targetChangedRef.current) {
-      requestAnimationFrame(() => {
-        scrollToBottom();
-        targetChangedRef.current = false;
-      });
-    }
-  }, [dmMessages]);
+  }, [dmTarget, dmMessages]);
 
   useEffect(() => {
     const updateLayout = () => {
@@ -68,22 +46,12 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
       if (!vv) return;
       const h = Math.round(vv.height);
       document.documentElement.style.setProperty('--app-height', `${h}px`);
-      setTimeout(() => {
-        if (shouldScrollRef.current) {
-          const container = messagesContainerRef.current;
-          if (container) container.scrollTop = container.scrollHeight;
-        }
-      }, 150);
+      setTimeout(() => scrollToBottom(), 150);
     };
 
     const onFocus = () => {
       setTimeout(updateLayout, 300);
-      setTimeout(() => {
-        if (shouldScrollRef.current) {
-          const container = messagesContainerRef.current;
-          if (container) container.scrollTop = container.scrollHeight;
-        }
-      }, 500);
+      setTimeout(() => scrollToBottom(), 500);
     };
 
     const onBlur = () => {
@@ -95,7 +63,6 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
     const onScroll = () => {
       const container = messagesContainerRef.current;
       if (!container) return;
-      shouldScrollRef.current = container.scrollTop >= container.scrollHeight - container.clientHeight - 100;
       if (container.scrollTop <= 50 && onLoadMore) {
         onLoadMore();
       }
@@ -136,7 +103,7 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
       }
       document.documentElement.style.removeProperty('--app-height');
     };
-  }, [onLoadMore]);
+  }, [onLoadMore, scrollToBottom]);
 
   useEffect(() => {
     try { if (dmTarget && onMarkAsRead) onMarkAsRead(dmTarget); } catch {}
@@ -161,7 +128,6 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
       const ok = await onSend(input);
       if (ok) {
         setInput("");
-        shouldScrollRef.current = true;
         setTimeout(() => scrollToBottom(), 100);
       }
     } catch (e) {
@@ -172,7 +138,7 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
   const messages = Array.isArray(dmMessages) ? dmMessages : [];
 
   return (
-    <div className="dm-chat" ref={chatRef}>
+    <div className="dm-chat">
       <div className="dm-chat-top">
         <button className="dm-chat-back" onClick={onBack}><Icons.Back /></button>
         <div className="dm-avatar" style={{ width: 32, height: 32, fontSize: 13, cursor: "pointer" }} onClick={() => onUserClick?.(dmTarget)}>{dmTarget?.[0] || '?'}</div>

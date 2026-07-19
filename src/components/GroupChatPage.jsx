@@ -16,43 +16,22 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
   const [keySharing, setKeySharing] = useState({});
   const messagesContainerRef = useRef(null);
   const inputBarRef = useRef(null);
-  const messagesRef = useRef([]);
-  const shouldScrollRef = useRef(true);
-  const targetChangedRef = useRef(false);
 
-  messagesRef.current = Array.isArray(messages) ? messages : [];
-
-  const scrollToBottom = useCallback((smooth = false) => {
+  const scrollToBottom = useCallback(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
-    if (smooth) {
-      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
-    } else {
-      requestAnimationFrame(() => {
-        container.scrollTop = container.scrollHeight;
-      });
-    }
+    requestAnimationFrame(() => {
+      container.scrollTop = container.scrollHeight;
+    });
   }, []);
 
   useEffect(() => {
-    if (!group) return;
-    shouldScrollRef.current = true;
-    targetChangedRef.current = true;
+    if (!group || !messages || messages.length === 0) return;
     const timer = setTimeout(() => {
       scrollToBottom();
-    }, 50);
+    }, 100);
     return () => clearTimeout(timer);
-  }, [group]);
-
-  useEffect(() => {
-    if (!messages || messages.length === 0) return;
-    if (shouldScrollRef.current || targetChangedRef.current) {
-      requestAnimationFrame(() => {
-        scrollToBottom();
-        targetChangedRef.current = false;
-      });
-    }
-  }, [messages]);
+  }, [group, messages]);
 
   useEffect(() => {
     const updateLayout = () => {
@@ -60,22 +39,12 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
       if (!vv) return;
       const h = Math.round(vv.height);
       document.documentElement.style.setProperty('--app-height', `${h}px`);
-      setTimeout(() => {
-        if (shouldScrollRef.current) {
-          const container = messagesContainerRef.current;
-          if (container) container.scrollTop = container.scrollHeight;
-        }
-      }, 150);
+      setTimeout(() => scrollToBottom(), 150);
     };
 
     const onFocus = () => {
       setTimeout(updateLayout, 300);
-      setTimeout(() => {
-        if (shouldScrollRef.current) {
-          const container = messagesContainerRef.current;
-          if (container) container.scrollTop = container.scrollHeight;
-        }
-      }, 500);
+      setTimeout(() => scrollToBottom(), 500);
     };
 
     const onBlur = () => {
@@ -87,7 +56,6 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
     const onScroll = () => {
       const container = messagesContainerRef.current;
       if (!container) return;
-      shouldScrollRef.current = container.scrollTop >= container.scrollHeight - container.clientHeight - 100;
       if (container.scrollTop <= 50 && onLoadMore) {
         onLoadMore();
       }
@@ -128,7 +96,7 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
       }
       document.documentElement.style.removeProperty('--app-height');
     };
-  }, [onLoadMore]);
+  }, [onLoadMore, scrollToBottom]);
 
   const isCreator = group?.creator === user?.username;
   const isAdmin = members?.find((m) => m.username === user?.username)?.role === "admin";
@@ -139,7 +107,6 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
     const ok = await onSend(group.id, input);
     if (ok) {
       setInput("");
-      shouldScrollRef.current = true;
       setTimeout(() => scrollToBottom(), 100);
     }
   }, [input, group, onSend, scrollToBottom]);
@@ -176,7 +143,7 @@ export default function GroupChatPage({ group, messages, members, sending, onSen
   const safeMessages = Array.isArray(messages) ? messages : [];
 
   return (
-    <div className="dm-chat" ref={null}>
+    <div className="dm-chat">
       <div className="dm-chat-top">
         <button className="dm-chat-back" onClick={onBack}><Icons.Back /></button>
         <div className="dm-avatar" style={{ width: 32, height: 32, fontSize: 13, background: "linear-gradient(135deg, #6366f1, #a855f7)", cursor: "pointer" }}
