@@ -1,6 +1,3 @@
-// 混合 AI 引擎 - 情感分类 + 模板回复 + 记忆系统 + 知识问答 + 话题理解 + 心情机制
-// 极致轻量，所有手机都能跑，具备初中毕业生智力水平，有自己的情感
-
 import { EmotionClassifier, EMOTION_LABELS } from './emotion';
 import { ResponseGenerator } from './responses';
 import { MemorySystem } from './memory';
@@ -8,6 +5,7 @@ import { KnowledgeBase } from './knowledge';
 import { TopicAnalyzer } from './topics';
 import { MoodSystem, MOOD_LABELS, MOOD_EMOJIS } from './mood';
 import { MoodResponseGenerator } from './moodResponses';
+import { CorpusMatcher } from './corpus';
 
 class CompanionAI {
   constructor() {
@@ -18,6 +16,7 @@ class CompanionAI {
     this.analyzer = new TopicAnalyzer();
     this.moodSystem = new MoodSystem();
     this.moodGenerator = new MoodResponseGenerator();
+    this.corpusMatcher = new CorpusMatcher();
     this.initialized = true;
   }
 
@@ -89,8 +88,6 @@ class CompanionAI {
     const mood = this.moodSystem.getMood();
     const emoji = this.moodSystem.getEmoji();
     const label = this.moodSystem.getLabel();
-    const intensity = this.moodSystem.getIntensity();
-    const trend = this.moodSystem.getTrend();
 
     const responses = {
       happy: [
@@ -136,16 +133,7 @@ class CompanionAI {
     };
 
     const responseList = responses[mood] || responses.calm;
-    let response = responseList[Math.floor(Math.random() * responseList.length)];
-
-    // 根据趋势添加补充
-    if (trend === 'up') {
-      response += ' 心情在变好呢！';
-    } else if (trend === 'down') {
-      response += ' 心情有点低落...';
-    }
-
-    return response;
+    return responseList[Math.floor(Math.random() * responseList.length)];
   }
 
   handleFirstChat() {
@@ -189,17 +177,14 @@ class CompanionAI {
         emotion: 'calm',
         intensity: 0.3,
         aiMood: this.moodSystem.getMood(),
-        aiMoodEmoji: this.moodSystem.getEmoji(),
       };
     }
 
     const text = userText.trim();
     const memory = this.memory.getContext();
 
-    // 更新心情系统（时间衰减）
     this.moodSystem.update();
 
-    // 检查特殊场景
     if (this.memory.isFirstChat()) {
       this.memory.update(text);
       return {
@@ -207,7 +192,6 @@ class CompanionAI {
         emotion: 'happy',
         intensity: 0.7,
         aiMood: this.moodSystem.getMood(),
-        aiMoodEmoji: this.moodSystem.getEmoji(),
       };
     }
 
@@ -219,7 +203,6 @@ class CompanionAI {
         emotion: 'miss',
         intensity: 0.7,
         aiMood: this.moodSystem.getMood(),
-        aiMoodEmoji: this.moodSystem.getEmoji(),
       };
     }
 
@@ -230,7 +213,6 @@ class CompanionAI {
         emotion: 'calm',
         intensity: 0.5,
         aiMood: this.moodSystem.getMood(),
-        aiMoodEmoji: this.moodSystem.getEmoji(),
       };
     }
 
@@ -241,11 +223,9 @@ class CompanionAI {
         emotion: 'calm',
         intensity: 0.6,
         aiMood: this.moodSystem.getMood(),
-        aiMoodEmoji: this.moodSystem.getEmoji(),
       };
     }
 
-    // 新增：询问AI心情
     if (this.isAskingMood(text)) {
       this.memory.update(text);
       return {
@@ -253,21 +233,18 @@ class CompanionAI {
         emotion: 'calm',
         intensity: 0.5,
         aiMood: this.moodSystem.getMood(),
-        aiMoodEmoji: this.moodSystem.getEmoji(),
         type: 'mood_query',
       };
     }
 
     if (this.isGreeting(text)) {
       this.memory.update(text, 'happy');
-      // 用户问候会影响AI心情
       this.moodSystem.reactToUserEmotion('happy', 0.5);
       return {
         text: this.generator.getGreeting(memory),
         emotion: 'happy',
         intensity: 0.7,
         aiMood: this.moodSystem.getMood(),
-        aiMoodEmoji: this.moodSystem.getEmoji(),
       };
     }
 
@@ -278,21 +255,46 @@ class CompanionAI {
         emotion: 'calm',
         intensity: 0.3,
         aiMood: this.moodSystem.getMood(),
-        aiMoodEmoji: this.moodSystem.getEmoji(),
       };
     }
 
-    // 情感分类
+    const corpusMatch = this.corpusMatcher.findBestMatch(text);
+    if (corpusMatch && corpusMatch.confidence >= 0.6) {
+      this.memory.update(text);
+      if (corpusMatch.emotion) {
+        this.moodSystem.reactToUserEmotion(corpusMatch.emotion, 0.6);
+      }
+      return {
+        text: corpusMatch.response,
+        emotion: corpusMatch.emotion || 'calm',
+        intensity: 0.7,
+        type: 'corpus',
+        aiMood: this.moodSystem.getMood(),
+      };
+    }
+
+    const intent = this.corpusMatcher.detectIntent(text);
+    if (intent) {
+      const intentResponse = this.corpusMatcher.getIntentResponse(intent);
+      if (intentResponse) {
+        this.memory.update(text);
+        return {
+          text: intentResponse,
+          emotion: 'calm',
+          intensity: 0.5,
+          type: 'intent',
+          aiMood: this.moodSystem.getMood(),
+        };
+      }
+    }
+
     const emotionResult = this.classifier.classify(text);
 
-    // 更新心情系统（受用户情绪影响）
     this.moodSystem.reactToUserEmotion(emotionResult.emotion, emotionResult.intensity);
     this.moodSystem.reactToUserMessage(text);
 
-    // 更新记忆
     this.memory.update(text, emotionResult.emotion);
 
-    // 知识问答优先
     const knowledgeResult = this.knowledge.search(text);
     if (knowledgeResult) {
       const intro = this.analyzer.getKnowledgeIntro();
@@ -303,11 +305,9 @@ class CompanionAI {
         type: 'knowledge',
         category: knowledgeResult.category,
         aiMood: this.moodSystem.getMood(),
-        aiMoodEmoji: this.moodSystem.getEmoji(),
       };
     }
 
-    // 话题分析
     const topicResult = this.analyzer.analyze(text);
     if (topicResult) {
       if (topicResult.type === 'reasoning') {
@@ -317,7 +317,6 @@ class CompanionAI {
           intensity: emotionResult.intensity,
           type: 'reasoning',
           aiMood: this.moodSystem.getMood(),
-          aiMoodEmoji: this.moodSystem.getEmoji(),
         };
       }
 
@@ -331,29 +330,31 @@ class CompanionAI {
             type: 'topic',
             topic: topicResult.topic,
             aiMood: this.moodSystem.getMood(),
-            aiMoodEmoji: this.moodSystem.getEmoji(),
           };
         }
       }
     }
 
-    // 获取当前AI心情
     const aiMood = this.moodSystem.getMood();
+    const personalityState = this.moodSystem.getPersonalityState();
 
-    // 根据AI心情和用户情绪生成回复
-    // 30%概率使用心情驱动的回复，70%使用情感驱动的回复
-    const useMoodResponse = Math.random() < 0.3;
+    const useMoodResponse = Math.random() < 0.35;
 
     let responseText;
     if (useMoodResponse) {
-      responseText = this.moodGenerator.generate(aiMood, emotionResult.emotion, emotionResult.intensity);
+      responseText = this.moodGenerator.generate(aiMood, emotionResult.emotion, emotionResult.intensity, personalityState);
     } else {
-      const response = this.generator.generate(
-        emotionResult.emotion,
-        emotionResult.intensity,
-        memory
-      );
-      responseText = response.text;
+      const emotionResponses = this.corpusMatcher.getResponsesByEmotion(emotionResult.emotion);
+      if (emotionResponses.length > 0 && Math.random() < 0.4) {
+        responseText = emotionResponses[Math.floor(Math.random() * emotionResponses.length)];
+      } else {
+        const response = this.generator.generate(
+          emotionResult.emotion,
+          emotionResult.intensity,
+          memory
+        );
+        responseText = response.text;
+      }
     }
 
     return {
@@ -362,10 +363,8 @@ class CompanionAI {
       intensity: emotionResult.intensity,
       confidence: emotionResult.confidence,
       emotionLabel: EMOTION_LABELS[emotionResult.emotion],
-      type: useMoodResponse ? 'mood_driven' : 'emotion',
+      type: useMoodResponse ? 'mood_driven' : (corpusMatch ? 'corpus' : 'emotion'),
       aiMood,
-      aiMoodEmoji: this.moodSystem.getEmoji(),
-      aiMoodLabel: MOOD_LABELS[aiMood],
     };
   }
 
@@ -381,6 +380,9 @@ class CompanionAI {
     }
     if (result.type === 'mood_query') {
       thinkTime = 200 + Math.random() * 200;
+    }
+    if (result.type === 'corpus') {
+      thinkTime = 200 + Math.random() * 300;
     }
     await new Promise(resolve => setTimeout(resolve, thinkTime));
 

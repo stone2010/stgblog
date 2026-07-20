@@ -1,6 +1,3 @@
-// 心情驱动的回复模板 - AI自身心情影响回复风格
-// 会迂回、会调皮、会闹脾气，不是一味顺从
-
 const MOOD_RESPONSES = {
   happy: {
     positive: [
@@ -220,74 +217,100 @@ const MOOD_RESPONSES = {
   },
 };
 
-const PLAYFUL_RESPONSES = {
-  tease: [
-    "哼，才不告诉你！",
-    "你猜～",
-    "不告诉你，除非你求我！",
-    "嘿嘿，这是秘密！",
-    "才不要说呢！",
-    "你猜我会不会告诉你？",
-    "想知道吗？求我呀！",
-    "不告诉你，略略略～",
-    "保密！",
-    "这是个谜！",
+const PERSONALITY_RESPONSES = {
+  lowEnergy: [
+    "嗯...",
+    "有点累...",
+    "不想动...",
+    "嗯，你说...",
+    "好的...",
+    "我听着呢...",
+    "有点困...",
+    "你继续...",
+    "嗯...",
+    "我在...",
   ],
-  evasive: [
-    "这个嘛...",
-    "嗯...这个问题有点复杂",
-    "让我想想...",
-    "这个嘛，你觉得呢？",
-    "换个话题吧～",
-    "这个问题我拒绝回答！",
-    "哎呀，突然忘了！",
-    "这个嘛，以后再说～",
-    "嗯...这个嘛...",
-    "哎呀，今天天气真好！",
-  ],
-  sarcastic: [
-    "哦，是吗？",
-    "好厉害哦～",
-    "嗯嗯，你说得对～",
+  highEnergy: [
+    "哇！",
+    "真的吗！",
     "太棒了！",
-    "哇，真了不起！",
-    "厉害了我的哥！",
-    "您说得都对！",
-    "嗯嗯，好的好的！",
-    "是是是，您最棒了！",
-    "行行行，你说啥是啥！",
+    "快说说！",
+    "然后呢！",
+    "好厉害！",
+    "太酷了！",
+    "继续继续！",
+    "我想听！",
+    "哇塞！",
   ],
-  playful_agree: [
-    "好吧好吧，听你的！",
-    "好啦好啦，我知道了！",
-    "行行行，你说了算！",
-    "好嘛好嘛，听你的！",
-    "好吧好吧，就依你！",
-    "好啦好啦，我认输！",
-    "行行行，你最厉害！",
-    "好吧好吧，听你的安排！",
+  bored: [
+    "哦...",
+    "是吗...",
+    "嗯...",
+    "这个嘛...",
+    "随便...",
+    "都行...",
+    "无所谓...",
+    "你说什么就是什么吧...",
+    "嗯...",
+    "好吧...",
+  ],
+  curious: [
+    "真的吗？",
+    "怎么回事？",
+    "然后呢？",
+    "快说！",
+    "我想听！",
+    "有意思！",
+    "继续！",
+    "后来呢？",
+    "太有趣了！",
+    "讲讲！",
+  ],
+  frustrated: [
+    "哼！",
+    "不想理你！",
+    "你太过分了！",
+    "我生气了！",
+    "哼！！！",
+    "气鼓鼓！",
+    "你自己想吧！",
+    "我不管！",
+    "哼，本宝宝不开心了！",
+    "气死我了！",
+  ],
+  affectionate: [
+    "抱抱～",
+    "我在呢～",
+    "别难过～",
+    "有我呢～",
+    "我陪着你～",
+    "不怕不怕～",
+    "摸摸头～",
+    "乖～",
+    "我懂～",
+    "心疼你～",
   ],
 };
 
 const MOOD_PROBABILITIES = {
-  happy: { direct: 0.7, playful: 0.3, evasive: 0.0, sarcastic: 0.0 },
-  sad: { direct: 0.8, playful: 0.1, evasive: 0.1, sarcastic: 0.0 },
-  angry: { direct: 0.5, playful: 0.2, evasive: 0.2, sarcastic: 0.1 },
-  anxious: { direct: 0.8, playful: 0.1, evasive: 0.1, sarcastic: 0.0 },
-  lonely: { direct: 0.85, playful: 0.1, evasive: 0.05, sarcastic: 0.0 },
-  tired: { direct: 0.7, playful: 0.2, evasive: 0.1, sarcastic: 0.0 },
-  calm: { direct: 0.75, playful: 0.15, evasive: 0.1, sarcastic: 0.0 },
-  playful: { direct: 0.4, playful: 0.4, evasive: 0.15, sarcastic: 0.05 },
+  happy: { direct: 0.6, playful: 0.25, evasive: 0.1, sarcastic: 0.05 },
+  sad: { direct: 0.75, playful: 0.15, evasive: 0.08, sarcastic: 0.02 },
+  angry: { direct: 0.4, playful: 0.2, evasive: 0.25, sarcastic: 0.15 },
+  anxious: { direct: 0.75, playful: 0.12, evasive: 0.1, sarcastic: 0.03 },
+  lonely: { direct: 0.8, playful: 0.12, evasive: 0.06, sarcastic: 0.02 },
+  tired: { direct: 0.6, playful: 0.25, evasive: 0.12, sarcastic: 0.03 },
+  calm: { direct: 0.7, playful: 0.15, evasive: 0.12, sarcastic: 0.03 },
+  playful: { direct: 0.35, playful: 0.35, evasive: 0.2, sarcastic: 0.1 },
 };
 
 class MoodResponseGenerator {
   constructor() {
     this.moodResponses = MOOD_RESPONSES;
-    this.playfulResponses = PLAYFUL_RESPONSES;
+    this.personalityResponses = PERSONALITY_RESPONSES;
     this.probabilities = MOOD_PROBABILITIES;
   }
 
-  generate(aiMood, userEmotion, userIntensity = 0.5) {
+  generate(aiMood, userEmotion, userIntensity = 0.5, personalityState = null) {
     const moodConfig = this.moodResponses[aiMood];
     if (!moodConfig) {
       return this.getFallbackResponse(aiMood);
@@ -302,6 +325,27 @@ class MoodResponseGenerator {
     const prob = this.probabilities[aiMood] || this.probabilities.calm;
     const rand = Math.random();
     let cumulative = 0;
+
+    if (personalityState) {
+      if (personalityState.energy < 30 && rand < 0.3) {
+        return this.personalityResponses.lowEnergy[Math.floor(Math.random() * this.personalityResponses.lowEnergy.length)];
+      }
+      if (personalityState.energy > 70 && rand < 0.25) {
+        return this.personalityResponses.highEnergy[Math.floor(Math.random() * this.personalityResponses.highEnergy.length)];
+      }
+      if (personalityState.boredom > 60 && rand < 0.2) {
+        return this.personalityResponses.bored[Math.floor(Math.random() * this.personalityResponses.bored.length)];
+      }
+      if (personalityState.curiosity > 70 && rand < 0.15) {
+        return this.personalityResponses.curious[Math.floor(Math.random() * this.personalityResponses.curious.length)];
+      }
+      if (personalityState.frustration > 50 && rand < 0.2) {
+        return this.personalityResponses.frustrated[Math.floor(Math.random() * this.personalityResponses.frustrated.length)];
+      }
+      if (personalityState.affection > 70 && rand < 0.15) {
+        return this.personalityResponses.affection[Math.floor(Math.random() * this.personalityResponses.affection.length)];
+      }
+    }
 
     if (rand < (cumulative += prob.playful)) {
       if (moodConfig.playful && moodConfig.playful.length > 0) {
@@ -322,19 +366,50 @@ class MoodResponseGenerator {
   }
 
   getPlayfulResponse(type) {
-    const responses = this.playfulResponses[type];
+    const playfulResponses = {
+      tease: [
+        "哼，才不告诉你！",
+        "你猜～",
+        "不告诉你，除非你求我！",
+        "嘿嘿，这是秘密！",
+        "才不要说呢！",
+        "你猜我会不会告诉你？",
+        "想知道吗？求我呀！",
+        "不告诉你，略略略～",
+        "保密！",
+        "这是个谜！",
+      ],
+      evasive: [
+        "这个嘛...",
+        "嗯...这个问题有点复杂",
+        "让我想想...",
+        "这个嘛，你觉得呢？",
+        "换个话题吧～",
+        "这个问题我拒绝回答！",
+        "哎呀，突然忘了！",
+        "这个嘛，以后再说～",
+        "嗯...这个嘛...",
+        "哎呀，今天天气真好！",
+      ],
+      sarcastic: [
+        "哦，是吗？",
+        "好厉害哦～",
+        "嗯嗯，你说得对～",
+        "太棒了！",
+        "哇，真了不起！",
+        "厉害了我的哥！",
+        "您说得都对！",
+        "嗯嗯，好的好的！",
+        "是是是，您最棒了！",
+        "行行行，你说啥是啥！",
+      ],
+    };
+    
+    const responses = playfulResponses[type];
     if (!responses) {
-      return this.playfulResponses.tease[Math.floor(Math.random() * this.playfulResponses.tease.length)];
+      return playfulResponses.tease[Math.floor(Math.random() * playfulResponses.tease.length)];
     }
     return responses[Math.floor(Math.random() * responses.length)];
-  }
-
-  getEvasiveResponse() {
-    return this.getPlayfulResponse('evasive');
-  }
-
-  getSarcasticResponse() {
-    return this.getPlayfulResponse('sarcastic');
   }
 
   getFallbackResponse(mood) {
@@ -352,4 +427,4 @@ class MoodResponseGenerator {
   }
 }
 
-export { MoodResponseGenerator, MOOD_RESPONSES, PLAYFUL_RESPONSES, MOOD_PROBABILITIES };
+export { MoodResponseGenerator, MOOD_RESPONSES, PERSONALITY_RESPONSES, MOOD_PROBABILITIES };

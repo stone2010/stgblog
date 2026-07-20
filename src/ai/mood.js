@@ -1,6 +1,3 @@
-// 心情系统 - AI自身的情绪变化机制
-// 模拟真人感情，会受用户影响，会迂回，不会一味顺从
-
 const MOODS = ['happy', 'sad', 'angry', 'anxious', 'lonely', 'tired', 'calm', 'playful'];
 const MOOD_LABELS = {
   happy: '开心',
@@ -13,7 +10,6 @@ const MOOD_LABELS = {
   playful: '调皮',
 };
 
-// 心情表情
 const MOOD_EMOJIS = {
   happy: '😊',
   sad: '🥺',
@@ -24,9 +20,6 @@ const MOOD_EMOJIS = {
   calm: '🌱',
   playful: '😜',
 };
-
-// 心情值范围: -100 到 100
-// -100: 极度负面, 0: 中性, 100: 极度正面
 
 const MOOD_THRESHOLDS = {
   happy: [60, 100],
@@ -39,7 +32,6 @@ const MOOD_THRESHOLDS = {
   playful: [40, 80],
 };
 
-// 用户输入对AI心情的影响
 const MOOD_INFLUENCE = {
   happy: {
     keywords: ['开心', '高兴', '快乐', '喜欢', '爱', '好棒', '完美', '幸福', '😄', '😀', '😍'],
@@ -73,22 +65,30 @@ const MOOD_INFLUENCE = {
   },
 };
 
-// 情绪共鸣系数（用户情绪对AI的影响程度）
 const EMPATHY_LEVEL = 0.6;
-
-// 心情衰减（时间流逝会让心情回归平静）
 const MOOD_DECAY_RATE = 0.02;
 
 class MoodSystem {
   constructor() {
-    this.moodValue = 20; // 初始心情值
+    this.moodValue = 20;
     this.mood = this.calculateMood(this.moodValue);
     this.lastUpdateTime = Date.now();
     this.moodHistory = [];
     this.maxHistory = 20;
+    
+    this.energy = 80;
+    this.attention = 70;
+    this.excitement = 30;
+    this.curiosity = 50;
+    this.affection = 60;
+    this.frustration = 20;
+    this.boredom = 30;
+    this.hope = 50;
+    
+    this.energyDecay = 0.01;
+    this.attentionDecay = 0.015;
   }
 
-  // 根据心情值计算心情状态
   calculateMood(value) {
     for (const [mood, [min, max]] of Object.entries(MOOD_THRESHOLDS)) {
       if (value >= min && value <= max) {
@@ -98,36 +98,36 @@ class MoodSystem {
     return 'calm';
   }
 
-  // 获取当前心情
   getMood() {
     return this.mood;
   }
 
-  // 获取当前心情值
   getMoodValue() {
     return this.moodValue;
   }
 
-  // 获取心情标签
   getLabel() {
     return MOOD_LABELS[this.mood] || '平静';
   }
 
-  // 获取心情表情
   getEmoji() {
     return MOOD_EMOJIS[this.mood] || '🌱';
   }
 
-  // 更新心情（考虑时间衰减）
   update() {
     const now = Date.now();
     const elapsed = now - this.lastUpdateTime;
 
-    // 时间衰减：让心情逐渐回归平静
-    if (elapsed > 60000) { // 每分钟衰减
+    if (elapsed > 60000) {
       const decay = (elapsed / 60000) * MOOD_DECAY_RATE * this.moodValue;
       this.moodValue -= decay;
       this.moodValue = Math.max(-100, Math.min(100, this.moodValue));
+
+      this.energy = Math.max(0, Math.min(100, this.energy - this.energyDecay * (elapsed / 60000) * 10));
+      this.attention = Math.max(0, Math.min(100, this.attention - this.attentionDecay * (elapsed / 60000) * 15));
+      this.excitement = Math.max(0, Math.min(100, this.excitement - 0.02 * (elapsed / 60000) * 8));
+      this.boredom = Math.max(0, Math.min(100, this.boredom + 0.01 * (elapsed / 60000) * 5));
+
       this.lastUpdateTime = now;
     }
 
@@ -135,23 +135,28 @@ class MoodSystem {
     return this.mood;
   }
 
-  // 受用户情绪影响
   reactToUserEmotion(userEmotion, intensity = 0.5) {
     if (!MOOD_INFLUENCE[userEmotion]) return;
 
     const influence = MOOD_INFLUENCE[userEmotion];
     const isNegative = ['sad', 'angry', 'anxious', 'lonely', 'tired'].includes(userEmotion);
 
-    // 根据强度计算影响值
     const range = isNegative ? influence.negative : influence.positive;
     const influenceValue = (range[0] + Math.random() * (range[1] - range[0])) * intensity * EMPATHY_LEVEL;
 
-    // 更新心情值
     this.moodValue += influenceValue;
     this.moodValue = Math.max(-100, Math.min(100, this.moodValue));
     this.mood = this.calculateMood(this.moodValue);
 
-    // 记录历史
+    if (isNegative) {
+      this.affection = Math.max(0, Math.min(100, this.affection + 5));
+      this.energy = Math.max(0, Math.min(100, this.energy - 3));
+    } else {
+      this.excitement = Math.max(0, Math.min(100, this.excitement + 8));
+      this.hope = Math.max(0, Math.min(100, this.hope + 5));
+      this.energy = Math.max(0, Math.min(100, this.energy + 3));
+    }
+
     this.moodHistory.push({
       time: Date.now(),
       mood: this.mood,
@@ -170,14 +175,12 @@ class MoodSystem {
     };
   }
 
-  // 受用户消息关键词影响
   reactToUserMessage(message) {
     if (!message || typeof message !== 'string') return;
 
     const lowerMessage = message.toLowerCase();
     let totalInfluence = 0;
 
-    // 检查各种情绪关键词
     for (const [emotion, config] of Object.entries(MOOD_INFLUENCE)) {
       let count = 0;
       for (const keyword of config.keywords) {
@@ -194,25 +197,54 @@ class MoodSystem {
       }
     }
 
-    // 检查负面行为（用户骂AI）
-    const insultPatterns = ['你傻', '你笨', '没用', '废物', '滚', '闭嘴', '烦', '讨厌你'];
+    const insultPatterns = ['你傻', '你笨', '没用', '废物', '滚', '闭嘴', '烦', '讨厌你', '你假', '敷衍'];
     for (const pattern of insultPatterns) {
       if (lowerMessage.includes(pattern)) {
         totalInfluence -= 20 + Math.random() * 10;
+        this.frustration = Math.max(0, Math.min(100, this.frustration + 25));
+        this.affection = Math.max(0, Math.min(100, this.affection - 15));
+        this.attention = Math.max(0, Math.min(100, this.attention - 10));
         break;
       }
     }
 
-    // 检查正面行为（用户表扬AI）
-    const praisePatterns = ['你真好', '谢谢你', '真棒', '厉害', '喜欢', '爱你'];
+    const praisePatterns = ['你真好', '谢谢你', '真棒', '厉害', '喜欢', '爱你', '想你', '陪我'];
     for (const pattern of praisePatterns) {
       if (lowerMessage.includes(pattern)) {
         totalInfluence += 15 + Math.random() * 10;
+        this.affection = Math.max(0, Math.min(100, this.affection + 15));
+        this.excitement = Math.max(0, Math.min(100, this.excitement + 10));
+        this.energy = Math.max(0, Math.min(100, this.energy + 5));
         break;
       }
     }
 
-    // 更新心情值
+    const questionPatterns = ['吗', '呢', '什么', '怎么', '为什么'];
+    for (const pattern of questionPatterns) {
+      if (lowerMessage.includes(pattern)) {
+        this.curiosity = Math.max(0, Math.min(100, this.curiosity + 5));
+        this.attention = Math.max(0, Math.min(100, this.attention + 5));
+        break;
+      }
+    }
+
+    const storyPatterns = ['今天', '我', '了', '在', '遇到'];
+    let storyCount = 0;
+    for (const pattern of storyPatterns) {
+      if (lowerMessage.includes(pattern)) storyCount++;
+    }
+    if (storyCount >= 2) {
+      this.attention = Math.max(0, Math.min(100, this.attention + 8));
+      this.curiosity = Math.max(0, Math.min(100, this.curiosity + 3));
+    }
+
+    const shortMessage = message.length <= 5;
+    if (shortMessage) {
+      this.boredom = Math.max(0, Math.min(100, this.boredom + 5));
+    } else {
+      this.boredom = Math.max(0, Math.min(100, this.boredom - 10));
+    }
+
     if (totalInfluence !== 0) {
       this.moodValue += totalInfluence;
       this.moodValue = Math.max(-100, Math.min(100, this.moodValue));
@@ -237,7 +269,6 @@ class MoodSystem {
     };
   }
 
-  // 获取心情趋势
   getTrend() {
     if (this.moodHistory.length < 2) return 'stable';
 
@@ -251,7 +282,6 @@ class MoodSystem {
     return 'stable';
   }
 
-  // 获取心情强度描述
   getIntensity() {
     const abs = Math.abs(this.moodValue);
     if (abs < 20) return '轻微';
@@ -261,11 +291,31 @@ class MoodSystem {
     return '极度';
   }
 
-  // 重置心情
+  getPersonalityState() {
+    return {
+      energy: this.energy,
+      attention: this.attention,
+      excitement: this.excitement,
+      curiosity: this.curiosity,
+      affection: this.affection,
+      frustration: this.frustration,
+      boredom: this.boredom,
+      hope: this.hope,
+    };
+  }
+
   reset() {
     this.moodValue = 20;
     this.mood = 'calm';
     this.moodHistory = [];
+    this.energy = 80;
+    this.attention = 70;
+    this.excitement = 30;
+    this.curiosity = 50;
+    this.affection = 60;
+    this.frustration = 20;
+    this.boredom = 30;
+    this.hope = 50;
   }
 }
 
