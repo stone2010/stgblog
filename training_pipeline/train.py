@@ -78,6 +78,7 @@ def train_model(model, train_loader, epochs=50, lr=5e-4, device='cuda'):
     print(f'Epochs: {epochs}, LR: {lr}')
     print(f'Device: {device}')
     print(f'Batch size: {train_loader.batch_size}')
+    print(f'Total batches: {len(train_loader)}')
     print('=' * 60)
     
     best_loss = float('inf')
@@ -108,9 +109,11 @@ def train_model(model, train_loader, epochs=50, lr=5e-4, device='cuda'):
             total_loss += loss.item()
             count += 1
             
-            if (batch_idx + 1) % 100 == 0:
+            if (batch_idx + 1) % 50 == 0:
                 avg_loss = total_loss / count
-                print(f'Epoch [{epoch+1}/{epochs}] Batch [{batch_idx+1}/{len(train_loader)}] Loss: {avg_loss:.4f}')
+                progress = (batch_idx + 1) / len(train_loader) * 100
+                bar = '=' * int(progress // 5) + ' ' * int((100 - progress) // 5)
+                print(f'Epoch [{epoch+1}/{epochs}] [{bar}] {progress:.1f}% - Loss: {avg_loss:.4f}', end='\r')
         
         avg_loss = total_loss / count
         scheduler.step()
@@ -122,14 +125,15 @@ def train_model(model, train_loader, epochs=50, lr=5e-4, device='cuda'):
             torch.save(model.state_dict(), 'model_best.pt')
             print(f'New best model saved!')
         
-        if avg_loss < 2.0:
+        if avg_loss < 0.8:
             print(f'Early stopping: loss reached target')
             break
     
     return model
 
 
-def generate_text(model, prompt, vocab, idx_to_char, max_len=50, temperature=0.7, device='cuda'):
+def generate_text(model, prompt, vocab, idx_to_char, max_len=50, temperature=0.7, 
+                  repetition_penalty=1.3, no_repeat_ngram_size=2, top_k=40, top_p=0.85, device='cuda'):
     model.eval()
     
     start_idx = vocab['<START>']
@@ -150,12 +154,42 @@ def generate_text(model, prompt, vocab, idx_to_char, max_len=50, temperature=0.7
             logits = model(input_ids)
             next_token_logits = logits[0, -1, :]
             
+            if repetition_penalty != 1.0:
+                for token_id in set(input_ids[0].tolist()):
+                    if next_token_logits[token_id] < 0:
+                        next_token_logits[token_id] *= repetition_penalty
+                    else:
+                        next_token_logits[token_id] /= repetition_penalty
+            
+            if no_repeat_ngram_size > 0:
+                gen_len = len(result)
+                for i in range(gen_len - no_repeat_ngram_size + 1):
+                    ngram = tuple(result[i:i+no_repeat_ngram_size])
+                    for j in range(no_repeat_ngram_size):
+                        if gen_len >= i + j + 1:
+                            banned_idx = char_to_idx(result[i + j])
+                            next_token_logits[banned_idx] = -float('inf')
+            
             if temperature > 0:
                 next_token_logits = next_token_logits / temperature
-                probs = torch.softmax(next_token_logits, dim=-1)
-                next_token = torch.multinomial(probs, num_samples=1).item()
-            else:
-                next_token = torch.argmax(next_token_logits, dim=-1).item()
+            
+            if top_k > 0:
+                top_k_values, top_k_indices = torch.topk(next_token_logits, min(top_k, next_token_logits.size(-1)))
+                mask = torch.full_like(next_token_logits, -float('inf'))
+                mask[top_k_indices] = top_k_values
+                next_token_logits = mask
+            
+            if top_p > 0 and top_p < 1:
+                sorted_logits, sorted_indices = torch.sort(next_token_logits, descending=True)
+                cumulative_probs = torch.cumsum(torch.softmax(sorted_logits, dim=-1), dim=-1)
+                sorted_indices_to_remove = cumulative_probs > top_p
+                sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+                sorted_indices_to_remove[..., 0] = 0
+                indices_to_remove = sorted_indices[sorted_indices_to_remove]
+                next_token_logits[indices_to_remove] = -float('inf')
+            
+            probs = torch.softmax(next_token_logits, dim=-1)
+            next_token = torch.multinomial(probs, num_samples=1).item()
             
             if next_token == end_idx or next_token == pad_idx:
                 break
@@ -167,29 +201,36 @@ def generate_text(model, prompt, vocab, idx_to_char, max_len=50, temperature=0.7
 
 
 def export_onnx(model, vocab_size=3000, d_model=128, max_seq_len=128, device='cuda'):
-    model.eval()
-    
-    dummy_input = torch.randint(0, vocab_size, (1, max_seq_len), dtype=torch.long).to(device)
-    
-    onnx_path = 'model.onnx'
-    torch.onnx.export(
-        model,
-        dummy_input,
-        onnx_path,
-        export_params=True,
-        opset_version=13,
-        do_constant_folding=True,
-        input_names=['input_ids'],
-        output_names=['logits'],
-        dynamic_axes={
-            'input_ids': {0: 'batch_size', 1: 'seq_len'},
-            'logits': {0: 'batch_size', 1: 'seq_len'}
-        }
-    )
-    
-    print(f'\nONNX model exported to {onnx_path}')
-    
-    return onnx_path
+    try:
+        model.eval()
+        
+        dummy_input = torch.randint(0, vocab_size, (1, max_seq_len), dtype=torch.long).to(device)
+        
+        onnx_path = 'model.onnx'
+        torch.onnx.export(
+            model,
+            dummy_input,
+            onnx_path,
+            export_params=True,
+            opset_version=13,
+            do_constant_folding=True,
+            input_names=['input_ids'],
+            output_names=['logits'],
+            dynamic_axes={
+                'input_ids': {0: 'batch_size', 1: 'seq_len'},
+                'logits': {0: 'batch_size', 1: 'seq_len'}
+            }
+        )
+        
+        print(f'\nONNX model exported to {onnx_path}')
+        
+        return onnx_path
+    except ImportError as e:
+        print(f'\nONNX export skipped: {e}')
+        return None
+    except Exception as e:
+        print(f'\nONNX export failed: {e}')
+        return None
 
 
 def quantize_onnx(onnx_path):
@@ -230,7 +271,7 @@ def main():
     print(f'Dataset size: {len(dataset)}')
     print(f'Vocabulary size: {len(dataset.vocab)}')
     
-    train_loader = DataLoader(dataset, batch_size=64, shuffle=True, num_workers=4, pin_memory=True)
+    train_loader = DataLoader(dataset, batch_size=64, shuffle=True, num_workers=0)
     
     model = TinyRomanticLM(
         vocab_size=len(dataset.vocab),
@@ -248,7 +289,7 @@ def main():
     print(f'  num_layers: 4')
     print(f'  Total params: {compute_param_count(model):,}')
     
-    model = train_model(model, train_loader, epochs=50, lr=5e-4, device=device)
+    model = train_model(model, train_loader, epochs=6, lr=5e-4, device=device)
     
     model.load_state_dict(torch.load('model_best.pt'))
     model = model.to(device)
