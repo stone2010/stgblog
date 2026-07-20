@@ -1,59 +1,30 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Icons } from "./Icons";
-import { LocalModelManager } from "../ai/inference";
+import { CompanionAI } from "../ai/companion";
 
-const modelManager = new LocalModelManager();
-
-modelManager.registerModel("tiny-llm", {
-  dim: 128,
-  numLayers: 4,
-  numHeads: 4,
-  maxLen: 256,
-  hiddenDim: 512,
-  dropout: 0.1,
-});
+const ai = new CompanionAI();
 
 export default function AIChatPage({ onBack }) {
-  const [messages, setMessages] = useState([
-    {
-      role: "assistant",
-      content:
-        "你好！我是内置的 AI 助手。我使用端侧 Transformer 架构运行在你的浏览器中，所有数据都不会上传到服务器。\n\n你可以问我任何问题，或者和我聊天！",
-    },
-  ]);
+  const [messages, setMessages] = useState(() => {
+    // 首次进入时根据用户是否聊过显示不同欢迎语
+    const isFirst = ai.memory.isFirstChat();
+    const welcome = isFirst
+      ? "嗨，初次见面，我是你的情感陪伴。开心、难过、无聊都可以来找我聊聊，我会一直在这里陪你。"
+      : (() => {
+          const mem = ai.memory.getContext();
+          const name = mem.userName ? `${mem.userName}，` : "";
+          return `${name}你来啦，想聊点什么？我一直都在。`;
+        })();
+    return [{ role: "assistant", content: welcome, emotion: "happy" }];
+  });
+
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [modelStatus, setModelStatus] = useState("loading");
-  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [aiEmotion, setAiEmotion] = useState("happy"); // AI 当前情绪
   const messagesContainerRef = useRef(null);
+  const inputRef = useRef(null);
 
-  useEffect(() => {
-    const initModel = async () => {
-      try {
-        setModelStatus("loading");
-        setLoadingProgress(0);
-
-        const interval = setInterval(() => {
-          setLoadingProgress((prev) => {
-            if (prev >= 90) return 90;
-            return prev + Math.random() * 10;
-          });
-        }, 500);
-
-        await modelManager.loadModel("tiny-llm");
-
-        clearInterval(interval);
-        setLoadingProgress(100);
-        setModelStatus("ready");
-      } catch (error) {
-        console.error("Failed to load model:", error);
-        setModelStatus("error");
-      }
-    };
-
-    initModel();
-  }, []);
-
+  // 滚动到底部
   const scrollToBottom = useCallback(() => {
     const container = messagesContainerRef.current;
     if (container) {
@@ -65,62 +36,63 @@ export default function AIChatPage({ onBack }) {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
+  // 自动聚焦输入框
+  useEffect(() => {
+    setTimeout(() => inputRef.current?.focus(), 300);
+  }, []);
+
+  // 发送消息
   const handleSend = useCallback(async () => {
-    if (!input.trim() || isTyping || modelStatus !== "ready") return;
+    if (!input.trim() || isTyping) return;
 
     const userMessage = input.trim();
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setIsTyping(true);
+    setAiEmotion("calm"); // 思考中
 
-    try {
-      await modelManager.chatStream(
-        [...messages, { role: "user", content: userMessage }],
-        {
-          maxLen: 150,
-          temperature: 0.7,
-          topK: 5,
-        },
-        (result) => {
-          if (!result.done) {
-            setMessages((prev) => {
-              const lastMsg = prev[prev.length - 1];
-              if (lastMsg && lastMsg.role === "assistant" && !lastMsg.final) {
-                return [
-                  ...prev.slice(0, -1),
-                  { role: "assistant", content: result.text, final: false },
-                ];
-              }
-              return [...prev, { role: "assistant", content: result.text, final: false }];
-            });
-          } else {
-            setMessages((prev) => {
-              const lastMsg = prev[prev.length - 1];
-              if (lastMsg && lastMsg.role === "assistant") {
-                return [
-                  ...prev.slice(0, -1),
-                  { role: "assistant", content: result.text, final: true },
-                ];
-              }
-              return prev;
-            });
-            setIsTyping(false);
+    // 流式回复
+    await ai.replyStream(
+      userMessage,
+      (result) => {
+        // 逐字更新
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (last && last.role === "assistant" && !last.final) {
+            return [
+              ...prev.slice(0, -1),
+              { role: "assistant", content: result.text, final: false, emotion: last.emotion },
+            ];
           }
-        }
-      );
-    } catch (error) {
-      console.error("Chat error:", error);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: "抱歉，我遇到了一些问题，请稍后再试。",
-          final: true,
-        },
-      ]);
-      setIsTyping(false);
-    }
-  }, [input, isTyping, modelStatus, messages]);
+          return [
+            ...prev,
+            { role: "assistant", content: result.text, final: false, emotion: "calm" },
+          ];
+        });
+      },
+      (result) => {
+        // 完成
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (last && last.role === "assistant") {
+            return [
+              ...prev.slice(0, -1),
+              {
+                role: "assistant",
+                content: result.text,
+                final: true,
+                emotion: result.emotion,
+              },
+            ];
+          }
+          return prev;
+        });
+        setAiEmotion(result.emotion);
+        setIsTyping(false);
+        setTimeout(() => inputRef.current?.focus(), 100);
+      }
+    );
+  }, [input, isTyping]);
 
   const handleKeyDown = useCallback(
     (e) => {
@@ -132,122 +104,37 @@ export default function AIChatPage({ onBack }) {
     [handleSend]
   );
 
-  const getStatusColor = () => {
-    switch (modelStatus) {
-      case "ready":
-        return "#22c55e";
-      case "loading":
-        return "#f59e0b";
-      case "error":
-        return "#ef4444";
-      default:
-        return "#6b7280";
+  // 清空对话
+  const handleClear = useCallback(() => {
+    if (window.confirm("确定清空所有对话和记忆吗？")) {
+      ai.clearMemory();
+      setMessages([
+        {
+          role: "assistant",
+          content: "记忆已清空，我们重新开始吧。你好呀，想聊点什么？",
+          emotion: "happy",
+        },
+      ]);
     }
-  };
+  }, []);
 
-  const getStatusText = () => {
-    switch (modelStatus) {
-      case "ready":
-        return "在线";
-      case "loading":
-        return `加载中 ${Math.round(loadingProgress)}%`;
-      case "error":
-        return "出错";
-      default:
-        return "未知";
-    }
-  };
+  // AI 表情（根据情绪）
+  const getAiAvatar = useCallback(() => {
+    const emotionMap = {
+      happy: "😊",
+      sad: "🥺",
+      angry: "😤",
+      anxious: "🌿",
+      lonely: "💜",
+      tired: "🌙",
+      calm: "🌱",
+      miss: "✨",
+    };
+    return emotionMap[aiEmotion] || "🌱";
+  }, [aiEmotion]);
 
-  if (modelStatus === "loading") {
-    return (
-      <div className="dm-chat">
-        <div className="dm-chat-top">
-          <button className="dm-chat-back" onClick={onBack}>
-            <Icons.Back />
-          </button>
-          <div
-            className="dm-avatar"
-            style={{
-              width: 32,
-              height: 32,
-              fontSize: 13,
-              background: "linear-gradient(135deg, #6366f1, #ec4899)",
-            }}
-          >
-            AI
-          </div>
-          <span className="dm-chat-name">AI 助手</span>
-          <span
-            className="dm-chat-lock"
-            style={{ color: getStatusColor(), fontSize: 12 }}
-          >
-            {getStatusText()}
-          </span>
-        </div>
-        <div className="dm-chat-messages" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ textAlign: "center" }}>
-            <div
-              style={{
-                width: 64,
-                height: 64,
-                margin: "0 auto 16px",
-                borderRadius: "50%",
-                background: "linear-gradient(135deg, #6366f1, #ec4899)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 28,
-                animation: "pulse 2s ease-in-out infinite",
-              }}
-            >
-              🤖
-            </div>
-            <div style={{ color: "var(--text-secondary)", fontSize: 14 }}>
-              正在加载模型...
-            </div>
-            <div
-              style={{
-                width: 200,
-                height: 4,
-                marginTop: 12,
-                background: "var(--border)",
-                borderRadius: 2,
-                overflow: "hidden",
-              }}
-            >
-              <div
-                style={{
-                  width: `${loadingProgress}%`,
-                  height: "100%",
-                  background: "linear-gradient(90deg, #6366f1, #ec4899)",
-                  transition: "width 0.3s ease",
-                }}
-              />
-            </div>
-          </div>
-        </div>
-        <div className="dm-chat-input">
-          <textarea
-            className="dm-input"
-            value=""
-            placeholder="模型加载中..."
-            rows={1}
-            disabled
-            style={{ opacity: 0.5 }}
-          />
-          <button className="dm-send-btn" disabled>
-            ↑
-          </button>
-        </div>
-        <style>{`
-          @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.6; transform: scale(1.05); }
-          }
-        `}</style>
-      </div>
-    );
-  }
+  // 统计信息
+  const stats = ai.getStats();
 
   return (
     <div className="dm-chat">
@@ -260,28 +147,66 @@ export default function AIChatPage({ onBack }) {
           style={{
             width: 32,
             height: 32,
-            fontSize: 13,
+            fontSize: 16,
             background: "linear-gradient(135deg, #6366f1, #ec4899)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          AI
+          {getAiAvatar()}
         </div>
-        <span className="dm-chat-name">AI 助手</span>
-        <span className="dm-chat-lock" style={{ fontSize: 12 }}>
+        <span className="dm-chat-name">情感陪伴</span>
+        <span className="dm-chat-lock" style={{ fontSize: 11, color: "var(--text-muted)" }}>
           <span
             style={{
               display: "inline-block",
               width: 8,
               height: 8,
               borderRadius: "50%",
-              backgroundColor: getStatusColor(),
+              backgroundColor: isTyping ? "#f59e0b" : "#22c55e",
               marginRight: 4,
-              boxShadow: `0 0 8px ${getStatusColor()}`,
+              boxShadow: `0 0 6px ${isTyping ? "#f59e0b" : "#22c55e"}`,
             }}
           />
-          {getStatusText()}
+          {isTyping ? "思考中" : "在线"}
         </span>
+        <button
+          onClick={handleClear}
+          title="清空记忆"
+          style={{
+            marginLeft: "auto",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            padding: "4px 8px",
+            borderRadius: 8,
+            color: "var(--text-muted)",
+            fontSize: 14,
+          }}
+        >
+          🗑
+        </button>
       </div>
+
+      {/* 统计条 */}
+      {stats.conversationCount > 0 && (
+        <div
+          style={{
+            padding: "6px 16px",
+            background: "var(--bg2)",
+            borderBottom: "1px solid var(--border)",
+            fontSize: 11,
+            color: "var(--text-muted)",
+            display: "flex",
+            justifyContent: "space-between",
+          }}
+        >
+          <span>💬 已聊 {stats.conversationCount} 句</span>
+          {stats.preferencesCount > 0 && <span>💕 记住 {stats.preferencesCount} 个喜好</span>}
+          <span>🌱 端侧运行</span>
+        </div>
+      )}
 
       <div className="dm-chat-messages" ref={messagesContainerRef}>
         {messages.map((msg, i) => (
@@ -297,9 +222,16 @@ export default function AIChatPage({ onBack }) {
                   minute: "2-digit",
                 })}
               </span>
-              {msg.role === "assistant" && (
-                <span className="dm-msg-lock" style={{ marginLeft: 4 }}>
-                  🤖
+              {msg.role === "assistant" && msg.emotion && (
+                <span className="dm-msg-lock" style={{ marginLeft: 4, fontSize: 10 }}>
+                  {msg.emotion === "happy" && "😊"}
+                  {msg.emotion === "sad" && "�"}
+                  {msg.emotion === "angry" && "💪"}
+                  {msg.emotion === "anxious" && "🌿"}
+                  {msg.emotion === "lonely" && "💜"}
+                  {msg.emotion === "tired" && "🌙"}
+                  {msg.emotion === "calm" && "🌱"}
+                  {msg.emotion === "miss" && "✨"}
                 </span>
               )}
             </div>
@@ -318,18 +250,19 @@ export default function AIChatPage({ onBack }) {
 
       <div className="dm-chat-input">
         <textarea
+          ref={inputRef}
           className="dm-input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="和 AI 助手聊天..."
+          placeholder="和我说说心里话..."
           rows={1}
           onKeyDown={handleKeyDown}
-          disabled={modelStatus !== "ready"}
+          disabled={isTyping}
         />
         <button
           className="dm-send-btn"
           onClick={handleSend}
-          disabled={isTyping || !input.trim() || modelStatus !== "ready"}
+          disabled={isTyping || !input.trim()}
         >
           {isTyping ? "..." : "↑"}
         </button>
