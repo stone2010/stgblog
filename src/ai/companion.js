@@ -1,15 +1,19 @@
-// 混合 AI 引擎 - 情感分类 + 模板回复 + 记忆系统
-// 极致轻量，所有手机都能跑
+// 混合 AI 引擎 - 情感分类 + 模板回复 + 记忆系统 + 知识问答 + 话题理解
+// 极致轻量，所有手机都能跑，具备初中毕业生智力水平
 
 import { EmotionClassifier, EMOTION_LABELS } from './emotion';
 import { ResponseGenerator } from './responses';
 import { MemorySystem } from './memory';
+import { KnowledgeBase } from './knowledge';
+import { TopicAnalyzer } from './topics';
 
 class CompanionAI {
   constructor() {
     this.classifier = new EmotionClassifier();
     this.generator = new ResponseGenerator();
     this.memory = new MemorySystem();
+    this.knowledge = new KnowledgeBase();
+    this.analyzer = new TopicAnalyzer();
     this.initialized = true;
   }
 
@@ -18,7 +22,6 @@ class CompanionAI {
     if (!text) return true;
     const cleanText = text.trim();
     if (cleanText.length < 3) return true;
-    // 只有一个字+标点
     if (cleanText.replace(/[，。！？,.!?]/g, '').length < 2) return true;
     return false;
   }
@@ -138,7 +141,6 @@ class CompanionAI {
     // 老朋友长时间没聊
     const awayMs = this.memory.getAwayDuration();
     if (this.memory.isOldFriend() && awayMs && awayMs > 6 * 60 * 60 * 1000) {
-      // 超过6小时
       this.memory.update(text);
       return {
         text: this.handleOldFriendReturn(),
@@ -187,6 +189,55 @@ class CompanionAI {
       };
     }
 
+    // ===== 新增：知识问答 =====
+    const knowledgeResult = this.knowledge.search(text);
+    if (knowledgeResult) {
+      this.memory.update(text, 'calm');
+      const intro = this.analyzer.getKnowledgeIntro();
+      return {
+        text: `${intro} ${knowledgeResult.answer}`,
+        emotion: 'calm',
+        intensity: 0.6,
+        type: 'knowledge',
+        category: knowledgeResult.category,
+      };
+    }
+
+    // ===== 新增：话题分析 =====
+    const topicResult = this.analyzer.analyze(text);
+    if (topicResult) {
+      // 如果是逻辑推理，结合情感分类
+      if (topicResult.type === 'reasoning') {
+        const emotionResult = this.classifier.classify(text);
+        this.memory.update(text, emotionResult.emotion);
+        return {
+          text: topicResult.response,
+          emotion: emotionResult.emotion,
+          intensity: emotionResult.intensity,
+          type: 'reasoning',
+        };
+      }
+
+      // 如果是话题回复，结合情感分类
+      if (topicResult.type === 'topic') {
+        const emotionResult = this.classifier.classify(text);
+        this.memory.update(text, emotionResult.emotion);
+
+        // 判断是否是知识性问题
+        const isKnowledgeQuestion = this.knowledge.isKnowledgeQuestion(text);
+        if (!isKnowledgeQuestion) {
+          // 非知识性话题，使用话题回复
+          return {
+            text: topicResult.response,
+            emotion: emotionResult.emotion,
+            intensity: emotionResult.intensity,
+            type: 'topic',
+            topic: topicResult.topic,
+          };
+        }
+      }
+    }
+
     // 情感分类
     const emotionResult = this.classifier.classify(text);
 
@@ -206,6 +257,7 @@ class CompanionAI {
       intensity: emotionResult.intensity,
       confidence: emotionResult.confidence,
       emotionLabel: EMOTION_LABELS[emotionResult.emotion],
+      type: 'emotion',
     };
   }
 
@@ -213,8 +265,14 @@ class CompanionAI {
   async replyStream(userText, onToken, onDone) {
     const result = this.reply(userText);
 
-    // 模拟思考延迟（根据情感强度调整）
-    const thinkTime = 300 + Math.random() * 500 + result.intensity * 300;
+    // 根据回复类型调整思考延迟
+    let thinkTime = 300 + Math.random() * 500 + result.intensity * 300;
+    if (result.type === 'knowledge') {
+      thinkTime = 500 + Math.random() * 500; // 知识性问题思考时间更长
+    }
+    if (result.type === 'reasoning') {
+      thinkTime = 400 + Math.random() * 400; // 逻辑推理也需要思考
+    }
     await new Promise(resolve => setTimeout(resolve, thinkTime));
 
     // 逐字输出
@@ -229,7 +287,6 @@ class CompanionAI {
           done: false,
         });
       }
-      // 模拟打字速度（30-50ms/字，标点稍微停顿）
       const delay = /[，。！？,.!?]/.test(text[i]) ? 80 + Math.random() * 50 : 25 + Math.random() * 30;
       await new Promise(resolve => setTimeout(resolve, delay));
     }
@@ -246,12 +303,11 @@ class CompanionAI {
     if (this.memory.isFirstChat()) return null;
 
     const awayMs = this.memory.getAwayDuration();
-    if (!awayMs || awayMs < 60 * 60 * 1000) return null; // 1小时内不主动
+    if (!awayMs || awayMs < 60 * 60 * 1000) return null;
 
     const mem = this.memory.getContext();
     let msg = this.generator.getProactive();
 
-    // 个性化
     if (mem.userName) {
       msg = `${mem.userName}，${msg}`;
     }
