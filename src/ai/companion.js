@@ -1,4 +1,4 @@
-import { Trainer } from './trainer';
+import { NeuralModel } from './neuralModel';
 import { MoodSystem } from './mood';
 
 class MemoryManager {
@@ -318,27 +318,175 @@ class StyleRewriter {
 
 class CompanionAI {
   constructor() {
-    this.trainer = new Trainer();
+    this.neuralModel = new NeuralModel();
     this.moodSystem = new MoodSystem();
     this.memoryManager = new MemoryManager();
     this.personaManager = new PersonaManager();
     this.isTraining = false;
     this.trainingPromise = null;
+    this.modelLoaded = false;
   }
 
   async init() {
     if (this.trainingPromise) return this.trainingPromise;
     
     this.isTraining = true;
-    this.trainingPromise = this.trainer.loadTrainingData().then((stats) => {
+    
+    this.trainingPromise = this.loadAndTrainModel().then((stats) => {
       this.isTraining = false;
       return stats;
     }).catch(() => {
       this.isTraining = false;
-      return { totalSamples: 0, vocabSize: 0, ngramCount: 0, contextPairs: 0 };
+      return { totalSamples: 0, paramCount: 0, trained: false };
     });
     
     return this.trainingPromise;
+  }
+
+  async loadAndTrainModel() {
+    if (this.neuralModel.loadModel()) {
+      this.modelLoaded = true;
+      return { 
+        totalSamples: 0, 
+        paramCount: this.neuralModel.getParamCount(), 
+        trained: true,
+        fromCache: true
+      };
+    }
+
+    const qaPairs = await this.loadTrainingData();
+    
+    if (qaPairs.length === 0) {
+      return { totalSamples: 0, paramCount: 0, trained: false };
+    }
+
+    const texts = [];
+    qaPairs.forEach(pair => {
+      texts.push(pair.user);
+      texts.push(pair.assistant);
+    });
+    
+    this.neuralModel.buildVocab(texts);
+    
+    const trainData = qaPairs.map(pair => ({
+      inputIds: this.neuralModel.encode(pair.user),
+      targetIds: this.neuralModel.encode(pair.assistant)
+    }));
+
+    this.neuralModel.initParams();
+    
+    const paramCount = this.neuralModel.getParamCount();
+    
+    await this.trainModelAsync(trainData);
+    
+    this.neuralModel.saveModel();
+    this.modelLoaded = true;
+    
+    return { 
+      totalSamples: qaPairs.length, 
+      paramCount: paramCount, 
+      trained: true,
+      fromCache: false
+    };
+  }
+
+  async loadTrainingData() {
+    const sources = [
+      '/ai_data/training_data.jsonl',
+      '/ai_data/distill_large.jsonl',
+      '/ai_data/distill_emotional_companion.jsonl',
+      '/ai_data/corpus_emotional_companion.jsonl'
+    ];
+
+    const allPairs = [];
+    
+    for (const source of sources) {
+      try {
+        const response = await fetch(source);
+        if (!response.ok) continue;
+        const text = await response.text();
+        const lines = text.trim().split('\n');
+        lines.forEach(line => {
+          try {
+            const pair = JSON.parse(line);
+            if (pair.user && pair.assistant) {
+              allPairs.push(pair);
+            }
+          } catch {
+            // skip invalid lines
+          }
+        });
+      } catch {
+        // skip failed sources
+      }
+    }
+    
+    return allPairs;
+  }
+
+  async trainModelAsync(trainData) {
+    return new Promise((resolve) => {
+      const epochs = 20;
+      const batchSize = 4;
+      const lr = 0.01;
+      
+      const { params } = this.neuralModel;
+      const paramKeys = Object.keys(params);
+      
+      for (let epoch = 0; epoch < epochs; epoch++) {
+        let totalLoss = 0;
+        let count = 0;
+        
+        for (let i = 0; i < trainData.length; i += batchSize) {
+          const batch = trainData.slice(i, i + batchSize);
+          
+          paramKeys.forEach(key => {
+            const param = params[key];
+            const flatParam = this.neuralModel.flatten(param);
+            const grad = this.neuralModel.flatten(this.neuralModel.zeroLike(param));
+            
+            const epsilon = 1e-4;
+            
+            for (let j = 0; j < flatParam.length; j++) {
+              const original = flatParam[j];
+              
+              flatParam[j] = original + epsilon;
+              const lossPlus = this.computeBatchLoss(batch);
+              
+              flatParam[j] = original - epsilon;
+              const lossMinus = this.computeBatchLoss(batch);
+              
+              grad[j] = (lossPlus - lossMinus) / (2 * epsilon);
+              
+              flatParam[j] = original;
+            }
+            
+            const updatedParam = this.neuralModel.flatten(param).map((p, j) => p - grad[j] * lr);
+            params[key] = this.neuralModel.reshape(updatedParam, this.neuralModel.getShape(param));
+          });
+          
+          batch.forEach(item => {
+            totalLoss += this.neuralModel.computeLoss(item.inputIds, item.targetIds);
+            count++;
+          });
+        }
+        
+        const avgLoss = totalLoss / count;
+        console.log(`Epoch ${epoch + 1}/${epochs}, Loss: ${avgLoss.toFixed(4)}`);
+        
+        if (avgLoss < 1.5) break;
+      }
+      
+      resolve();
+    });
+  }
+
+  computeBatchLoss(batch) {
+    let totalLoss = 0;
+    batch.forEach(item => {
+      totalLoss += this.neuralModel.computeLoss(item.inputIds, item.targetIds);
+    });
+    return totalLoss / batch.length;
   }
 
   isGreeting(text) {
@@ -522,22 +670,22 @@ class CompanionAI {
 
     this.extractMemoryInfo(text);
 
-    const { match, score } = this.trainer.findBestMatch(text);
-
-    if (score >= 0.5) {
-      const rewritten = rewriter.rewrite(match.assistant);
-      return rewritten;
-    }
-
-    if (score >= 0.3) {
-      const partialMatch = this.partialMatchResponse(text, match);
-      if (partialMatch) {
-        return rewriter.rewrite(partialMatch);
+    let response = '';
+    
+    if (this.modelLoaded && this.neuralModel.isTrained) {
+      try {
+        response = this.neuralModel.generate(text, 80, 0.7);
+      } catch (e) {
+        console.error('Neural model generation failed:', e);
+        response = '';
       }
     }
 
-    const fallback = this.getFallbackResponse(text);
-    return rewriter.rewrite(fallback);
+    if (!response || response.trim().length < 2) {
+      response = this.getFallbackResponse(text);
+    }
+
+    return rewriter.rewrite(response);
   }
 
   extractMemoryInfo(text) {
@@ -551,7 +699,7 @@ class CompanionAI {
       this.memoryManager.updateLongTermMemory('preference', { key: 'like', value: likeMatch[1].trim() });
     }
 
-    const eventMatch = text.match(/(今天|昨天|刚才|刚才)\s*(.+)/);
+    const eventMatch = text.match(/(今天|昨天|刚才)\s*(.+)/);
     if (eventMatch) {
       this.memoryManager.updateLongTermMemory('event', eventMatch[2].trim());
     }
@@ -559,18 +707,6 @@ class CompanionAI {
 
   getRandom(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
-  }
-
-  partialMatchResponse(text, match) {
-    if (!match) return null;
-    
-    const assistant = match.assistant;
-    
-    if (text.includes('不') || text.includes('没') || text.includes('别')) {
-      return assistant.replace(/是/g, '不是').replace(/好/g, '不好').replace(/开心/g, '不开心');
-    }
-    
-    return assistant;
   }
 
   getFallbackResponse(text) {
@@ -701,7 +837,9 @@ class CompanionAI {
       conversationCount: this.memoryManager.workingMemory.filter(m => m.role === 'user').length,
       mood: this.moodSystem.getMood(),
       persona: this.personaManager.getPersona().name,
-      relationship: this.personaManager.getPersona().relationship
+      relationship: this.personaManager.getPersona().relationship,
+      modelTrained: this.modelLoaded && this.neuralModel.isTrained,
+      paramCount: this.neuralModel.getParamCount()
     };
   }
 
