@@ -115,25 +115,21 @@ export default function AIChatPage({ onBack }) {
         <button className="ai-chat-back" onClick={onBack}>
           <Icons.Back />
         </button>
-        <div className="ai-avatar-wrapper">
-          <div className="ai-avatar">
-            🤖
+        
+        <div className="ai-chat-center">
+          <div className="ai-avatar">🤖</div>
+          <div className="ai-chat-title-wrap">
+            <span className="ai-name">情感陪伴</span>
+            <span className="ai-status">
+              <span className="ai-status-dot" style={{ backgroundColor: isTyping ? "#f59e0b" : "#22c55e" }} />
+              {isTyping ? "思考中" : "在线"}
+            </span>
           </div>
         </div>
+
         <button className="ai-clear-btn" onClick={handleClear} title="清空记忆">
           🗑
         </button>
-      </div>
-
-      <div className="ai-chat-title">
-        <span className="ai-name">情感陪伴</span>
-        <span className="ai-status">
-          <span
-            className="ai-status-dot"
-            style={{ backgroundColor: isTyping ? "#f59e0b" : "#22c55e" }}
-          />
-          {isTyping ? "思考中" : "在线"}
-        </span>
       </div>
 
       {stats.conversationCount > 0 && (
@@ -144,17 +140,11 @@ export default function AIChatPage({ onBack }) {
 
       <div className="ai-chat-messages" ref={messagesContainerRef}>
         {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`ai-msg ${msg.role === "user" ? "sent" : "received"}`}
-          >
+          <div key={i} className={`ai-msg ${msg.role === "user" ? "sent" : "received"}`}>
             {msg.content || ""}
             <div className="ai-msg-meta">
               <span className="ai-msg-time">
-                {new Date().toLocaleTimeString("zh-CN", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+                {new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}
               </span>
             </div>
           </div>
@@ -181,12 +171,8 @@ export default function AIChatPage({ onBack }) {
           onKeyDown={handleKeyDown}
           disabled={isTyping}
         />
-        <button
-          className="ai-send-btn"
-          onClick={handleSend}
-          disabled={isTyping || !input.trim()}
-        >
-          {isTyping ? "..." : <Icons.Send />}
+        <button className="ai-send-btn" onClick={handleSend} disabled={isTyping || !input.trim()}>
+          {isTyping ? "..." : "↑"}
         </button>
       </div>
 
@@ -204,19 +190,20 @@ export default function AIChatPage({ onBack }) {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 16px;
+          padding: 12px 16px;
           background: var(--bg);
           flex-shrink: 0;
+          border-bottom: 1px solid var(--border);
         }
 
         .ai-chat-back {
-          width: 44px;
-          height: 44px;
+          width: 40px;
+          height: 40px;
           display: flex;
           align-items: center;
           justify-content: center;
           border-radius: 50%;
-          font-size: 20px;
+          font-size: 18px;
           color: var(--text);
           background: transparent;
           border: none;
@@ -228,32 +215,62 @@ export default function AIChatPage({ onBack }) {
           background: var(--hover);
         }
 
-        .ai-avatar-wrapper {
+        .ai-chat-center {
           flex: 1;
           display: flex;
-          justify-content: center;
+          flex-direction: column;
+          align-items: center;
+          gap: 4px;
         }
 
         .ai-avatar {
-          width: 64px;
-          height: 64px;
+          width: 56px;
+          height: 56px;
           border-radius: 50%;
           background: linear-gradient(135deg, #6366f1, #ec4899);
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 32px;
+          font-size: 28px;
           box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
         }
 
+        .ai-chat-title-wrap {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 2px;
+        }
+
+        .ai-name {
+          font-size: 16px;
+          font-weight: 600;
+          color: var(--text);
+        }
+
+        .ai-status {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 11px;
+          color: var(--text-muted);
+        }
+
+        .ai-status-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          box-shadow: 0 0 4px currentColor;
+        }
+
         .ai-clear-btn {
-          width: 44px;
-          height: 44px;
+          width: 40px;
+          height: 40px;
           display: flex;
           align-items: center;
           justify-content: center;
           border-radius: 50%;
-          font-size: 18px;
+          font-size: 16px;
           color: var(--text-muted);
           background: transparent;
           border: none;
@@ -265,41 +282,9 @@ export default function AIChatPage({ onBack }) {
           background: var(--hover);
         }
 
-        .ai-chat-title {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 4px;
-          padding: 8px 16px 16px;
-          background: var(--bg);
-          flex-shrink: 0;
-        }
-
-        .ai-name {
-          font-size: 18px;
-          font-weight: 600;
-          color: var(--text);
-        }
-
-        .ai-status {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 12px;
-          color: var(--text-muted);
-        }
-
-        .ai-status-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          box-shadow: 0 0 6px currentColor;
-        }
-
         .ai-chat-stats {
-          padding: 8px 16px;
+          padding: 6px 16px;
           background: var(--bg2);
-          border-top: 1px solid var(--border);
           font-size: 11px;
           color: var(--text-muted);
           text-align: center;
@@ -353,7 +338,7 @@ export default function AIChatPage({ onBack }) {
 
         .ai-chat-input-area {
           display: flex;
-          gap: 12px;
+          gap: 10px;
           padding: 12px 16px;
           padding-bottom: max(12px, env(safe-area-inset-bottom));
           border-top: 1px solid var(--border);
