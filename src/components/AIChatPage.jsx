@@ -6,7 +6,6 @@ const ai = new CompanionAI();
 
 export default function AIChatPage({ onBack }) {
   const [messages, setMessages] = useState(() => {
-    // 首次进入时根据用户是否聊过显示不同欢迎语
     const isFirst = ai.memory.isFirstChat();
     const welcome = isFirst
       ? "嗨，初次见面，我是你的情感陪伴。开心、难过、无聊都可以来找我聊聊，我会一直在这里陪你。"
@@ -15,16 +14,16 @@ export default function AIChatPage({ onBack }) {
           const name = mem.userName ? `${mem.userName}，` : "";
           return `${name}你来啦，想聊点什么？我一直都在。`;
         })();
-    return [{ role: "assistant", content: welcome, emotion: "happy" }];
+    const mood = ai.getCurrentMood();
+    return [{ role: "assistant", content: welcome, emotion: "happy", aiMood: mood.mood, aiMoodEmoji: mood.emoji }];
   });
 
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [aiEmotion, setAiEmotion] = useState("happy"); // AI 当前情绪
+  const [aiMood, setAiMood] = useState(() => ai.getCurrentMood());
   const messagesContainerRef = useRef(null);
   const inputRef = useRef(null);
 
-  // 滚动到底部
   const scrollToBottom = useCallback(() => {
     const container = messagesContainerRef.current;
     if (container) {
@@ -36,12 +35,19 @@ export default function AIChatPage({ onBack }) {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  // 自动聚焦输入框
   useEffect(() => {
     setTimeout(() => inputRef.current?.focus(), 300);
   }, []);
 
-  // 发送消息
+  // 定时更新AI心情（时间衰减）
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const mood = ai.getCurrentMood();
+      setAiMood(mood);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleSend = useCallback(async () => {
     if (!input.trim() || isTyping) return;
 
@@ -49,29 +55,25 @@ export default function AIChatPage({ onBack }) {
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setIsTyping(true);
-    setAiEmotion("calm"); // 思考中
 
-    // 流式回复
     await ai.replyStream(
       userMessage,
       (result) => {
-        // 逐字更新
         setMessages((prev) => {
           const last = prev[prev.length - 1];
           if (last && last.role === "assistant" && !last.final) {
             return [
               ...prev.slice(0, -1),
-              { role: "assistant", content: result.text, final: false, emotion: last.emotion },
+              { role: "assistant", content: result.text, final: false, emotion: last.emotion, aiMood: aiMood.mood, aiMoodEmoji: aiMood.emoji },
             ];
           }
           return [
             ...prev,
-            { role: "assistant", content: result.text, final: false, emotion: "calm" },
+            { role: "assistant", content: result.text, final: false, emotion: "calm", aiMood: aiMood.mood, aiMoodEmoji: aiMood.emoji },
           ];
         });
       },
       (result) => {
-        // 完成
         setMessages((prev) => {
           const last = prev[prev.length - 1];
           if (last && last.role === "assistant") {
@@ -82,17 +84,20 @@ export default function AIChatPage({ onBack }) {
                 content: result.text,
                 final: true,
                 emotion: result.emotion,
+                aiMood: result.aiMood || aiMood.mood,
+                aiMoodEmoji: result.aiMoodEmoji || aiMood.emoji,
               },
             ];
           }
           return prev;
         });
-        setAiEmotion(result.emotion);
+        const newMood = ai.getCurrentMood();
+        setAiMood(newMood);
         setIsTyping(false);
         setTimeout(() => inputRef.current?.focus(), 100);
       }
     );
-  }, [input, isTyping]);
+  }, [input, isTyping, aiMood]);
 
   const handleKeyDown = useCallback(
     (e) => {
@@ -104,36 +109,23 @@ export default function AIChatPage({ onBack }) {
     [handleSend]
   );
 
-  // 清空对话
   const handleClear = useCallback(() => {
     if (window.confirm("确定清空所有对话和记忆吗？")) {
       ai.clearMemory();
+      const mood = ai.getCurrentMood();
+      setAiMood(mood);
       setMessages([
         {
           role: "assistant",
           content: "记忆已清空，我们重新开始吧。你好呀，想聊点什么？",
           emotion: "happy",
+          aiMood: mood.mood,
+          aiMoodEmoji: mood.emoji,
         },
       ]);
     }
   }, []);
 
-  // AI 表情（根据情绪）
-  const getAiAvatar = useCallback(() => {
-    const emotionMap = {
-      happy: "😊",
-      sad: "🥺",
-      angry: "😤",
-      anxious: "🌿",
-      lonely: "💜",
-      tired: "🌙",
-      calm: "🌱",
-      miss: "✨",
-    };
-    return emotionMap[aiEmotion] || "🌱";
-  }, [aiEmotion]);
-
-  // 统计信息
   const stats = ai.getStats();
 
   return (
@@ -152,9 +144,10 @@ export default function AIChatPage({ onBack }) {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            transition: "transform 0.3s ease",
           }}
         >
-          {getAiAvatar()}
+          {aiMood.emoji || "🌱"}
         </div>
         <span className="dm-chat-name">情感陪伴</span>
         <span className="dm-chat-lock" style={{ fontSize: 11, color: "var(--text-muted)" }}>
@@ -169,7 +162,7 @@ export default function AIChatPage({ onBack }) {
               boxShadow: `0 0 6px ${isTyping ? "#f59e0b" : "#22c55e"}`,
             }}
           />
-          {isTyping ? "思考中" : "在线"}
+          {isTyping ? "思考中" : aiMood.label || "在线"}
         </span>
         <button
           onClick={handleClear}
@@ -189,7 +182,6 @@ export default function AIChatPage({ onBack }) {
         </button>
       </div>
 
-      {/* 统计条 */}
       {stats.conversationCount > 0 && (
         <div
           style={{
@@ -200,10 +192,16 @@ export default function AIChatPage({ onBack }) {
             color: "var(--text-muted)",
             display: "flex",
             justifyContent: "space-between",
+            alignItems: "center",
           }}
         >
           <span>💬 已聊 {stats.conversationCount} 句</span>
-          {stats.preferencesCount > 0 && <span>💕 记住 {stats.preferencesCount} 个喜好</span>}
+          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span>{aiMood.emoji}</span>
+            <span>{aiMood.intensity} {aiMood.label}</span>
+            {aiMood.trend === 'up' && <span style={{ color: '#22c55e' }}>↑</span>}
+            {aiMood.trend === 'down' && <span style={{ color: '#ef4444' }}>↓</span>}
+          </span>
           <span>🌱 端侧运行</span>
         </div>
       )}
@@ -225,13 +223,19 @@ export default function AIChatPage({ onBack }) {
               {msg.role === "assistant" && msg.emotion && (
                 <span className="dm-msg-lock" style={{ marginLeft: 4, fontSize: 10 }}>
                   {msg.emotion === "happy" && "😊"}
-                  {msg.emotion === "sad" && "�"}
+                  {msg.emotion === "sad" && "🥺"}
                   {msg.emotion === "angry" && "💪"}
                   {msg.emotion === "anxious" && "🌿"}
                   {msg.emotion === "lonely" && "💜"}
                   {msg.emotion === "tired" && "🌙"}
                   {msg.emotion === "calm" && "🌱"}
                   {msg.emotion === "miss" && "✨"}
+                  {msg.emotion === "playful" && "😜"}
+                </span>
+              )}
+              {msg.role === "assistant" && msg.aiMoodEmoji && (
+                <span className="dm-msg-lock" style={{ marginLeft: 2, fontSize: 10 }}>
+                  AI: {msg.aiMoodEmoji}
                 </span>
               )}
             </div>
