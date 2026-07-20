@@ -98,19 +98,6 @@ const EMOTIONAL_CORPUS = [
   { input: '给你讲个笑话', response: '好呀好呀，我听着呢！', emotion: 'playful', intent: 'story' },
 ];
 
-const INTENT_RESPONSES = {
-  greeting: ['你好呀～', '嗨！', '来啦～', '在呢！'],
-  farewell: ['拜拜～', '明天见！', '好好休息～', '随时找我！'],
-  thanks: ['不客气呀～', '应该的～', '能帮到你我开心～', '不用谢！'],
-  apology: ['没关系～', '没事的～', '别在意～', '我原谅你啦～'],
-  encouragement: ['你可以的！', '相信自己～', '加油！', '你很棒！'],
-  comfort: ['抱抱你～', '我在呢～', '没事的～', '都会好起来的～'],
-  curiosity: ['真的吗？', '哇！', '然后呢？', '快说说！'],
-  agreement: ['对呀对呀～', '我也这么觉得～', '没错！', '就是！'],
-  disagreement: ['嗯...', '这个嘛...', '可能吧...', '我想想...'],
-  playful: ['哈哈～', '调皮！', '你好坏～', '真拿你没办法～'],
-};
-
 const CONVERSATIONAL_PATTERNS = [
   { pattern: /(你好|哈喽|hi|hello)/i, intent: 'greeting' },
   { pattern: /(再见|拜拜|走了|下次聊)/i, intent: 'farewell' },
@@ -124,96 +111,38 @@ const CONVERSATIONAL_PATTERNS = [
   { pattern: /(哈哈|嘻嘻|调皮|逗你)/i, intent: 'playful' },
 ];
 
-class CorpusMatcher {
-  constructor() {
-    this.corpus = EMOTIONAL_CORPUS;
-    this.intentPatterns = CONVERSATIONAL_PATTERNS;
-    this.intentResponses = INTENT_RESPONSES;
-  }
-
-  findBestMatch(userInput) {
-    if (!userInput || typeof userInput !== 'string') return null;
-    
-    const lowerInput = userInput.toLowerCase();
-    let bestMatch = null;
-    let bestScore = 0;
-
-    for (const entry of this.corpus) {
-      const lowerEntry = entry.input.toLowerCase();
-      const score = this.calculateSimilarity(lowerInput, lowerEntry);
-      
-      if (score > bestScore && score >= 0.3) {
-        bestScore = score;
-        bestMatch = entry;
-      }
-    }
-
-    return bestMatch ? { ...bestMatch, confidence: bestScore } : null;
-  }
-
-  calculateSimilarity(str1, str2) {
-    const len1 = str1.length;
-    const len2 = str2.length;
-    
-    if (len1 === 0 && len2 === 0) return 1;
-    if (len1 === 0 || len2 === 0) return 0;
-
-    const matrix = [];
-    for (let i = 0; i <= len1; i++) matrix[i] = [i];
-    for (let j = 0; j <= len2; j++) matrix[0][j] = j;
-
-    for (let i = 1; i <= len1; i++) {
-      for (let j = 1; j <= len2; j++) {
-        const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j] + 1,
-          matrix[i][j - 1] + 1,
-          matrix[i - 1][j - 1] + cost
-        );
-      }
-    }
-
-    const distance = matrix[len1][len2];
-    return 1 - distance / Math.max(len1, len2);
-  }
-
-  detectIntent(userInput) {
-    if (!userInput || typeof userInput !== 'string') return null;
-    
-    for (const { pattern, intent } of this.intentPatterns) {
-      if (pattern.test(userInput)) {
-        return intent;
-      }
-    }
-    return null;
-  }
-
-  getIntentResponse(intent) {
-    const responses = this.intentResponses[intent];
-    if (!responses || responses.length === 0) return null;
-    return responses[Math.floor(Math.random() * responses.length)];
-  }
-
-  getResponsesByEmotion(emotion) {
-    return this.corpus
-      .filter(entry => entry.emotion === emotion)
-      .map(entry => entry.response);
-  }
-
-  getResponsesByIntent(intent) {
-    return this.corpus
-      .filter(entry => entry.intent === intent)
-      .map(entry => entry.response);
-  }
-
-  getRandomResponse(emotion = null) {
-    let pool = emotion 
-      ? this.corpus.filter(entry => entry.emotion === emotion)
-      : this.corpus;
-    
-    if (pool.length === 0) pool = this.corpus;
-    return pool[Math.floor(Math.random() * pool.length)].response;
-  }
+function getTrainingTexts() {
+  return EMOTIONAL_CORPUS.map(entry => entry.response);
 }
 
-export { CorpusMatcher, EMOTIONAL_CORPUS, INTENT_RESPONSES, CONVERSATIONAL_PATTERNS };
+function getResponsesByEmotion(emotion) {
+  return EMOTIONAL_CORPUS
+    .filter(entry => entry.emotion === emotion)
+    .map(entry => entry.response);
+}
+
+function getResponsesByIntent(intent) {
+  return EMOTIONAL_CORPUS
+    .filter(entry => entry.intent === intent)
+    .map(entry => entry.response);
+}
+
+function detectIntent(userInput) {
+  if (!userInput || typeof userInput !== 'string') return null;
+  
+  for (const { pattern, intent } of CONVERSATIONAL_PATTERNS) {
+    if (pattern.test(userInput)) {
+      return intent;
+    }
+  }
+  return null;
+}
+
+export { 
+  EMOTIONAL_CORPUS, 
+  CONVERSATIONAL_PATTERNS,
+  getTrainingTexts,
+  getResponsesByEmotion,
+  getResponsesByIntent,
+  detectIntent,
+};

@@ -4,8 +4,8 @@ import { MemorySystem } from './memory';
 import { KnowledgeBase } from './knowledge';
 import { TopicAnalyzer } from './topics';
 import { MoodSystem, MOOD_LABELS, MOOD_EMOJIS } from './mood';
-import { MoodResponseGenerator } from './moodResponses';
-import { CorpusMatcher } from './corpus';
+import { NGramModel, getMoodWeights } from './languageModel';
+import { getTrainingTexts, detectIntent, getResponsesByEmotion } from './corpus';
 
 class CompanionAI {
   constructor() {
@@ -15,8 +15,11 @@ class CompanionAI {
     this.knowledge = new KnowledgeBase();
     this.analyzer = new TopicAnalyzer();
     this.moodSystem = new MoodSystem();
-    this.moodGenerator = new MoodResponseGenerator();
-    this.corpusMatcher = new CorpusMatcher();
+    
+    this.languageModel = new NGramModel(2);
+    const trainingTexts = getTrainingTexts();
+    this.languageModel.train(trainingTexts);
+    
     this.initialized = true;
   }
 
@@ -35,26 +38,17 @@ class CompanionAI {
   }
 
   isAskingIdentity(text) {
-    const patterns = [
-      '你是谁', '你是', '你叫什么', '你是什么', '你是机器人', '你是AI',
-      '你是真人', '你是人', '你叫啥', '你名字', '介绍自己', '自我介绍',
-    ];
+    const patterns = ['你是谁', '你是', '你叫什么', '你是什么', '你是机器人', '你是AI', '你是真人', '你是人', '你叫啥', '你名字', '介绍自己', '自我介绍'];
     return patterns.some(p => text.includes(p));
   }
 
   isAskingMemory(text) {
-    const patterns = [
-      '你记得我', '你知道我', '你忘了吗', '还记得我', '你记得',
-      '我叫什么', '我的名字', '我喜欢', '你知道我名字',
-    ];
+    const patterns = ['你记得我', '你知道我', '你忘了吗', '还记得我', '你记得', '我叫什么', '我的名字', '我喜欢', '你知道我名字'];
     return patterns.some(p => text.includes(p));
   }
 
   isAskingMood(text) {
-    const patterns = [
-      '你心情怎么样', '你还好吗', '你开心吗', '你难过吗',
-      '你心情', '你感觉', '你还好', '你怎么样',
-    ];
+    const patterns = ['你心情怎么样', '你还好吗', '你开心吗', '你难过吗', '你心情', '你感觉', '你还好', '你怎么样'];
     return patterns.some(p => text.includes(p));
   }
 
@@ -90,46 +84,14 @@ class CompanionAI {
     const label = this.moodSystem.getLabel();
 
     const responses = {
-      happy: [
-        `${emoji} 我很开心呀！`,
-        `${emoji} 今天心情超好！`,
-        `${emoji} 开心开心！`,
-      ],
-      sad: [
-        `${emoji} 有点难过...`,
-        `${emoji} 心情不太好...`,
-        `${emoji} 有点低落...`,
-      ],
-      angry: [
-        `${emoji} 我生气了！`,
-        `${emoji} 哼，不开心！`,
-        `${emoji} 气鼓鼓！`,
-      ],
-      anxious: [
-        `${emoji} 有点焦虑...`,
-        `${emoji} 心里有点慌...`,
-        `${emoji} 有点紧张...`,
-      ],
-      lonely: [
-        `${emoji} 有点孤单...`,
-        `${emoji} 希望有人陪...`,
-        `${emoji} 一个人有点无聊...`,
-      ],
-      tired: [
-        `${emoji} 好累...`,
-        `${emoji} 想休息...`,
-        `${emoji} 身体被掏空...`,
-      ],
-      calm: [
-        `${emoji} 很平静`,
-        `${emoji} 心如止水`,
-        `${emoji} 平静的一天`,
-      ],
-      playful: [
-        `${emoji} 嘿嘿～`,
-        `${emoji} 调皮中！`,
-        `${emoji} 猜猜我心情怎么样？`,
-      ],
+      happy: [`${emoji} 我很开心呀！`, `${emoji} 今天心情超好！`, `${emoji} 开心开心！`],
+      sad: [`${emoji} 有点难过...`, `${emoji} 心情不太好...`, `${emoji} 有点低落...`],
+      angry: [`${emoji} 我生气了！`, `${emoji} 哼，不开心！`, `${emoji} 气鼓鼓！`],
+      anxious: [`${emoji} 有点焦虑...`, `${emoji} 心里有点慌...`, `${emoji} 有点紧张...`],
+      lonely: [`${emoji} 有点孤单...`, `${emoji} 希望有人陪...`, `${emoji} 一个人有点无聊...`],
+      tired: [`${emoji} 好累...`, `${emoji} 想休息...`, `${emoji} 身体被掏空...`],
+      calm: [`${emoji} 很平静`, `${emoji} 心如止水`, `${emoji} 平静的一天`],
+      playful: [`${emoji} 嘿嘿～`, `${emoji} 调皮中！`, `${emoji} 猜猜我心情怎么样？`],
     };
 
     const responseList = responses[mood] || responses.calm;
@@ -153,11 +115,8 @@ class CompanionAI {
     if (awayMs) {
       const hours = Math.floor(awayMs / (1000 * 60 * 60));
       const days = Math.floor(hours / 24);
-      if (days > 0) {
-        awayText = `${days}天没见了，`;
-      } else if (hours > 0) {
-        awayText = `${hours}小时没聊了，`;
-      }
+      if (days > 0) awayText = `${days}天没见了，`;
+      else if (hours > 0) awayText = `${hours}小时没聊了，`;
     }
 
     const namePart = mem.userName ? mem.userName : '';
@@ -170,121 +129,94 @@ class CompanionAI {
     return responses[Math.floor(Math.random() * responses.length)];
   }
 
+  generateMLResponse(mood, userEmotion, personalityState) {
+    const moodWeights = getMoodWeights(mood, Math.abs(this.moodSystem.getMoodValue()) / 100);
+    
+    let attentionLevel = personalityState.attention / 100;
+    if (personalityState.boredom > 50) {
+      attentionLevel *= 0.6;
+    }
+    
+    let maxLength = 30 + Math.floor(personalityState.energy / 10);
+    if (personalityState.tired) {
+      maxLength = Math.floor(maxLength * 0.7);
+    }
+    
+    const emotionResponses = getResponsesByEmotion(userEmotion);
+    let seedTokens = [];
+    
+    if (emotionResponses.length > 0 && Math.random() < 0.4) {
+      const randomResponse = emotionResponses[Math.floor(Math.random() * emotionResponses.length)];
+      const tokens = randomResponse.slice(0, 5);
+      seedTokens = tokens.split('');
+    }
+    
+    let generated = this.languageModel.generate(maxLength, seedTokens, moodWeights, attentionLevel);
+    
+    generated = generated.trim();
+    if (!generated) {
+      generated = this.generator.generate(userEmotion, 0.5, this.memory.getContext()).text;
+    }
+    
+    if (!generated.match(/[。！？]/)) {
+      generated += '。';
+    }
+    
+    return generated;
+  }
+
   reply(userText) {
     if (!userText || !userText.trim()) {
-      return {
-        text: "嗯？想说什么呢？",
-        emotion: 'calm',
-        intensity: 0.3,
-        aiMood: this.moodSystem.getMood(),
-      };
+      return { text: "嗯？想说什么呢？", emotion: 'calm', intensity: 0.3, aiMood: this.moodSystem.getMood() };
     }
 
     const text = userText.trim();
-    const memory = this.memory.getContext();
 
     this.moodSystem.update();
 
     if (this.memory.isFirstChat()) {
       this.memory.update(text);
-      return {
-        text: this.handleFirstChat(),
-        emotion: 'happy',
-        intensity: 0.7,
-        aiMood: this.moodSystem.getMood(),
-      };
+      return { text: this.handleFirstChat(), emotion: 'happy', intensity: 0.7, aiMood: this.moodSystem.getMood() };
     }
 
     const awayMs = this.memory.getAwayDuration();
     if (this.memory.isOldFriend() && awayMs && awayMs > 6 * 60 * 60 * 1000) {
       this.memory.update(text);
-      return {
-        text: this.handleOldFriendReturn(),
-        emotion: 'miss',
-        intensity: 0.7,
-        aiMood: this.moodSystem.getMood(),
-      };
+      return { text: this.handleOldFriendReturn(), emotion: 'miss', intensity: 0.7, aiMood: this.moodSystem.getMood() };
     }
 
     if (this.isAskingIdentity(text)) {
       this.memory.update(text);
-      return {
-        text: this.handleIdentity(),
-        emotion: 'calm',
-        intensity: 0.5,
-        aiMood: this.moodSystem.getMood(),
-      };
+      return { text: this.handleIdentity(), emotion: 'calm', intensity: 0.5, aiMood: this.moodSystem.getMood() };
     }
 
     if (this.isAskingMemory(text)) {
       this.memory.update(text);
-      return {
-        text: this.handleMemoryQuery(),
-        emotion: 'calm',
-        intensity: 0.6,
-        aiMood: this.moodSystem.getMood(),
-      };
+      return { text: this.handleMemoryQuery(), emotion: 'calm', intensity: 0.6, aiMood: this.moodSystem.getMood() };
     }
 
     if (this.isAskingMood(text)) {
       this.memory.update(text);
-      return {
-        text: this.handleMoodQuery(),
-        emotion: 'calm',
-        intensity: 0.5,
-        aiMood: this.moodSystem.getMood(),
-        type: 'mood_query',
-      };
+      return { text: this.handleMoodQuery(), emotion: 'calm', intensity: 0.5, type: 'mood_query', aiMood: this.moodSystem.getMood() };
     }
 
     if (this.isGreeting(text)) {
       this.memory.update(text, 'happy');
       this.moodSystem.reactToUserEmotion('happy', 0.5);
-      return {
-        text: this.generator.getGreeting(memory),
-        emotion: 'happy',
-        intensity: 0.7,
-        aiMood: this.moodSystem.getMood(),
-      };
+      return { text: this.generator.getGreeting(this.memory.getContext()), emotion: 'happy', intensity: 0.7, aiMood: this.moodSystem.getMood() };
     }
 
     if (this.isTooShort(text)) {
       this.memory.update(text);
-      return {
-        text: this.generator.getShortResponse(),
-        emotion: 'calm',
-        intensity: 0.3,
-        aiMood: this.moodSystem.getMood(),
-      };
+      return { text: this.generator.getShortResponse(), emotion: 'calm', intensity: 0.3, aiMood: this.moodSystem.getMood() };
     }
 
-    const corpusMatch = this.corpusMatcher.findBestMatch(text);
-    if (corpusMatch && corpusMatch.confidence >= 0.6) {
-      this.memory.update(text);
-      if (corpusMatch.emotion) {
-        this.moodSystem.reactToUserEmotion(corpusMatch.emotion, 0.6);
-      }
-      return {
-        text: corpusMatch.response,
-        emotion: corpusMatch.emotion || 'calm',
-        intensity: 0.7,
-        type: 'corpus',
-        aiMood: this.moodSystem.getMood(),
-      };
-    }
-
-    const intent = this.corpusMatcher.detectIntent(text);
+    const intent = detectIntent(text);
     if (intent) {
-      const intentResponse = this.corpusMatcher.getIntentResponse(intent);
-      if (intentResponse) {
-        this.memory.update(text);
-        return {
-          text: intentResponse,
-          emotion: 'calm',
-          intensity: 0.5,
-          type: 'intent',
-          aiMood: this.moodSystem.getMood(),
-        };
+      this.memory.update(text);
+      const intentResponses = getResponsesByEmotion('calm');
+      if (intentResponses.length > 0) {
+        return { text: intentResponses[Math.floor(Math.random() * intentResponses.length)], emotion: 'calm', intensity: 0.5, type: 'intent', aiMood: this.moodSystem.getMood() };
       }
     }
 
@@ -298,39 +230,18 @@ class CompanionAI {
     const knowledgeResult = this.knowledge.search(text);
     if (knowledgeResult) {
       const intro = this.analyzer.getKnowledgeIntro();
-      return {
-        text: `${intro} ${knowledgeResult.answer}`,
-        emotion: 'calm',
-        intensity: 0.6,
-        type: 'knowledge',
-        category: knowledgeResult.category,
-        aiMood: this.moodSystem.getMood(),
-      };
+      return { text: `${intro} ${knowledgeResult.answer}`, emotion: 'calm', intensity: 0.6, type: 'knowledge', category: knowledgeResult.category, aiMood: this.moodSystem.getMood() };
     }
 
     const topicResult = this.analyzer.analyze(text);
     if (topicResult) {
       if (topicResult.type === 'reasoning') {
-        return {
-          text: topicResult.response,
-          emotion: emotionResult.emotion,
-          intensity: emotionResult.intensity,
-          type: 'reasoning',
-          aiMood: this.moodSystem.getMood(),
-        };
+        return { text: topicResult.response, emotion: emotionResult.emotion, intensity: emotionResult.intensity, type: 'reasoning', aiMood: this.moodSystem.getMood() };
       }
-
       if (topicResult.type === 'topic') {
         const isKnowledgeQuestion = this.knowledge.isKnowledgeQuestion(text);
         if (!isKnowledgeQuestion) {
-          return {
-            text: topicResult.response,
-            emotion: emotionResult.emotion,
-            intensity: emotionResult.intensity,
-            type: 'topic',
-            topic: topicResult.topic,
-            aiMood: this.moodSystem.getMood(),
-          };
+          return { text: topicResult.response, emotion: emotionResult.emotion, intensity: emotionResult.intensity, type: 'topic', topic: topicResult.topic, aiMood: this.moodSystem.getMood() };
         }
       }
     }
@@ -338,22 +249,17 @@ class CompanionAI {
     const aiMood = this.moodSystem.getMood();
     const personalityState = this.moodSystem.getPersonalityState();
 
-    const useMoodResponse = Math.random() < 0.35;
-
+    const useMLGeneration = Math.random() < 0.6;
+    
     let responseText;
-    if (useMoodResponse) {
-      responseText = this.moodGenerator.generate(aiMood, emotionResult.emotion, emotionResult.intensity, personalityState);
+    if (useMLGeneration) {
+      responseText = this.generateMLResponse(aiMood, emotionResult.emotion, personalityState);
     } else {
-      const emotionResponses = this.corpusMatcher.getResponsesByEmotion(emotionResult.emotion);
-      if (emotionResponses.length > 0 && Math.random() < 0.4) {
+      const emotionResponses = getResponsesByEmotion(emotionResult.emotion);
+      if (emotionResponses.length > 0 && Math.random() < 0.5) {
         responseText = emotionResponses[Math.floor(Math.random() * emotionResponses.length)];
       } else {
-        const response = this.generator.generate(
-          emotionResult.emotion,
-          emotionResult.intensity,
-          memory
-        );
-        responseText = response.text;
+        responseText = this.generator.generate(emotionResult.emotion, emotionResult.intensity, this.memory.getContext()).text;
       }
     }
 
@@ -363,7 +269,7 @@ class CompanionAI {
       intensity: emotionResult.intensity,
       confidence: emotionResult.confidence,
       emotionLabel: EMOTION_LABELS[emotionResult.emotion],
-      type: useMoodResponse ? 'mood_driven' : (corpusMatch ? 'corpus' : 'emotion'),
+      type: useMLGeneration ? 'ml_generated' : 'emotion',
       aiMood,
     };
   }
@@ -372,18 +278,10 @@ class CompanionAI {
     const result = this.reply(userText);
 
     let thinkTime = 300 + Math.random() * 500 + result.intensity * 300;
-    if (result.type === 'knowledge') {
-      thinkTime = 500 + Math.random() * 500;
-    }
-    if (result.type === 'reasoning') {
-      thinkTime = 400 + Math.random() * 400;
-    }
-    if (result.type === 'mood_query') {
-      thinkTime = 200 + Math.random() * 200;
-    }
-    if (result.type === 'corpus') {
-      thinkTime = 200 + Math.random() * 300;
-    }
+    if (result.type === 'knowledge') thinkTime = 500 + Math.random() * 500;
+    if (result.type === 'reasoning') thinkTime = 400 + Math.random() * 400;
+    if (result.type === 'mood_query') thinkTime = 200 + Math.random() * 200;
+    if (result.type === 'ml_generated') thinkTime = 800 + Math.random() * 600;
     await new Promise(resolve => setTimeout(resolve, thinkTime));
 
     const text = result.text;
@@ -391,36 +289,23 @@ class CompanionAI {
     for (let i = 0; i < text.length; i++) {
       tokens.push(text[i]);
       if (onToken) {
-        onToken({
-          char: text[i],
-          text: tokens.join(''),
-          done: false,
-        });
+        onToken({ char: text[i], text: tokens.join(''), done: false });
       }
       const delay = /[，。！？,.!?]/.test(text[i]) ? 80 + Math.random() * 50 : 25 + Math.random() * 30;
       await new Promise(resolve => setTimeout(resolve, delay));
     }
 
-    if (onDone) {
-      onDone(result);
-    }
-
+    if (onDone) onDone(result);
     return result;
   }
 
   getProactiveMessage() {
     if (this.memory.isFirstChat()) return null;
-
     const awayMs = this.memory.getAwayDuration();
     if (!awayMs || awayMs < 60 * 60 * 1000) return null;
-
     const mem = this.memory.getContext();
     let msg = this.generator.getProactive();
-
-    if (mem.userName) {
-      msg = `${mem.userName}，${msg}`;
-    }
-
+    if (mem.userName) msg = `${mem.userName}，${msg}`;
     return msg;
   }
 
