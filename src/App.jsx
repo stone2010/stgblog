@@ -195,7 +195,7 @@ function AppInner() {
     if (p === "dm" && user) loadDmList();
     if (p === "groups" && user) loadGroups();
     closeGroup();
-    setMobileTab(p === "home" ? "home" : p === "dm" ? "dm" : p === "groups" ? "groups" : p === "profile" ? "me" : p === "notifications" ? "notif" : "home");
+    setMobileTab(p === "home" ? "home" : p === "dm" ? "dm" : p === "groups" ? "groups" : p === "ai-chat" ? "ai" : p === "profile" ? "me" : p === "notifications" ? "notif" : "home");
     window.history.pushState({ page: p }, "", `#${p}`);
   }, [user, loadDmList, setDmTarget, loadGroups, closeGroup]);
 
@@ -642,6 +642,9 @@ function AppInner() {
           </button>
           <button className={`bnav-btn ${mobileTab === "groups" ? "on" : ""}`} onClick={() => { if (user) navigate("groups"); else setAuthOpen(true); }}>
             <span className="bnav-icon"><Icons.Group /></span>
+          </button>
+          <button className={`bnav-btn ${mobileTab === "ai" ? "on" : ""}`} onClick={() => { if (user) navigate("ai-chat"); else setAuthOpen(true); }}>
+            <span className="bnav-icon">🤖</span>
           </button>
           <button className={`bnav-btn ${mobileTab === "me" ? "on" : ""}`} onClick={() => navigate("profile")} style={{ position: "relative" }}>
             <span className="bnav-icon"><Icons.User /></span>
