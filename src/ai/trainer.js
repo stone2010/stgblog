@@ -14,6 +14,7 @@ export class Trainer {
   async loadTrainingData() {
     await this.loadJSONLData('/ai_data/corpus_emotional_companion.jsonl');
     await this.loadJSONLData('/ai_data/distill_emotional_companion.jsonl');
+    await this.loadJSONLData('/ai_data/distill_large.jsonl');
     await this.loadBinData('/ai_data/MiMo对话整理_合并.bin');
 
     if (this.trainingData.length === 0) {
