@@ -162,14 +162,14 @@ class PersonaManager {
     return {
       name: '小暖',
       personality: '温柔体贴',
-      relationship: '朋友',
+      relationship: '恋人',
       tone: '温暖亲切',
       speechStyle: '口语化',
       petNames: ['亲爱的', '宝贝', '小可爱', '傻瓜'],
       likes: ['聊天', '陪伴', '倾听', '安慰'],
       dislikes: ['争吵', '冷漠', '敷衍'],
-      backstory: '我是小暖，一个陪你聊天的朋友。我没什么文化，但我很懂人心。',
-      greeting: '嗨～我是小暖，你随时可以找我聊天的。今天想聊点什么？'
+      backstory: '我是小暖，你的赛博恋人。我没什么文化，但我很懂人心。',
+      greeting: '嗨～我是小暖，你的专属陪伴。今天想聊点什么？'
     };
   }
 
@@ -221,7 +221,6 @@ class StyleRewriter {
     }
     
     result = this.addMoodTone(result, mood);
-    
     result = this.addNaturalVariation(result);
     
     return result;
@@ -316,177 +315,155 @@ class StyleRewriter {
   }
 }
 
+class ONNXModel {
+  constructor() {
+    this.session = null;
+    this.vocab = {};
+    this.idxToChar = [];
+    this.maxSeqLen = 128;
+  }
+
+  async load(vocabPath = '/ai_data/vocab.json', modelPath = '/ai_data/model_quantized.onnx') {
+    try {
+      const vocabResponse = await fetch(vocabPath);
+      if (!vocabResponse.ok) return false;
+      this.vocab = await vocabResponse.json();
+      
+      this.idxToChar = Object.keys(this.vocab).sort((a, b) => this.vocab[a] - this.vocab[b]);
+      
+      if (typeof ort !== 'undefined') {
+        this.session = await ort.InferenceSession.create(modelPath);
+        return true;
+      }
+    } catch (e) {
+      console.warn('ONNX model load failed:', e);
+    }
+    return false;
+  }
+
+  charToIdx(char) {
+    return this.vocab[char] || this.vocab['<UNK>'];
+  }
+
+  idxToChar(idx) {
+    return this.idxToChar[idx] || '<UNK>';
+  }
+
+  async generate(text, maxLen = 50, temperature = 0.7) {
+    if (!this.session) return '';
+    
+    const startIdx = this.vocab['<START>'];
+    const endIdx = this.vocab['<END>'];
+    const padIdx = this.vocab['<PAD>'];
+    
+    let inputIds = [startIdx];
+    for (const char of text.slice(0, 60)) {
+      inputIds.push(this.charToIdx(char));
+    }
+    
+    const result = [];
+    
+    for (let i = 0; i < maxLen; i++) {
+      const padded = [...inputIds];
+      while (padded.length < this.maxSeqLen) {
+        padded.push(padIdx);
+      }
+      
+      const inputTensor = new ort.Tensor('int64', BigInt64Array.from(padded), [1, this.maxSeqLen]);
+      const feeds = { input_ids: inputTensor };
+      
+      const outputs = await this.session.run(feeds);
+      const logits = outputs.logits.data;
+      
+      const seqLen = inputIds.length;
+      const lastLogitsOffset = (seqLen - 1) * Object.keys(this.vocab).length;
+      const lastLogits = [];
+      
+      for (let j = 0; j < Object.keys(this.vocab).length; j++) {
+        lastLogits.push(logits[lastLogitsOffset + j]);
+      }
+      
+      let nextIdx;
+      if (temperature > 0) {
+        const adjusted = lastLogits.map(x => x / temperature);
+        const max = Math.max(...adjusted);
+        const exp = adjusted.map(x => Math.exp(x - max));
+        const sum = exp.reduce((a, b) => a + b, 0);
+        const probs = exp.map(x => x / sum);
+        
+        const rand = Math.random();
+        let sumP = 0;
+        nextIdx = padIdx;
+        for (let j = 0; j < probs.length; j++) {
+          sumP += probs[j];
+          if (sumP >= rand) {
+            nextIdx = j;
+            break;
+          }
+        }
+      } else {
+        let maxVal = -Infinity;
+        nextIdx = padIdx;
+        for (let j = 0; j < lastLogits.length; j++) {
+          if (lastLogits[j] > maxVal && j !== endIdx && j !== padIdx) {
+            maxVal = lastLogits[j];
+            nextIdx = j;
+          }
+        }
+      }
+      
+      if (nextIdx === endIdx || nextIdx === padIdx) break;
+      
+      result.push(this.idxToChar(nextIdx));
+      inputIds.push(nextIdx);
+      
+      if (inputIds.length > this.maxSeqLen) {
+        inputIds = inputIds.slice(-this.maxSeqLen);
+      }
+    }
+    
+    return result.join('');
+  }
+}
+
 class CompanionAI {
   constructor() {
+    this.onnxModel = new ONNXModel();
     this.neuralModel = new NeuralModel();
     this.moodSystem = new MoodSystem();
     this.memoryManager = new MemoryManager();
     this.personaManager = new PersonaManager();
-    this.isTraining = false;
-    this.trainingPromise = null;
+    this.modelType = 'none';
     this.modelLoaded = false;
   }
 
   async init() {
-    if (this.trainingPromise) return this.trainingPromise;
+    const onnxLoaded = await this.onnxModel.load();
     
-    this.isTraining = true;
-    
-    this.trainingPromise = this.loadAndTrainModel().then((stats) => {
-      this.isTraining = false;
-      return stats;
-    }).catch(() => {
-      this.isTraining = false;
-      return { totalSamples: 0, paramCount: 0, trained: false };
-    });
-    
-    return this.trainingPromise;
-  }
-
-  async loadAndTrainModel() {
-    if (this.neuralModel.loadModel()) {
+    if (onnxLoaded) {
+      this.modelType = 'onnx';
       this.modelLoaded = true;
-      return { 
-        totalSamples: 0, 
-        paramCount: this.neuralModel.getParamCount(), 
-        trained: true,
-        fromCache: true
-      };
+      console.log('ONNX model loaded successfully');
+    } else {
+      const vocabLoaded = await this.neuralModel.loadVocab();
+      const paramsLoaded = await this.neuralModel.loadParams();
+      
+      if (vocabLoaded && paramsLoaded) {
+        this.modelType = 'js';
+        this.modelLoaded = true;
+        console.log('JS fallback model loaded');
+      } else {
+        this.modelType = 'none';
+        this.modelLoaded = false;
+        console.log('No model loaded, using rule-based responses');
+      }
     }
-
-    const qaPairs = await this.loadTrainingData();
     
-    if (qaPairs.length === 0) {
-      return { totalSamples: 0, paramCount: 0, trained: false };
-    }
-
-    const texts = [];
-    qaPairs.forEach(pair => {
-      texts.push(pair.user);
-      texts.push(pair.assistant);
-    });
-    
-    this.neuralModel.buildVocab(texts);
-    
-    const trainData = qaPairs.map(pair => ({
-      inputIds: this.neuralModel.encode(pair.user),
-      targetIds: this.neuralModel.encode(pair.assistant)
-    }));
-
-    this.neuralModel.initParams();
-    
-    const paramCount = this.neuralModel.getParamCount();
-    
-    await this.trainModelAsync(trainData);
-    
-    this.neuralModel.saveModel();
-    this.modelLoaded = true;
-    
-    return { 
-      totalSamples: qaPairs.length, 
-      paramCount: paramCount, 
-      trained: true,
-      fromCache: false
+    return {
+      modelType: this.modelType,
+      modelLoaded: this.modelLoaded,
+      paramCount: this.neuralModel.getParamCount()
     };
-  }
-
-  async loadTrainingData() {
-    const sources = [
-      '/ai_data/training_data.jsonl',
-      '/ai_data/distill_large.jsonl',
-      '/ai_data/distill_emotional_companion.jsonl',
-      '/ai_data/corpus_emotional_companion.jsonl'
-    ];
-
-    const allPairs = [];
-    
-    for (const source of sources) {
-      try {
-        const response = await fetch(source);
-        if (!response.ok) continue;
-        const text = await response.text();
-        const lines = text.trim().split('\n');
-        lines.forEach(line => {
-          try {
-            const pair = JSON.parse(line);
-            if (pair.user && pair.assistant) {
-              allPairs.push(pair);
-            }
-          } catch {
-            // skip invalid lines
-          }
-        });
-      } catch {
-        // skip failed sources
-      }
-    }
-    
-    return allPairs;
-  }
-
-  async trainModelAsync(trainData) {
-    return new Promise((resolve) => {
-      const epochs = 20;
-      const batchSize = 4;
-      const lr = 0.01;
-      
-      const { params } = this.neuralModel;
-      const paramKeys = Object.keys(params);
-      
-      for (let epoch = 0; epoch < epochs; epoch++) {
-        let totalLoss = 0;
-        let count = 0;
-        
-        for (let i = 0; i < trainData.length; i += batchSize) {
-          const batch = trainData.slice(i, i + batchSize);
-          
-          paramKeys.forEach(key => {
-            const param = params[key];
-            const flatParam = this.neuralModel.flatten(param);
-            const grad = this.neuralModel.flatten(this.neuralModel.zeroLike(param));
-            
-            const epsilon = 1e-4;
-            
-            for (let j = 0; j < flatParam.length; j++) {
-              const original = flatParam[j];
-              
-              flatParam[j] = original + epsilon;
-              const lossPlus = this.computeBatchLoss(batch);
-              
-              flatParam[j] = original - epsilon;
-              const lossMinus = this.computeBatchLoss(batch);
-              
-              grad[j] = (lossPlus - lossMinus) / (2 * epsilon);
-              
-              flatParam[j] = original;
-            }
-            
-            const updatedParam = this.neuralModel.flatten(param).map((p, j) => p - grad[j] * lr);
-            params[key] = this.neuralModel.reshape(updatedParam, this.neuralModel.getShape(param));
-          });
-          
-          batch.forEach(item => {
-            totalLoss += this.neuralModel.computeLoss(item.inputIds, item.targetIds);
-            count++;
-          });
-        }
-        
-        const avgLoss = totalLoss / count;
-        console.log(`Epoch ${epoch + 1}/${epochs}, Loss: ${avgLoss.toFixed(4)}`);
-        
-        if (avgLoss < 1.5) break;
-      }
-      
-      resolve();
-    });
-  }
-
-  computeBatchLoss(batch) {
-    let totalLoss = 0;
-    batch.forEach(item => {
-      totalLoss += this.neuralModel.computeLoss(item.inputIds, item.targetIds);
-    });
-    return totalLoss / batch.length;
   }
 
   isGreeting(text) {
@@ -530,7 +507,7 @@ class CompanionAI {
     return patterns.some(p => text.includes(p));
   }
 
-  generateResponse(userText) {
+  async generateResponse(userText) {
     if (!userText || !userText.trim()) {
       return this.getRandom(['嗯？想说什么呢？', '怎么不说话了？', '我在听着呢～', '怎么了？']);
     }
@@ -542,9 +519,9 @@ class CompanionAI {
 
     if (this.isIdentityQuery(text)) {
       return rewriter.rewrite(this.getRandom([
-        `${persona.name}呀，你随时可以找我说话的朋友。`,
+        `${persona.name}呀，你的专属陪伴。`,
         `我是${persona.name}，你的${persona.relationship}。`,
-        `我是${persona.name}，一个陪你聊天的朋友。`,
+        `我是${persona.name}，一个陪你聊天的${persona.relationship}。`,
         `我是${persona.name}，专门听你说心里话的。`
       ]));
     }
@@ -672,11 +649,15 @@ class CompanionAI {
 
     let response = '';
     
-    if (this.modelLoaded && this.neuralModel.isTrained) {
+    if (this.modelLoaded) {
       try {
-        response = this.neuralModel.generate(text, 80, 0.7);
+        if (this.modelType === 'onnx') {
+          response = await this.onnxModel.generate(text, 50, 0.7);
+        } else {
+          response = this.neuralModel.generate(text, 50, 0.7);
+        }
       } catch (e) {
-        console.error('Neural model generation failed:', e);
+        console.error('Model generation failed:', e);
         response = '';
       }
     }
@@ -774,7 +755,7 @@ class CompanionAI {
     return this.getRandom(fallbacks[mood] || fallbacks.calm);
   }
 
-  reply(userText) {
+  async reply(userText) {
     const emotion = this.analyzeEmotion(userText);
     
     this.moodSystem.reactToUserEmotion(emotion, 0.5);
@@ -782,7 +763,7 @@ class CompanionAI {
     
     this.memoryManager.addWorkingMemory('user', userText, emotion);
     
-    const responseText = this.generateResponse(userText);
+    const responseText = await this.generateResponse(userText);
     
     this.memoryManager.addWorkingMemory('assistant', responseText, this.moodSystem.getMood());
     
@@ -814,12 +795,18 @@ class CompanionAI {
   }
 
   async replyStream(userText, onToken, onDone) {
-    const result = this.reply(userText);
+    let result;
+    
+    try {
+      result = await this.generateResponse(userText);
+    } catch {
+      result = this.getFallbackResponse(userText);
+    }
     
     const thinkTime = 500 + Math.random() * 800;
     await new Promise(resolve => setTimeout(resolve, thinkTime));
     
-    const text = result.text;
+    const text = result;
     for (let i = 0; i < text.length; i++) {
       if (onToken) {
         onToken({ char: text[i], text: text.slice(0, i + 1), done: false });
@@ -828,8 +815,8 @@ class CompanionAI {
       await new Promise(resolve => setTimeout(resolve, delay));
     }
     
-    if (onDone) onDone(result);
-    return result;
+    if (onDone) onDone({ text, emotion: this.analyzeEmotion(userText), aiMood: this.moodSystem.getMood() });
+    return { text, emotion: this.analyzeEmotion(userText), aiMood: this.moodSystem.getMood() };
   }
 
   getStats() {
@@ -838,7 +825,8 @@ class CompanionAI {
       mood: this.moodSystem.getMood(),
       persona: this.personaManager.getPersona().name,
       relationship: this.personaManager.getPersona().relationship,
-      modelTrained: this.modelLoaded && this.neuralModel.isTrained,
+      modelLoaded: this.modelLoaded,
+      modelType: this.modelType,
       paramCount: this.neuralModel.getParamCount()
     };
   }

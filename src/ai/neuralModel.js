@@ -3,29 +3,26 @@ class NeuralModel {
     this.vocab = {};
     this.idxToChar = [];
     this.vocabSize = 0;
-    this.embedDim = 16;
-    this.numHeads = 1;
-    this.numLayers = 1;
-    this.hiddenDim = 32;
+    this.embedDim = 128;
+    this.numHeads = 4;
+    this.numLayers = 4;
+    this.hiddenDim = 512;
     this.maxSeqLen = 128;
     this.params = {};
-    this.isTrained = false;
+    this.isLoaded = false;
   }
 
-  buildVocab(texts) {
-    const charSet = new Set();
-    texts.forEach(text => {
-      for (const char of text) {
-        charSet.add(char);
-      }
-    });
-    
-    this.idxToChar = ['<PAD>', '<START>', '<END>', '<UNK>', ...Array.from(charSet)];
-    this.vocabSize = this.idxToChar.length;
-    
-    this.idxToChar.forEach((char, idx) => {
-      this.vocab[char] = idx;
-    });
+  async loadVocab(vocabPath = '/ai_data/vocab.json') {
+    try {
+      const response = await fetch(vocabPath);
+      if (!response.ok) return false;
+      this.vocab = await response.json();
+      this.idxToChar = Object.keys(this.vocab).sort((a, b) => this.vocab[a] - this.vocab[b]);
+      this.vocabSize = Object.keys(this.vocab).length;
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   charToIdx(char) {
@@ -49,64 +46,16 @@ class NeuralModel {
     return indices.map(idx => this.idxToChar(idx)).join('').replace(/<PAD>|<START>|<END>|<UNK>/g, '');
   }
 
-  initParams() {
-    const { vocabSize, embedDim, numHeads, hiddenDim, numLayers } = this;
-    
-    this.params = {
-      embedding: this.randomInit(vocabSize, embedDim),
-      posEmbedding: this.randomInit(this.maxSeqLen, embedDim),
-      
-      attnWq: this.randomInit(numLayers, embedDim, embedDim),
-      attnWk: this.randomInit(numLayers, embedDim, embedDim),
-      attnWv: this.randomInit(numLayers, embedDim, embedDim),
-      attnWo: this.randomInit(numLayers, embedDim, embedDim),
-      
-      ffW1: this.randomInit(numLayers, embedDim, hiddenDim),
-      ffB1: this.zeros(hiddenDim),
-      ffW2: this.randomInit(numLayers, hiddenDim, embedDim),
-      ffB2: this.zeros(embedDim),
-      
-      layerNormW1: this.ones(embedDim),
-      layerNormB1: this.zeros(embedDim),
-      layerNormW2: this.ones(embedDim),
-      layerNormB2: this.zeros(embedDim),
-      
-      outputW: this.randomInit(embedDim, vocabSize),
-      outputB: this.zeros(vocabSize),
-    };
-  }
-
-  randomInit(...shape) {
-    const result = [];
-    const flatSize = shape.reduce((a, b) => a * b, 1);
-    for (let i = 0; i < flatSize; i++) {
-      result.push((Math.random() - 0.5) * 2 * Math.sqrt(2 / shape[shape.length - 1]));
+  async loadParams(paramsPath = '/ai_data/model_params.json') {
+    try {
+      const response = await fetch(paramsPath);
+      if (!response.ok) return false;
+      this.params = await response.json();
+      this.isLoaded = true;
+      return true;
+    } catch {
+      return false;
     }
-    return this.reshape(result, shape);
-  }
-
-  zeros(size) {
-    return Array(size).fill(0);
-  }
-
-  ones(size) {
-    return Array(size).fill(1);
-  }
-
-  reshape(arr, shape) {
-    if (shape.length === 1) return arr;
-    const [first, ...rest] = shape;
-    const subSize = rest.reduce((a, b) => a * b, 1);
-    const result = [];
-    for (let i = 0; i < first; i++) {
-      result.push(this.reshape(arr.slice(i * subSize, (i + 1) * subSize), rest));
-    }
-    return result;
-  }
-
-  flatten(arr) {
-    if (!Array.isArray(arr)) return [arr];
-    return arr.reduce((acc, val) => acc.concat(this.flatten(val)), []);
   }
 
   matmul(A, B) {
@@ -126,65 +75,6 @@ class NeuralModel {
     return result;
   }
 
-  softmax(arr) {
-    const max = Math.max(...arr);
-    const exp = arr.map(x => Math.exp(x - max));
-    const sum = exp.reduce((a, b) => a + b, 0);
-    return exp.map(x => x / sum);
-  }
-
-  layerNorm(x, w, b, eps = 1e-5) {
-    const mean = x.reduce((a, b) => a + b, 0) / x.length;
-    const variance = x.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / x.length;
-    return x.map((val, idx) => (w[idx] * (val - mean) / Math.sqrt(variance + eps)) + b[idx]);
-  }
-
-  relu(x) {
-    return x.map(val => Math.max(0, val));
-  }
-
-  forward(inputIds) {
-    const { embedding, posEmbedding, attnWq, attnWk, attnWv, attnWo, ffW1, ffB1, ffW2, ffB2, layerNormW1, layerNormB1, layerNormW2, layerNormB2, outputW, outputB } = this.params;
-    
-    const seqLen = inputIds.length;
-    let hidden = [];
-    
-    for (let i = 0; i < seqLen; i++) {
-      const emb = embedding[inputIds[i]];
-      const pos = posEmbedding[i];
-      hidden.push(emb.map((e, j) => e + pos[j]));
-    }
-    
-    for (let layer = 0; layer < this.numLayers; layer++) {
-      const q = this.matmul(hidden, attnWq[layer]);
-      const k = this.matmul(hidden, attnWk[layer]);
-      const v = this.matmul(hidden, attnWv[layer]);
-      
-      const scores = this.matmul(q, this.transpose(k));
-      const scaled = scores.map(row => row.map(val => val / Math.sqrt(this.embedDim)));
-      
-      const mask = this.createMask(seqLen);
-      const masked = scaled.map((row, i) => row.map((val, j) => mask[i][j] ? -1e9 : val));
-      
-      const attnWeights = masked.map(row => this.softmax(row));
-      const attnOut = this.matmul(attnWeights, v);
-      const attnProj = this.matmul(attnOut, attnWo[layer]);
-      
-      const residual1 = attnProj.map((row, i) => row.map((val, j) => val + hidden[i][j]));
-      const norm1 = residual1.map(row => this.layerNorm(row, layerNormW1, layerNormB1));
-      
-      const ff1 = this.matmul(norm1, ffW1[layer]).map(row => row.map((val, i) => val + ffB1[i]));
-      const reluOut = ff1.map(row => this.relu(row));
-      const ff2 = this.matmul(reluOut, ffW2[layer]).map(row => row.map((val, i) => val + ffB2[i]));
-      
-      const residual2 = ff2.map((row, i) => row.map((val, j) => val + norm1[i][j]));
-      hidden = residual2.map(row => this.layerNorm(row, layerNormW2, layerNormB2));
-    }
-    
-    const logits = this.matmul(hidden, outputW).map(row => row.map((val, i) => val + outputB[i]));
-    return logits;
-  }
-
   transpose(matrix) {
     const rows = matrix.length;
     const cols = matrix[0].length;
@@ -198,226 +88,225 @@ class NeuralModel {
     return result;
   }
 
-  createMask(seqLen) {
-    const mask = [];
-    for (let i = 0; i < seqLen; i++) {
-      mask[i] = [];
-      for (let j = 0; j < seqLen; j++) {
-        mask[i][j] = j > i;
+  softmax(arr) {
+    const max = Math.max(...arr);
+    const exp = arr.map(x => Math.exp(x - max));
+    const sum = exp.reduce((a, b) => a + b, 0);
+    return exp.map(x => x / sum);
+  }
+
+  layerNorm(x, w, b, eps = 1e-5) {
+    const mean = x.reduce((a, b) => a + b, 0) / x.length;
+    const variance = x.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / x.length;
+    return x.map((val, idx) => (w[idx] * (val - mean) / Math.sqrt(variance + eps)) + b[idx]);
+  }
+
+  gelu(x) {
+    return x.map(val => val * 0.5 * (1 + Math.tanh(Math.sqrt(2 / Math.PI) * (val + 0.044715 * Math.pow(val, 3)))));
+  }
+
+  splitHeads(x, numHeads) {
+    const batchSize = x.length;
+    const seqLen = x[0].length;
+    const dModel = x[0][0].length;
+    const dHead = dModel / numHeads;
+    
+    const result = [];
+    for (let b = 0; b < batchSize; b++) {
+      result[b] = [];
+      for (let t = 0; t < seqLen; t++) {
+        result[b][t] = [];
+        for (let h = 0; h < numHeads; h++) {
+          result[b][t][h] = [];
+          for (let i = 0; i < dHead; i++) {
+            result[b][t][h][i] = x[b][t][h * dHead + i];
+          }
+        }
       }
     }
-    return mask;
+    return result;
   }
 
-  computeLoss(inputIds, targetIds) {
-    const logits = this.forward(inputIds);
-    let loss = 0;
-    let count = 0;
+  mergeHeads(x) {
+    const batchSize = x.length;
+    const seqLen = x[0].length;
+    const numHeads = x[0][0].length;
+    const dHead = x[0][0][0].length;
+    const dModel = numHeads * dHead;
     
-    for (let i = 0; i < targetIds.length; i++) {
-      if (targetIds[i] === this.charToIdx('<PAD>')) continue;
-      const probs = this.softmax(logits[i]);
-      loss -= Math.log(probs[targetIds[i]] + 1e-9);
-      count++;
+    const result = [];
+    for (let b = 0; b < batchSize; b++) {
+      result[b] = [];
+      for (let t = 0; t < seqLen; t++) {
+        result[b][t] = [];
+        for (let h = 0; h < numHeads; h++) {
+          for (let i = 0; i < dHead; i++) {
+            result[b][t][h * dHead + i] = x[b][t][h][i];
+          }
+        }
+      }
     }
-    
-    return count > 0 ? loss / count : 0;
+    return result;
   }
 
-  generate(inputText, maxLen = 60, temperature = 0.7) {
-    if (!this.isTrained) {
-      return inputText ? '我还在学习中...' : '你好呀！';
+  scaledDotProductAttention(q, k, v, mask) {
+    const dHead = q[0][0].length;
+    const scores = this.matmul(q, this.transpose(k));
+    const scaled = scores.map(row => row.map(val => val / Math.sqrt(dHead)));
+    
+    if (mask) {
+      for (let i = 0; i < scaled.length; i++) {
+        for (let j = 0; j < scaled[i].length; j++) {
+          if (j > i) scaled[i][j] = -Infinity;
+        }
+      }
     }
     
-    let inputIds = this.encode(inputText);
-    let result = [];
+    const attnWeights = scaled.map(row => this.softmax(row));
+    const output = this.matmul(attnWeights, v);
+    
+    return output;
+  }
+
+  forward(inputIds) {
+    if (!this.isLoaded || !this.params.embedding) {
+      return null;
+    }
+
+    const { embedding, posEmbedding, attnLayers, ffLayers, lnF, outputLayer } = this.params;
+    
+    const seqLen = inputIds.length;
+    let hidden = [];
+    
+    for (let i = 0; i < seqLen; i++) {
+      const emb = embedding[inputIds[i]] || Array(this.embedDim).fill(0);
+      const pos = posEmbedding[i] || Array(this.embedDim).fill(0);
+      hidden.push(emb.map((e, j) => e + pos[j]));
+    }
+    
+    hidden = [hidden];
+    
+    for (let layer = 0; layer < this.numLayers; layer++) {
+      const attnLayer = attnLayers[layer];
+      const ffLayer = ffLayers[layer];
+      
+      const residual = hidden;
+      
+      const q = this.matmul(hidden[0], attnLayer.Wq);
+      const k = this.matmul(hidden[0], attnLayer.Wk);
+      const v = this.matmul(hidden[0], attnLayer.Wv);
+      
+      const qSplit = this.splitHeads([q], this.numHeads);
+      const kSplit = this.splitHeads([k], this.numHeads);
+      const vSplit = this.splitHeads([v], this.numHeads);
+      
+      const attnOutputSplit = [];
+      for (let h = 0; h < this.numHeads; h++) {
+        const qh = qSplit[0].map(row => row[h]);
+        const kh = kSplit[0].map(row => row[h]);
+        const vh = vSplit[0].map(row => row[h]);
+        attnOutputSplit.push(this.scaledDotProductAttention(qh, kh, vh, true));
+      }
+      
+      const attnOutput = [];
+      for (let t = 0; t < seqLen; t++) {
+        attnOutput[t] = [];
+        for (let h = 0; h < this.numHeads; h++) {
+          attnOutput[t].push(...attnOutputSplit[h][t]);
+        }
+      }
+      
+      const attnOut = this.matmul(attnOutput, attnLayer.Wo);
+      
+      const norm1 = attnOut.map(row => this.layerNorm(row, attnLayer.lnW, attnLayer.lnB));
+      const hidden1 = norm1.map((row, i) => row.map((val, j) => val + residual[0][i][j]));
+      
+      const ff1 = this.matmul(hidden1, ffLayer.W1);
+      const gelu1 = this.gelu(ff1);
+      const ff2 = this.matmul(gelu1, ffLayer.W2);
+      
+      const norm2 = ff2.map(row => this.layerNorm(row, ffLayer.lnW, ffLayer.lnB));
+      hidden = [norm2.map((row, i) => row.map((val, j) => val + hidden1[i][j]))];
+    }
+    
+    const finalNorm = hidden[0].map(row => this.layerNorm(row, lnF.W, lnF.B));
+    const logits = this.matmul(finalNorm, outputLayer.W);
+    
+    return logits;
+  }
+
+  generate(text, maxLen = 50, temperature = 0.7) {
+    if (!this.isLoaded) return '';
+    
+    const inputIds = this.encode(text);
+    const endIdx = this.charToIdx('<END>');
+    const padIdx = this.charToIdx('<PAD>');
+    
+    let currentIds = [...inputIds];
+    const result = [];
     
     for (let i = 0; i < maxLen; i++) {
-      const logits = this.forward(inputIds);
+      const logits = this.forward(currentIds.slice(-this.maxSeqLen));
+      if (!logits) break;
+      
       const lastLogits = logits[logits.length - 1];
       
-      const adjusted = lastLogits.map(val => val / temperature);
-      const probs = this.softmax(adjusted);
-      
-      const nextIdx = this.sample(probs);
-      
-      if (nextIdx === this.charToIdx('<END>')) break;
-      if (nextIdx === this.charToIdx('<PAD>')) continue;
-      
-      result.push(nextIdx);
-      inputIds.push(nextIdx);
-      
-      if (inputIds.length > this.maxSeqLen) {
-        inputIds = inputIds.slice(-this.maxSeqLen);
+      if (temperature > 0) {
+        const adjusted = lastLogits.map(x => x / temperature);
+        const probs = this.softmax(adjusted);
+        
+        const rand = Math.random();
+        let sum = 0;
+        let nextIdx = padIdx;
+        for (let j = 0; j < probs.length; j++) {
+          sum += probs[j];
+          if (sum >= rand) {
+            nextIdx = j;
+            break;
+          }
+        }
+        
+        if (nextIdx === endIdx || nextIdx === padIdx) break;
+        
+        result.push(this.idxToChar(nextIdx));
+        currentIds.push(nextIdx);
+      } else {
+        let maxVal = -Infinity;
+        let nextIdx = padIdx;
+        for (let j = 0; j < lastLogits.length; j++) {
+          if (lastLogits[j] > maxVal && j !== endIdx && j !== padIdx) {
+            maxVal = lastLogits[j];
+            nextIdx = j;
+          }
+        }
+        
+        if (nextIdx === padIdx) break;
+        
+        result.push(this.idxToChar(nextIdx));
+        currentIds.push(nextIdx);
       }
     }
     
-    return this.decode(result);
-  }
-
-  sample(probs) {
-    const rand = Math.random();
-    let cumulative = 0;
-    for (let i = 0; i < probs.length; i++) {
-      cumulative += probs[i];
-      if (rand < cumulative) return i;
-    }
-    return probs.length - 1;
-  }
-
-  train(trainData, epochs = 10, batchSize = 8, lr = 0.001) {
-    this.initParams();
-    
-    for (let epoch = 0; epoch < epochs; epoch++) {
-      let totalLoss = 0;
-      let count = 0;
-      
-      for (let i = 0; i < trainData.length; i += batchSize) {
-        const batch = trainData.slice(i, i + batchSize);
-        const gradients = this.computeGradients(batch);
-        
-        this.applyGradients(gradients, lr);
-        
-        batch.forEach(item => {
-          totalLoss += this.computeLoss(item.inputIds, item.targetIds);
-          count++;
-        });
-      }
-      
-      const avgLoss = totalLoss / count;
-      console.log(`Epoch ${epoch + 1}/${epochs}, Loss: ${avgLoss.toFixed(4)}`);
-      
-      if (avgLoss < 2.0) break;
-    }
-    
-    this.isTrained = true;
-  }
-
-  computeGradients(batch) {
-    const grads = {};
-    const paramKeys = Object.keys(this.params);
-    
-    paramKeys.forEach(key => {
-      grads[key] = this.zeroLike(this.params[key]);
-    });
-    
-    const epsilon = 1e-4;
-    
-    paramKeys.forEach(key => {
-      const param = this.params[key];
-      const flatParam = this.flatten(param);
-      const flatGrad = this.flatten(grads[key]);
-      
-      for (let i = 0; i < flatParam.length; i++) {
-        const original = flatParam[i];
-        
-        flatParam[i] = original + epsilon;
-        const lossPlus = this.computeBatchLoss(batch);
-        
-        flatParam[i] = original - epsilon;
-        const lossMinus = this.computeBatchLoss(batch);
-        
-        flatGrad[i] = (lossPlus - lossMinus) / (2 * epsilon);
-        
-        flatParam[i] = original;
-      }
-      
-      this.params[key] = this.reshape(flatParam, this.getShape(param));
-      grads[key] = this.reshape(flatGrad, this.getShape(param));
-    });
-    
-    return grads;
-  }
-
-  computeBatchLoss(batch) {
-    let totalLoss = 0;
-    batch.forEach(item => {
-      totalLoss += this.computeLoss(item.inputIds, item.targetIds);
-    });
-    return totalLoss / batch.length;
-  }
-
-  applyGradients(gradients, lr) {
-    Object.keys(this.params).forEach(key => {
-      const param = this.params[key];
-      const grad = gradients[key];
-      this.params[key] = this.subtract(param, this.multiplyScalar(grad, lr));
-    });
-  }
-
-  subtract(A, B) {
-    if (!Array.isArray(A)) return A - B;
-    return A.map((a, i) => this.subtract(a, B[i]));
-  }
-
-  multiplyScalar(A, scalar) {
-    if (!Array.isArray(A)) return A * scalar;
-    return A.map(a => this.multiplyScalar(a, scalar));
-  }
-
-  zeroLike(obj) {
-    if (!Array.isArray(obj)) return 0;
-    return obj.map(item => this.zeroLike(item));
-  }
-
-  getShape(obj) {
-    if (!Array.isArray(obj)) return [];
-    return [obj.length, ...this.getShape(obj[0])];
-  }
-
-  saveModel(path) {
-    const modelData = {
-      vocab: this.vocab,
-      idxToChar: this.idxToChar,
-      vocabSize: this.vocabSize,
-      embedDim: this.embedDim,
-      numHeads: this.numHeads,
-      numLayers: this.numLayers,
-      hiddenDim: this.hiddenDim,
-      maxSeqLen: this.maxSeqLen,
-      params: this.params,
-      isTrained: this.isTrained,
-    };
-    
-    try {
-      localStorage.setItem('ai_neural_model', JSON.stringify(modelData));
-      return true;
-    } catch (e) {
-      console.error('Failed to save model:', e);
-      return false;
-    }
-  }
-
-  loadModel() {
-    try {
-      const data = localStorage.getItem('ai_neural_model');
-      if (!data) return false;
-      
-      const modelData = JSON.parse(data);
-      
-      this.vocab = modelData.vocab;
-      this.idxToChar = modelData.idxToChar;
-      this.vocabSize = modelData.vocabSize;
-      this.embedDim = modelData.embedDim;
-      this.numHeads = modelData.numHeads;
-      this.numLayers = modelData.numLayers;
-      this.hiddenDim = modelData.hiddenDim;
-      this.maxSeqLen = modelData.maxSeqLen;
-      this.params = modelData.params;
-      this.isTrained = modelData.isTrained;
-      
-      return true;
-    } catch (e) {
-      console.error('Failed to load model:', e);
-      return false;
-    }
+    return result.join('');
   }
 
   getParamCount() {
+    if (!this.params) return 0;
     let count = 0;
-    Object.keys(this.params).forEach(key => {
-      count += this.flatten(this.params[key]).length;
-    });
+    
+    const countParams = (obj) => {
+      if (Array.isArray(obj)) {
+        if (obj.length > 0 && typeof obj[0] === 'number') {
+          count += obj.length;
+        } else {
+          obj.forEach(countParams);
+        }
+      } else if (typeof obj === 'object' && obj !== null) {
+        Object.values(obj).forEach(countParams);
+      }
+    };
+    
+    countParams(this.params);
     return count;
   }
 }
