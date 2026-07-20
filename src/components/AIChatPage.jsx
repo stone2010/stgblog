@@ -6,16 +6,14 @@ const ai = new CompanionAI();
 
 export default function AIChatPage({ onBack }) {
   const [messages, setMessages] = useState(() => {
-    const isFirst = ai.memory.isFirstChat();
-    const welcome = isFirst
-      ? "嗨，初次见面，我是你的情感陪伴。开心、难过、无聊都可以来找我聊聊，我会一直在这里陪你。"
-      : (() => {
-          const mem = ai.memory.getContext();
-          const name = mem.userName ? `${mem.userName}，` : "";
-          return `${name}你来啦，想聊点什么？我一直都在。`;
-        })();
-    return [{ role: "assistant", content: welcome, emotion: "happy" }];
+    return [{ role: "assistant", content: "嗨，我是小暖，你的情感陪伴。开心、难过、无聊都可以来找我聊聊，我会一直在这里陪你。", emotion: "happy" }];
   });
+
+  useEffect(() => {
+    ai.init().then(stats => {
+      console.log('AI trained:', stats);
+    });
+  }, []);
 
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
