@@ -1,0 +1,9 @@
+{
+  "vocab_size": 4124,
+  "d_model": 544,
+  "nhead": 8,
+  "num_layers": 8,
+  "dim_feedforward": 2176,
+  "max_seq_len": 128,
+  "dropout": 0.1
+}
