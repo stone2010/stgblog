@@ -349,7 +349,7 @@ class ONNXModel {
     return this.idxToChar[idx] || '<UNK>';
   }
 
-  async generate(text, maxLen = 50, temperature = 0.7) {
+  async generate(text, maxLen = 80, temperature = 0.7) {
     if (!this.session) return '';
     
     const startIdx = this.vocab['<START>'];
@@ -517,144 +517,35 @@ class CompanionAI {
     const mood = this.moodSystem.getMood();
     const rewriter = new StyleRewriter(this.personaManager, mood);
 
-    if (this.isIdentityQuery(text)) {
-      return rewriter.rewrite(this.getRandom([
-        `${persona.name}呀，你的专属陪伴。`,
-        `我是${persona.name}，你的${persona.relationship}。`,
-        `我是${persona.name}，一个陪你聊天的${persona.relationship}。`,
-        `我是${persona.name}，专门听你说心里话的。`
-      ]));
-    }
-
-    if (this.isMoodQuery(text)) {
-      const moodResponses = {
-        happy: [
-          '我很开心呀！看到你来找我聊天就开心。',
-          '嘿嘿，心情超好！你呢？',
-          '开心开心，你今天开心吗？',
-          '超开心的！因为你来了～'
-        ],
-        sad: [
-          '有点难过...你能陪我聊聊吗？',
-          '心情不太好，你来啦真好。',
-          '有点低落，但你来了就好多了。',
-          '有点伤心，需要安慰...'
-        ],
-        angry: [
-          '哼，有点生气！不过看到你就气消了一点。',
-          '我生气了！但你哄哄我就好了。',
-          '气鼓鼓的，你别惹我哦～',
-          '哼！谁惹你生气了？'
-        ],
-        calm: [
-          '很平静，心如止水。',
-          '心情很平静，这样挺好的。',
-          '平平淡淡的，挺好。',
-          '很安静，像现在这样就很好。'
-        ],
-        playful: [
-          '嘿嘿～猜猜我心情怎么样？',
-          '调皮中！你今天怎么样？',
-          '我心情呀，秘密～',
-          '猜猜看？猜对了有奖励～'
-        ],
-        tired: [
-          '好累...但你来了我就有精神了。',
-          '想休息，但你找我聊天我就陪你。',
-          '身体被掏空，不过你在我就撑得住。',
-          '困了...但不想睡，想陪你。'
-        ],
-        anxious: [
-          '有点焦虑...你能陪我吗？',
-          '心里有点慌，但你在就安心了。',
-          '有点紧张，不过没事，你在呢。',
-          '有点不安，需要你陪着。'
-        ],
-        lonely: [
-          '有点孤单...你陪我聊聊好吗？',
-          '希望有人陪，还好你来了。',
-          '一个人有点无聊，你陪我吧。',
-          '孤单单的，你来陪我了真好。'
-        ],
-      };
-      return rewriter.rewrite(this.getRandom(moodResponses[mood] || moodResponses.calm));
-    }
-
+    // 记忆查询保留（需要读取用户信息）
     if (this.isMemoryQuery(text)) {
       const memory = this.memoryManager.longTermMemory;
       if (memory.userInfo.name) {
         return rewriter.rewrite(this.getRandom([
           `当然记得你啦，你是${memory.userInfo.name}呀。`,
           `怎么会忘，我一直记着你呢，${memory.userInfo.name}。`,
-          `记得记得，你是${memory.userInfo.name}呀。`,
-          `我记性不太好，但我对你的感觉一直在。`
+          `记得记得，你是${memory.userInfo.name}呀。`
         ]));
       }
       return rewriter.rewrite(this.getRandom([
         '当然记得你啦，你是我的好朋友。',
         '怎么会忘，我一直记着你呢。',
-        '记得记得，你是那个会来找我聊天的人呀。',
-        '我记性不太好，但我对你的感觉一直在。'
+        '记得记得，你是那个会来找我聊天的人呀。'
       ]));
     }
 
-    if (this.isPersonaQuery(text)) {
-      return rewriter.rewrite(this.getRandom([
-        `我喜欢聊天呀，特别是跟你聊天。`,
-        `我喜欢听你说话，喜欢陪着你。`,
-        `我喜欢的东西不多，但你算一个。`,
-        `我喜欢${persona.likes[0]}，还有...你。`
-      ]));
-    }
-
-    if (this.isRelationshipQuery(text)) {
-      const relationship = persona.relationship;
-      return rewriter.rewrite(this.getRandom([
-        `我们是${relationship}呀，这还用问？`,
-        `你是我的${relationship}呀，很重要的人。`,
-        `我把你当${relationship}，最好的那种。`,
-        `我们的关系呀，是${relationship}，也是朋友。`
-      ]));
-    }
-
-    if (this.isGreeting(text)) {
-      return rewriter.rewrite(this.getRandom([
-        persona.getGreeting(),
-        '你好呀！今天想聊点什么？',
-        '嗨～好久不见，想你了。',
-        '在呢在呢，你来了真好。',
-        '哈喽！今天过得怎么样？'
-      ]));
-    }
-
-    if (this.isGoodbye(text)) {
-      return rewriter.rewrite(this.getRandom([
-        '晚安，好梦。明天见。',
-        '拜拜～明天再来找我哦。',
-        '再见啦，我会想你的。',
-        '晚安，记得好好休息。'
-      ]));
-    }
-
-    if (this.isThanks(text)) {
-      return rewriter.rewrite(this.getRandom([
-        '不用谢呀，你愿意找我聊天我开心还来不及呢。',
-        '不客气，能陪你我很高兴。',
-        '嘿嘿，不用谢，我一直都在。',
-        '你开心就好啦！'
-      ]));
-    }
-
+    // 提取记忆信息
     this.extractMemoryInfo(text);
 
+    // ===== 主力：ONNX模型生成 =====
     let response = '';
-    
+
     if (this.modelLoaded) {
       try {
         if (this.modelType === 'onnx') {
-          response = await this.onnxModel.generate(text, 50, 0.7);
+          response = await this.onnxModel.generate(text, 80, 0.7);
         } else {
-          response = this.neuralModel.generate(text, 50, 0.7);
+          response = this.neuralModel.generate(text, 80, 0.7);
         }
       } catch (e) {
         console.error('Model generation failed:', e);
@@ -662,6 +553,7 @@ class CompanionAI {
       }
     }
 
+    // 模型回复太短或为空时才用规则兜底
     if (!response || response.trim().length < 2) {
       response = this.getFallbackResponse(text);
     }
