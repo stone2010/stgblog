@@ -25,7 +25,6 @@ import GroupSettingsModal from "./components/GroupSettingsModal";
 import RepostModal from "./components/RepostModal";
 import EditPostModal from "./components/EditPostModal";
 import ErrorBoundary from "./components/ErrorBoundary";
-import AIChatPage from "./components/AIChatPage";
 
 function AppInner() {
   const { user, followingSet, keyPair } = useAuth();
@@ -195,7 +194,7 @@ function AppInner() {
     if (p === "dm" && user) loadDmList();
     if (p === "groups" && user) loadGroups();
     closeGroup();
-    setMobileTab(p === "home" ? "home" : p === "dm" ? "dm" : p === "groups" ? "groups" : p === "ai-chat" ? "ai" : p === "profile" ? "me" : p === "notifications" ? "notif" : "home");
+    setMobileTab(p === "home" ? "home" : p === "dm" ? "dm" : p === "groups" ? "groups" : p === "profile" ? "me" : p === "notifications" ? "notif" : "home");
     window.history.pushState({ page: p }, "", `#${p}`);
   }, [user, loadDmList, setDmTarget, loadGroups, closeGroup]);
 
@@ -236,7 +235,6 @@ function AppInner() {
   // ─── PWA Notification Permission ───
   useEffect(() => {
     if (!user) return;
-    // Request notification permission on login
     if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission();
     }
@@ -252,17 +250,14 @@ function AppInner() {
     }
     const total = (dmUnreadCount || 0) + (unreadCount || 0);
 
-    // Update badge (direct API + via service worker)
     try {
       if (total > 0) navigator.setAppBadge?.(total);
       else navigator.clearAppBadge?.();
     } catch {}
-    // Also tell the service worker to update badge (for when app is backgrounded)
     try {
       navigator.serviceWorker?.controller?.postMessage({ type: "BADGE_UPDATE", count: total });
     } catch {}
 
-    // Show native notification for new unread items (only when count increases and app is in background)
     if (total > prevTotalRef.current && prevTotalRef.current > 0) {
       const newCount = total - prevTotalRef.current;
       if ("Notification" in window && Notification.permission === "granted" && document.visibilityState !== "visible") {
@@ -362,7 +357,6 @@ function AppInner() {
     setPosts((prev) => prev.map((i) => i.id === post.id ? { ...i, likes: next } : i));
     if (selectedPost?.id === post.id) setSelectedPost((s) => s ? { ...s, likes: next } : s);
     saveLiked(post.id);
-    // 使用原子操作，避免并发覆盖；若 RPC 不存在则回退到 update
     try {
       await supabase.rpc("increment_likes", { p_post_id: post.id });
     } catch {
@@ -386,7 +380,6 @@ function AppInner() {
 
   const doRepost = useCallback(async (post) => {
     if (!user) return;
-    // Check if already reposted
     const existing = posts.find((p) => p.author === user.username && p.repost_of === post.id);
     if (existing) return;
     const { data, error } = await supabase.from("posts").insert([{
@@ -439,7 +432,6 @@ function AppInner() {
   const handleBookmark = useCallback((post) => {
     if (!post) return;
     const nowBookmarked = toggleBookmark(post.id);
-    // Force re-render by touching posts state
     setPosts((prev) => [...prev]);
   }, []);
 
@@ -472,7 +464,6 @@ function AppInner() {
     setPage("profile-view");
     setSelectedPost(null);
   }, [user]);
-
 
   const handleHashtag = useCallback((tag) => {
     setSearchKey(tag);
@@ -530,14 +521,12 @@ function AppInner() {
         onLoadMore={loadMoreGroupMessages} />
     );
     if (page === "profile-view" && viewingProfile) return <ProfileViewPage viewingProfile={viewingProfile} posts={posts} onBack={() => { setViewingProfile(null); setPage("home"); setMobileTab("home"); }} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} />;
-    if (page === "profile") return <ProfilePage posts={posts} onAuthOpen={() => setAuthOpen(true)} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onFollowersPage={(type) => setFollowersPage({ username: user.username, type })} />;
-    if (page === "ai-chat") return <AIChatPage onBack={() => navigate("home")} />;
+    if (page === "profile") return <ProfilePage posts={posts} onAuthOpen={() => setAuthOpen(true)} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onFollowersPage={(type) => setFollowersPage({ username: user?.username, type })} onOpenUser={openUserClick} />;
     return <HomeFeed posts={posts} postsLoading={postsLoading} hasMore={hasMore} loadMorePosts={loadMorePosts} tab={tab} setTab={setTab} searchKey={searchKey} composeText={composeText} setComposeText={setComposeText} onPublish={handlePublish} publishing={publishing} composeRef={composeRef} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onHashtag={handleHashtag} />;
   };
 
   return (
     <div className="app">
-      {/* Top Navigation */}
       <nav className="topnav">
         <div className="topnav-inner">
           <div className="topnav-brand" onClick={() => navigate("home")} style={{ cursor: "pointer" }}>
@@ -564,7 +553,7 @@ function AppInner() {
                       <div className="notif-empty">暂无通知</div>
                     ) : notifications.slice(0, 20).map((n) => (
                       <div key={n.id} className={`notif-item ${n.read ? "" : "unread"}`} onClick={() => handleNotifClick(n)}>
-                        <div className="notif-icon">{n.type === "like" ? "❤️" : n.type === "comment" ? "💬" : n.type === "reply" ? "↩️" : n.type === "repost" ? "🔁" : n.type === "quote" ? "💭" : "👤"}</div>
+                        <div className="notif-icon">{n.type === "like" ? "❤️" : n.type === "comment" ? "💬" : n.type === "reply" ? "↩️" : n.type === "repost" ? "🔁" : n.type === "quote" ? "💬" : "🔔"}</div>
                         <div className="notif-body">
                           <span className="notif-from">{n.user_from}</span>
                           <span className="notif-text">{n.type === "like" ? "赞了你的帖子" : n.type === "comment" ? "评论了你的帖子" : n.type === "reply" ? "回复了你的评论" : n.type === "repost" ? "转发了你的帖子" : n.type === "quote" ? "引用了你的帖子" : "关注了你"}</span>
@@ -589,7 +578,6 @@ function AppInner() {
         </div>
       </nav>
 
-      {/* Desktop Layout */}
       <div className="desktop-wrap">
         <aside className="sidebar">
           <button className="sidebar-btn" onClick={() => navigate("home")}><span className="sb-icon"><Icons.Home /></span>首页</button>
@@ -597,7 +585,6 @@ function AppInner() {
           {user && <button className="sidebar-btn" onClick={() => navigate("notifications")}><span className="sb-icon"><Icons.Bell /></span>通知{unreadCount > 0 && <span className="sidebar-badge">{unreadCount > 9 ? "9+" : unreadCount}</span>}</button>}
           {user && <button className="sidebar-btn" onClick={() => navigate("dm")}><span className="sb-icon"><Icons.Msg /></span>私信{dmUnreadCount > 0 && <span className="sidebar-badge">{dmUnreadCount > 9 ? "9+" : dmUnreadCount}</span>}</button>}
           {user && <button className="sidebar-btn" onClick={() => navigate("groups")}><span className="sb-icon"><Icons.Group /></span>群组</button>}
-          {user && <button className="sidebar-btn" onClick={() => navigate("ai-chat")}><span className="sb-icon">🤖</span>AI 助手</button>}
           {user && <button className="sidebar-btn" onClick={() => navigate("profile")}><span className="sb-icon"><Icons.User /></span>个人</button>}
           <button className="sidebar-btn" onClick={toggleTheme}><span className="sb-icon">{theme === "dark" ? <Icons.ThemeLight /> : <Icons.ThemeDark />}</span>{theme === "dark" ? "亮色模式" : "暗色模式"}</button>
           {user ? (
@@ -609,7 +596,6 @@ function AppInner() {
         <div className="layout"><ErrorBoundary>{renderPage()}</ErrorBoundary></div>
       </div>
 
-      {/* DM Chat Overlay */}
       {page === "dm-chat" && dmTarget && (
         <div className="dm-overlay">
           <DmChatPage dmTarget={dmTarget} dmMessages={dmMessages} dmSending={dmSending}
@@ -618,7 +604,6 @@ function AppInner() {
         </div>
       )}
 
-      {/* Group Chat Overlay */}
       {page === "group-chat" && activeGroup && (
         <div className="dm-overlay">
           <GroupChatPage group={activeGroup} messages={groupMessages} members={groupMembers} sending={groupSending}
@@ -630,21 +615,17 @@ function AppInner() {
         </div>
       )}
 
-      {/* Bottom Navigation */}
       {page !== "dm-chat" && page !== "group-chat" && (
         <nav className="bnav">
           <button className={`bnav-btn ${mobileTab === "home" ? "on" : ""}`} onClick={() => navigate("home")}><span className="bnav-icon"><Icons.Home /></span></button>
           <button className={`bnav-btn ${mobileTab === "search" ? "on" : ""}`} onClick={() => navigate("search")}><span className="bnav-icon"><Icons.Search /></span></button>
-          <button className="bnav-compose" onClick={() => { if (user) { navigate("home"); setMobileTab("home"); setTimeout(() => composeRef.current?.focus(), 100); } else setAuthOpen(true); }}>✦</button>
+          <button className="bnav-compose" onClick={() => { if (user) { navigate("home"); setMobileTab("home"); setTimeout(() => composeRef.current?.focus(), 100); } else setAuthOpen(true); }}>✎</button>
           <button className={`bnav-btn ${mobileTab === "dm" ? "on" : ""}`} onClick={() => { if (user) navigate("dm"); else setAuthOpen(true); }} style={{ position: "relative" }}>
             <span className="bnav-icon"><Icons.Msg /></span>
             {dmUnreadCount > 0 && <span className="bnav-dot" />}
           </button>
           <button className={`bnav-btn ${mobileTab === "groups" ? "on" : ""}`} onClick={() => { if (user) navigate("groups"); else setAuthOpen(true); }}>
             <span className="bnav-icon"><Icons.Group /></span>
-          </button>
-          <button className={`bnav-btn ${mobileTab === "ai" ? "on" : ""}`} onClick={() => { if (user) navigate("ai-chat"); else setAuthOpen(true); }}>
-            <span className="bnav-icon">🤖</span>
           </button>
           <button className={`bnav-btn ${mobileTab === "me" ? "on" : ""}`} onClick={() => navigate("profile")} style={{ position: "relative" }}>
             <span className="bnav-icon"><Icons.User /></span>
@@ -653,7 +634,6 @@ function AppInner() {
         </nav>
       )}
 
-      {/* Modals */}
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
       {newDmOpen && <NewDmModal onClose={() => setNewDmOpen(false)} onStartDm={(target) => { setNewDmOpen(false); openDm(target); setPage("dm-chat"); }} />}
       {repostModal && <RepostModal post={repostModal} onRepost={doRepost} onQuote={doQuote} onClose={() => setRepostModal(null)} />}
