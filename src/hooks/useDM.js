@@ -467,7 +467,6 @@ export function useDM(user, keyPair) {
     }
     saveNicknames(user.username, nicknames);
     setDmList((prev) => prev.map((c) => c.other === otherUser ? { ...c, nickname: nickname.trim() || "" } : c));
-    saveCachedConversations(user.username, prev);
   }, [user]);
 
   // Pin / Unpin conversation
