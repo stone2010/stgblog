@@ -45,34 +45,41 @@ export function AuthProvider({ children }) {
     if (error || !data || data.length === 0) return { error: "用户名或密码错误" };
     const userData = data[0];
 
-    // ─── 密钥同步（云备份恢复，多设备/清缓存后可解密历史）───
+    // ─── 密钥同步（服务端权威：所有设备共用同一把备份密钥，保证跨设备互通）───
+    let finalKeys;
     try {
-      const localKeys = await getOrCreateKeyPair(name);
+      // 1) 先读服务端备份，不在本地提前造密钥（避免新设备凭空生成错位的私钥）
       const { data: existing } = await supabase.from("users").select("pubkey").eq("username", name).maybeSingle();
       const dbRecord = parsePubkeyRecord(existing?.pubkey);
 
-      let finalKeys = localKeys;
       if (dbRecord?.encPriv) {
-        // 云端有加密私钥备份：用密码恢复（优先于本地密钥，保证多端一致）
+        // 服务端已有备份：用密码恢复，这是跨设备统一的唯一权威密钥
         const restoredPriv = await restoreKeyBackup(name, pass, dbRecord.encPriv);
-        if (restoredPriv) {
-          finalKeys = { publicKey: dbRecord.pub, privateKey: restoredPriv };
-          localStorage.setItem(`stgblog_keys_${name}`, JSON.stringify(finalKeys));
-        } else {
-          console.warn("[Crypto] 云端密钥备份无法用当前密码解密，继续使用本设备密钥");
+        if (!restoredPriv) {
+          // 恢复失败绝不能为新设备生成新密钥（否则与现有设备永久错位、互相解不开）
+          return { error: "无法用当前密码恢复端到端加密密钥，请确认密码正确后再登录" };
         }
-      }
-
-      // 数据库还不是新格式（legacy 或缺失）时，写入 {pub, encPriv}
-      if (!dbRecord?.encPriv) {
-        const encPriv = await createKeyBackup(name, pass, finalKeys.privateKey);
+        finalKeys = { publicKey: dbRecord.pub, privateKey: restoredPriv };
+      } else {
+        // 老账户（无 encPriv 备份）：才生成本地密钥并立即备份到服务端
+        const localKeys = await getOrCreateKeyPair(name);
+        const encPriv = await createKeyBackup(name, pass, localKeys.privateKey);
+        finalKeys = localKeys;
         const dbPubStr = JSON.stringify({ pub: finalKeys.publicKey, ...(encPriv ? { encPriv } : {}) });
         await supabase.from("users").update({ pubkey: dbPubStr }).eq("username", name);
       }
-    } catch (e) { console.warn("Key sync on login failed:", e); }
+
+      // 2) 用权威密钥覆盖本设备
+      localStorage.setItem(`stgblog_keys_${name}`, JSON.stringify(finalKeys));
+    } catch (e) {
+      console.warn("Key sync on login failed:", e);
+      // 出错时不要静默用本地密钥，避免两端私钥不一致
+      return { error: "密钥同步失败，请重试" };
+    }
 
     const u = { username: userData.username, hash_id: userData.hash_id, bio: userData.bio || "" };
     localStorage.setItem("stgblog_user", JSON.stringify(u));
+    setKeyPair(finalKeys); // 显式设置，避免依赖二次 effect 读取产生竞态
     setUser(u);
     return { ok: true };
   }, []);
