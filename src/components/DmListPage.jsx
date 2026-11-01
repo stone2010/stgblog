@@ -2,7 +2,6 @@ import React, { useMemo, useState, useCallback, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import { formatTimeShort } from "../utils";
 
-// Telegram-style checkmark SVGs
 const CheckSingle = () => (
   <svg viewBox="0 0 16 11" width="14" height="10" fill="none" style={{ display: "inline-block", verticalAlign: "middle" }}>
     <path d="M1 5.5L5.5 10L14.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -15,22 +14,25 @@ const CheckDouble = () => (
   </svg>
 );
 
-export default function DmListPage({ dmList, onOpenDm, onNewDm, onTogglePin, onDeleteConversation }) {
+export default function DmListPage({ dmList, onOpenDm, onNewDm, onTogglePin, onDeleteConversation, onSetNickname }) {
   const { user } = useAuth();
   const [error, setError] = useState(null);
-  const [contextMenu, setContextMenu] = useState(null); // { x, y, other }
+  const [contextMenu, setContextMenu] = useState(null);
+  const [nicknameInput, setNicknameInput] = useState("");
+  const [nicknameTarget, setNicknameTarget] = useState(null);
   const longPressTimer = useRef(null);
 
   const listWithUnread = useMemo(() => {
     try {
       if (!user || !Array.isArray(dmList)) return dmList || [];
       return dmList.map((item) => {
-        if (!item || !item.last) return { other: item?.other || '?', last: item?.last || null, isUnread: false, pinned: item?.pinned || false };
+        if (!item || !item.last) return { other: item?.other || '?', last: item?.last || null, isUnread: false, pinned: item?.pinned || false, nickname: item?.nickname || "" };
         return {
           other: item.other,
           last: item.last,
           isUnread: item.last.receiver === user.username && !item.last.read,
           pinned: item.pinned || false,
+          nickname: item.nickname || "",
         };
       });
     } catch (e) {
@@ -40,7 +42,6 @@ export default function DmListPage({ dmList, onOpenDm, onNewDm, onTogglePin, onD
     }
   }, [dmList, user]);
 
-  // Long press handling for context menu
   const handlePointerDown = useCallback((e, other) => {
     const rect = e.currentTarget.getBoundingClientRect();
     longPressTimer.current = setTimeout(() => {
@@ -56,7 +57,6 @@ export default function DmListPage({ dmList, onOpenDm, onNewDm, onTogglePin, onD
     if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
   }, []);
 
-  // Close context menu on outside click
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
   if (error) {
@@ -78,7 +78,7 @@ export default function DmListPage({ dmList, onOpenDm, onNewDm, onTogglePin, onD
         <div className="empty-state"><div className="icon">🔒</div><h3>登录后查看私信</h3><p>端到端加密保护你的隐私</p></div>
       ) : listWithUnread.length === 0 ? (
         <div className="empty-state"><div className="icon">💬</div><h3>暂无私信</h3><p>点击右上角 ✏️ 开始对话</p></div>
-      ) : listWithUnread.map(({ other, last, isUnread, pinned }) => (
+      ) : listWithUnread.map(({ other, last, isUnread, pinned, nickname }) => (
         <div
           key={other}
           className={`dm-item ${isUnread ? "dm-unread-item" : ""} ${pinned ? "dm-pinned-item" : ""}`}
@@ -94,8 +94,9 @@ export default function DmListPage({ dmList, onOpenDm, onNewDm, onTogglePin, onD
           <div className="dm-avatar">{other?.[0] || '?'}</div>
           <div className="dm-info">
             <div className="dm-name">
-              {other}
+              {nickname || other}
               {pinned && <span className="dm-pin-icon">📌</span>}
+              {!nickname && <button className="dm-set-nickname" onClick={(e) => { e.stopPropagation(); setNicknameTarget(other); setNicknameInput(""); }}>✏️</button>}
             </div>
             <div className="dm-preview" style={isUnread ? { fontWeight: 600, color: "var(--text)" } : {}}>
               {!last ? "新对话" : last.encrypted ? "🔒 加密消息" : (last.content || "暂无消息")}
@@ -119,10 +120,28 @@ export default function DmListPage({ dmList, onOpenDm, onNewDm, onTogglePin, onD
           <button onClick={() => { onTogglePin?.(contextMenu.other); setContextMenu(null); }}>
             {listWithUnread.find((c) => c.other === contextMenu.other)?.pinned ? "📌 取消置顶" : "📌 置顶对话"}
           </button>
+          <button onClick={() => { setNicknameTarget(contextMenu.other); setNicknameInput(""); setContextMenu(null); }}>
+            ✏️ 设置备注
+          </button>
           <div className="menu-divider" />
           <button className="dm-context-delete" onClick={() => { onDeleteConversation?.(contextMenu.other); setContextMenu(null); }}>
             🗑️ 删除对话
           </button>
+        </div>
+      )}
+
+      {/* Nickname input overlay */}
+      {nicknameTarget && (
+        <div className="dm-nickname-overlay" onClick={() => setNicknameTarget(null)}>
+          <div className="dm-nickname-box">
+            <h3>设置备注</h3>
+            <p>为 {nicknameTarget} 设置显示名称</p>
+            <input className="dm-nickname-input" autoFocus value={nicknameInput} onChange={(e) => setNicknameInput(e.target.value)} maxLength="20" />
+            <div className="dm-nickname-actions">
+              <button className="dm-nickname-cancel" onClick={() => { setNicknameTarget(null); setNicknameInput(""); }}>取消</button>
+              <button className="dm-nickname-ok" onClick={() => { onSetNickname?.(nicknameTarget, nicknameInput); setNicknameTarget(null); setNicknameInput(""); }}>确定</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

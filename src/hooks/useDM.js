@@ -4,16 +4,60 @@ import { encryptMessage, decryptMessage, parsePubkeyRecord } from "../crypto";
 
 // localStorage helpers for DM conversation cache
 const CACHE_KEY = (username) => `stgblog_dm_conversations_${username}`;
+const DELETED_KEY = (username) => `stgblog_dm_deleted_${username}`;
+const NICKNAME_KEY = (username) => `stgblog_dm_nicknames_${username}`;
 
 function loadCachedConversations(username) {
   try {
-    return JSON.parse(localStorage.getItem(CACHE_KEY(username))) || [];
+    const list = JSON.parse(localStorage.getItem(CACHE_KEY(username))) || [];
+    const deleted = JSON.parse(localStorage.getItem(DELETED_KEY(username))) || [];
+    return list.filter((c) => !deleted.includes(c.other));
   } catch { return []; }
 }
 
 function saveCachedConversations(username, list) {
   try {
     localStorage.setItem(CACHE_KEY(username), JSON.stringify(list));
+  } catch {}
+}
+
+function isConversationDeleted(username, otherUser) {
+  try {
+    const deleted = JSON.parse(localStorage.getItem(DELETED_KEY(username))) || [];
+    return deleted.includes(otherUser);
+  } catch { return false; }
+}
+
+function markConversationDeleted(username, otherUser) {
+  try {
+    const deleted = JSON.parse(localStorage.getItem(DELETED_KEY(username))) || [];
+    if (!deleted.includes(otherUser)) {
+      deleted.push(otherUser);
+      localStorage.setItem(DELETED_KEY(username), JSON.stringify(deleted));
+    }
+  } catch {}
+}
+
+function unmarkConversationDeleted(username, otherUser) {
+  try {
+    const deleted = JSON.parse(localStorage.getItem(DELETED_KEY(username))) || [];
+    const idx = deleted.indexOf(otherUser);
+    if (idx >= 0) {
+      deleted.splice(idx, 1);
+      localStorage.setItem(DELETED_KEY(username), JSON.stringify(deleted));
+    }
+  } catch {}
+}
+
+function loadNicknames(username) {
+  try {
+    return JSON.parse(localStorage.getItem(NICKNAME_KEY(username))) || {};
+  } catch { return {}; }
+}
+
+function saveNicknames(username, nicknames) {
+  try {
+    localStorage.setItem(NICKNAME_KEY(username), JSON.stringify(nicknames));
   } catch {}
 }
 
@@ -106,9 +150,12 @@ export function useDM(user, keyPair) {
       if (pins) pinnedSet = new Set(pins.map((p) => p.pinned_user));
     } catch {}
 
-    // 5. Build sorted list: pinned first, then by last message time
+    // 5. Load nicknames
+    const nicknames = loadNicknames(user.username);
+
+    // 6. Build sorted list: pinned first, then by last message time
     const list = Object.entries(conversations)
-      .map(([other, last]) => ({ other, last, pinned: pinnedSet.has(other) }))
+      .map(([other, last]) => ({ other, last, pinned: pinnedSet.has(other), nickname: nicknames[other] || "" }))
       .sort((a, b) => {
         if (a.pinned && !b.pinned) return -1;
         if (!a.pinned && b.pinned) return 1;
@@ -387,6 +434,9 @@ export function useDM(user, keyPair) {
   }, [user]);
 
   const openDm = useCallback(async (otherUser) => {
+    if (!user) return;
+    // 如果之前被删除过，取消删除标记
+    unmarkConversationDeleted(user.username, otherUser);
     setDmTarget(otherUser);
     persistConversation(otherUser);
     // Also add to local list immediately
@@ -397,7 +447,7 @@ export function useDM(user, keyPair) {
       return newList;
     });
     await loadDmMessages(otherUser);
-  }, [loadDmMessages, persistConversation, user]);
+  }, [loadDmMessages, persistConversation, user, unmarkConversationDeleted]);
 
   const closeDm = useCallback(() => {
     setDmTarget(null);
@@ -405,6 +455,20 @@ export function useDM(user, keyPair) {
     loadDmList();
     checkUnread();
   }, [loadDmList, checkUnread]);
+
+  // Set nickname for a conversation
+  const setNickname = useCallback(async (otherUser, nickname) => {
+    if (!user) return;
+    const nicknames = loadNicknames(user.username);
+    if (nickname && nickname.trim()) {
+      nicknames[otherUser] = nickname.trim();
+    } else {
+      delete nicknames[otherUser];
+    }
+    saveNicknames(user.username, nicknames);
+    setDmList((prev) => prev.map((c) => c.other === otherUser ? { ...c, nickname: nickname.trim() || "" } : c));
+    saveCachedConversations(user.username, prev);
+  }, [user]);
 
   // Pin / Unpin conversation
   const togglePin = useCallback(async (otherUser) => {
@@ -440,6 +504,7 @@ export function useDM(user, keyPair) {
     } catch {}
     await supabase.from("dm_pins").delete()
       .eq("username", user.username).eq("pinned_user", otherUser);
+    markConversationDeleted(user.username, otherUser);
     setDmList((prev) => {
       const updated = prev.filter((c) => c.other !== otherUser);
       saveCachedConversations(user.username, updated);
@@ -451,6 +516,6 @@ export function useDM(user, keyPair) {
     dmList, dmTarget, dmMessages, dmSending, dmUnreadCount,
     dmHasMore, dmLoadingMore, dmLive,
     loadDmList, loadDmMessages, loadMoreDmMessages, sendDm, openDm, closeDm, markAsRead,
-    setDmTarget, togglePin, deleteConversation,
+    setDmTarget, togglePin, deleteConversation, setNickname,
   };
 }

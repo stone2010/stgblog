@@ -13,7 +13,7 @@ const CheckSingle = () => (
 const CheckDouble = () => (
   <svg viewBox="0 0 21 11" width="21" height="11" fill="none" style={{ display: "inline-block", verticalAlign: "middle" }}>
     <path d="M1 5.5L5.5 10L14.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M6 5.5L10.5 10L19.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+    <path d="M6 5.5L10.5 10L19.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
@@ -25,12 +25,16 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
   const [remoteFP, setRemoteFP] = useState(null);
   const [localFP, setLocalFP] = useState(null);
   const [copied, setCopied] = useState(false);
-  const [warning, setWarning] = useState(null); // 发送相关警示
+  const [warning, setWarning] = useState(null);
+  const [encryptionStatus, setEncryptionStatus] = useState("checking");
+  const [revokeConfirm, setRevokeConfirm] = useState(null);
+  const [deleteRequestConfirm, setDeleteRequestConfirm] = useState(null);
   const messagesContainerRef = useRef(null);
   const inputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const lastLoadMoreRef = useRef(0);
   const nearBottomRef = useRef(true);
+  const initialScrollDoneRef = useRef(false);
 
   // ─── 公钥指纹 ───
   useEffect(() => {
@@ -47,7 +51,7 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
   }, [copied]);
 
   useEffect(() => {
-    if (!dmTarget) { setRemotePubJwk(null); setRemoteFP(null); return; }
+    if (!dmTarget) { setRemotePubJwk(null); setRemoteFP(null); setEncryptionStatus("no-key"); return; }
     let active = true;
     (async () => {
       const { data } = await supabase.from("users").select("pubkey").eq("username", dmTarget).maybeSingle();
@@ -57,14 +61,28 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
         const jwk = raw?.pub?.kty ? raw.pub : (raw?.kty ? raw : null);
         setRemotePubJwk(jwk);
         setRemoteFP(await pubkeyFingerprint(jwk));
-      } catch { setRemotePubJwk(null); setRemoteFP(null); }
+        setEncryptionStatus(jwk ? "encrypted" : "plain");
+      } catch { setRemotePubJwk(null); setRemoteFP(null); setEncryptionStatus("no-key"); }
     })();
     return () => { active = false; };
   }, [dmTarget]);
 
   const hasRemoteKey = !!remotePubJwk;
 
-  // ─── 发送：无对方公钥时提示明文，带加密状态提示条 ───
+  const getEncryptionStatusText = () => {
+    if (!dmTarget) return null;
+    if (!remotePubJwk) return (
+      <span className="dm-chat-status no-key">
+        <Icons.Lock /> ⚠️ 对方未设置公钥 · 消息将明文发送
+      </span>
+    );
+    return (
+      <span className={`dm-chat-status ${dmLive ? "on" : "off"}`}>
+        <Icons.Lock /> {dmLive ? "实时同步中" : "端到端加密"} · 指纹 {remoteFP?.slice(-6) || "..."}
+      </span>
+    );
+  };
+
   const handleSend = useCallback(async () => {
     const text = input;
     if (!text.trim() || dmSending) return;
@@ -99,7 +117,6 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
     return () => clearTimeout(t);
   }, [warning]);
 
-  // ─── 智能自动滚动：仅当用户贴近底部时跟随新消息 ───
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
@@ -109,12 +126,18 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
   }, [dmMessages]);
 
   useEffect(() => {
-    // 切换会话后立即滚动到底部
     const container = messagesContainerRef.current;
     if (container) container.scrollTop = container.scrollHeight;
   }, [dmTarget]);
 
-  // ─── 输入框自动增高 ───
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (container && !initialScrollDoneRef.current) {
+      container.scrollTop = container.scrollHeight;
+      initialScrollDoneRef.current = true;
+    }
+  }, [dmTarget]);
+
   const handleInputChange = (e) => {
     setInput(e.target.value);
     const el = e.target;
@@ -122,7 +145,6 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
     el.style.height = Math.min(el.scrollHeight, 120) + "px";
   };
 
-  // ─── 滚动：向上加载更多（节流 + 触发距离）───
   const handleScroll = useCallback(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
@@ -137,7 +159,6 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
     }
   }, [onLoadMore]);
 
-  // 进入会话后标记已读
   useEffect(() => {
     try { if (dmTarget && onMarkAsRead) onMarkAsRead(dmTarget); } catch {}
   }, [dmTarget, onMarkAsRead]);
@@ -177,6 +198,39 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
     </div>
   );
 
+  const handleRevoke = async (msgId) => {
+    if (!user) return;
+    setRevokeConfirm(null);
+    try {
+      await supabase.from("dm_messages").update({ content: "[消息已撤回]", encrypted: false, ciphertext: null, iv: null, revoked: true })
+        .eq("id", msgId);
+    } catch (e) {
+      console.error("Revoke failed:", e);
+      setWarning("撤回失败，请检查网络后重试");
+    }
+  };
+
+  const handleDeleteRequest = async (msgId) => {
+    if (!user) return;
+    setDeleteRequestConfirm(null);
+    try {
+      await supabase.from("dm_messages").insert([{
+        sender: user.username,
+        receiver: dmTarget,
+        content: "[删除请求]",
+        ciphertext: null,
+        iv: null,
+        encrypted: false,
+        delete_request: true,
+        delete_request_target: msgId,
+      }]);
+      setWarning("删除请求已发送，等待对方确认");
+    } catch (e) {
+      console.error("Delete request failed:", e);
+      setWarning("发送删除请求失败");
+    }
+  };
+
   return (
     <div className="dm-chat">
       <div className="dm-chat-top">
@@ -187,7 +241,7 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
         <div className="dm-chat-title" onClick={() => onUserClick?.(dmTarget)}>
           <span className="dm-chat-name">{dmTarget || '未知'}</span>
           <span className={`dm-chat-status ${hasRemoteKey && dmLive ? "on" : ""}`}>
-            {hasRemoteKey ? (dmLive ? "实时同步中" : "端到端加密") : "加密不可用"}
+            {getEncryptionStatusText()}
           </span>
         </div>
         <button className={`dm-chat-lock ${showVerify ? "active" : ""}`} onClick={() => setShowVerify(!showVerify)}>
@@ -216,24 +270,40 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
           if (!msg) return null;
           const isMine = msg.sender === user?.username;
           const isEncrypted = !!msg.encrypted || msg.content === "[加密消息]";
+          const isRevoked = msg.revoked || msg.content === "[消息已撤回]";
+          const isDeleteRequest = msg.delete_request;
           const decryptionFailed = !msg.content && !isMine && (msg.encrypted || isEncrypted);
           let body = null;
-          if (msg.content) body = msg.content;
+          if (isRevoked) body = "💬 消息已撤回";
+          else if (isDeleteRequest) body = "🗑️ 对方请求删除此消息";
+          else if (msg.content) body = msg.content;
           else if (decryptionFailed) body = "🔒 无法解密此消息";
           else if (isEncrypted) body = "🔒 加密消息";
           else body = "";
 
           const isFail = decryptionFailed && !msg.content;
           return (
-            <div key={msg.id || `i${i}`} className={`dm-msg ${isMine ? "sent" : "received"} ${msg.decryptError ? "decrypt-fail" : ""}`}>
+            <div key={msg.id || `i${i}`} className={`dm-msg ${isMine ? "sent" : "received"} ${msg.decryptError ? "decrypt-fail" : ""} ${isRevoked ? "revoked" : ""} ${isDeleteRequest ? "delete-request" : ""}`}>
               <div className="dm-msg-bubble">{body}</div>
               <div className="dm-msg-meta">
                 <span className="dm-msg-time">{formatTime(msg.created_at)}</span>
                 {(isEncrypted || msg.decrypted) && <span className="dm-msg-lock">🔒</span>}
                 {isMine && (
-                  <span className={`dm-tick ${msg.read ? "read" : "sent"}`}>
-                    {msg.read ? <CheckDouble /> : <CheckSingle />}
-                  </span>
+                  <>
+                    <span className={`dm-tick ${msg.read ? "read" : "sent"}`}>
+                      {msg.read ? <CheckDouble /> : <CheckSingle />}
+                    </span>
+                    {!isRevoked && !isDeleteRequest && (
+                      <span className="dm-msg-actions" onClick={(e) => { e.stopPropagation(); }}>
+                        <button className="dm-msg-action-btn" title="撤回" onClick={() => setRevokeConfirm(msg.id)}>
+                          ❌
+                        </button>
+                        <button className="dm-msg-action-btn" title="请求删除" onClick={() => setDeleteRequestConfirm(msg.id)}>
+                          🗑️
+                        </button>
+                      </span>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -242,6 +312,30 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
         <div ref={messagesEndRef} />
       </div>
       {warning && <div className="dm-chat-warning">⚠️ {warning}</div>}
+      {revokeConfirm && (
+        <div className="dm-confirm-overlay" onClick={() => setRevokeConfirm(null)}>
+          <div className="dm-confirm-box">
+            <h3>撤回消息</h3>
+            <p>确定要撤回这条消息吗？撤回后双方都将无法查看。</p>
+            <div className="dm-confirm-actions">
+              <button className="dm-confirm-cancel" onClick={() => setRevokeConfirm(null)}>取消</button>
+              <button className="dm-confirm-ok" onClick={() => handleRevoke(revokeConfirm.id)}>确认撤回</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {deleteRequestConfirm && (
+        <div className="dm-confirm-overlay" onClick={() => setDeleteRequestConfirm(null)}>
+          <div className="dm-confirm-box">
+            <h3>删除请求</h3>
+            <p>确定要向对方发送删除请求吗？对方同意后此消息将被删除。</p>
+            <div className="dm-confirm-actions">
+              <button className="dm-confirm-cancel" onClick={() => setDeleteRequestConfirm(null)}>取消</button>
+              <button className="dm-confirm-ok" onClick={() => handleDeleteRequest(deleteRequestConfirm.id)}>发送请求</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="dm-chat-input">
         <textarea ref={inputRef} className="dm-input" value={input} onChange={handleInputChange}
           placeholder={hasRemoteKey ? "输入加密消息…" : "对方未设置公钥（消息将以明文发送）"}
