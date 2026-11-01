@@ -34,6 +34,7 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
   const messagesEndRef = useRef(null);
   const lastLoadMoreRef = useRef(0);
   const nearBottomRef = useRef(true);
+  const scrollLockRef = useRef(false); // 锁定滚动，防止用户手动滚动时被打断
 
   // ─── 公钥指纹 ───
   useEffect(() => {
@@ -100,7 +101,7 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
         setTimeout(() => {
           const container = messagesContainerRef.current;
           if (container) container.scrollTop = container.scrollHeight;
-        }, 60);
+        }, 50);
       } else {
         setWarning("发送失败，请检查网络后重试");
       }
@@ -116,11 +117,15 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
     return () => clearTimeout(t);
   }, [warning]);
 
-  // ─── 自动滚动到底部：每次消息更新时滚动到底部 ───
+  // ─── 自动滚动到底部：每次消息更新后滚动到底部 ───
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
-    container.scrollTop = container.scrollHeight;
+    // 使用 setTimeout 确保 DOM 已更新后再滚动
+    const t = setTimeout(() => {
+      container.scrollTop = container.scrollHeight;
+    }, 50);
+    return () => clearTimeout(t);
   }, [dmMessages]);
 
   // 进入会话后标记已读

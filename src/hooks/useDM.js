@@ -62,10 +62,9 @@ function saveNicknames(username, nicknames) {
 }
 
 const DM_PAGE_SIZE = 50;
-const CHAT_POLL_MS = 4000;      // 聊天界面轮询兜底间隔
-const UNREAD_POLL_MS = 12000;   // 未读计数轮询间隔
+const CHAT_POLL_MS = 4000;
+const UNREAD_POLL_MS = 12000;
 
-// 合并消息数组（按 id 去重，保持顺序）
 function mergeMessages(prev, incoming) {
   const map = new Map();
   for (const m of prev) map.set(m.id, m);
@@ -76,7 +75,6 @@ function mergeMessages(prev, incoming) {
     }
   }
   const merged = [...map.values()];
-  // 按时间稳定排序，created_at 相同时保持数据库顺序 id
   merged.sort((a, b) => {
     const ta = a.created_at || "";
     const tb = b.created_at || "";
@@ -86,8 +84,6 @@ function mergeMessages(prev, incoming) {
   return merged;
 }
 
-// 获取消息应使用的对方公钥 JWK 字符串：
-// 优先用消息内保存的公钥（密钥轮换安全），否则回退到 users 表当前公钥（兼容新旧格式）
 async function getPeerPubKeyStr(user, msg, otherUser) {
   const isMine = msg.sender === user.username;
   const direct = isMine ? msg.receiver_pubkey : msg.sender_pubkey;
@@ -97,6 +93,7 @@ async function getPeerPubKeyStr(user, msg, otherUser) {
   const record = parsePubkeyRecord(data?.pubkey);
   return record?.pub ? JSON.stringify(record.pub) : null;
 }
+
 export function useDM(user, keyPair) {
   const [dmList, setDmList] = useState([]);
   const [dmTarget, setDmTarget] = useState(null);
@@ -105,14 +102,14 @@ export function useDM(user, keyPair) {
   const [dmUnreadCount, setDmUnreadCount] = useState(0);
   const [dmHasMore, setDmHasMore] = useState(true);
   const [dmLoadingMore, setDmLoadingMore] = useState(false);
-  const [dmLive, setDmLive] = useState(false); // realtime 是否工作，用于 UI 显示在线状态
+  const [dmLive, setDmLive] = useState(false);
   const dmListRef = useRef(dmList);
   dmListRef.current = dmList;
   const dmMessagesRef = useRef(dmMessages);
   dmMessagesRef.current = dmMessages;
   const dmTargetRef = useRef(dmTarget);
   dmTargetRef.current = dmTarget;
-  const latestPubKeyRef = useRef({}); // username -> 最新 pubkey（避免解密时重复请求）
+  const latestPubKeyRef = useRef({});
 
   const loadDmList = useCallback(async () => {
     if (!user) return;
@@ -121,7 +118,7 @@ export function useDM(user, keyPair) {
     const cached = loadCachedConversations(user.username);
     if (cached.length > 0) setDmList(cached);
 
-    // 2. Fetch latest message per conversation
+    // 2. Fetch latest message per conversation from Supabase
     const { data, error } = await supabase.from("dm_messages").select("*")
       .or(`sender.eq.${user.username},receiver.eq.${user.username}`)
       .order("created_at", { ascending: false })
@@ -154,7 +151,11 @@ export function useDM(user, keyPair) {
     const nicknames = loadNicknames(user.username);
 
     // 6. Build sorted list: pinned first, then by last message time
+    // IMPORTANT: Filter out deleted conversations
+    const deleted = JSON.parse(localStorage.getItem(DELETED_KEY(user.username))) || [];
+
     const list = Object.entries(conversations)
+      .filter(([other]) => !deleted.includes(other))
       .map(([other, last]) => ({ other, last, pinned: pinnedSet.has(other), nickname: nicknames[other] || "" }))
       .sort((a, b) => {
         if (a.pinned && !b.pinned) return -1;
@@ -168,7 +169,6 @@ export function useDM(user, keyPair) {
     saveCachedConversations(user.username, list);
   }, [user]);
 
-  // Poll unread DM count（先声明，供下方其它 useCallback 引用）
   const checkUnread = useCallback(async () => {
     if (!user) return;
     try {
@@ -187,7 +187,6 @@ export function useDM(user, keyPair) {
     return () => clearInterval(interval);
   }, [user, checkUnread]);
 
-  // Fetch and cache a user's current pubkey
   const fetchPubKey = useCallback(async (username) => {
     if (!username) return null;
     if (latestPubKeyRef.current[username]) return latestPubKeyRef.current[username];
@@ -207,7 +206,7 @@ export function useDM(user, keyPair) {
 
     const decrypted = await Promise.all(data.map(async (msg) => {
       if (msg.encrypted && msg.ciphertext && msg.iv) {
-        if (msg.decrypted && msg.content) return msg; // 已解密的不重复处理
+        if (msg.decrypted && msg.content) return msg;
         for (let attempt = 0; attempt < 2; attempt++) {
           try {
             let peerPubKeyStr = await getPeerPubKeyStr(user, msg, otherUser);
@@ -218,7 +217,6 @@ export function useDM(user, keyPair) {
             return { ...msg, content: plain, decrypted: true };
           } catch (e) {
             if (attempt === 0) {
-              // 第一次失败：强制刷新对方公钥后重试一次（密钥可能已轮换）
               const fallbackName = msg.sender === user.username ? msg.receiver : msg.sender;
               delete latestPubKeyRef.current[fallbackName];
               delete latestPubKeyRef.current[otherUser];
@@ -285,7 +283,6 @@ export function useDM(user, keyPair) {
     setDmMessages((prev) => mergeMessages([...decrypted, ...prev], []));
   }, [user, dmTarget, dmLoadingMore, dmHasMore, decryptMessages]);
 
-  // 增量拉取当前会话的新消息（Realtime / 轮询共用）
   const fetchNewMessages = useCallback(async (otherUser) => {
     if (!user || !otherUser) return [];
     const current = dmMessagesRef.current;
@@ -332,7 +329,6 @@ export function useDM(user, keyPair) {
     const { data, error } = await supabase.from("dm_messages").insert([msgData]).select("*").single();
     if (!error && data) {
       setDmMessages((prev) => {
-        // 若轮询已抢先插入同一条消息，则跳过
         if (prev.some((m) => m.id === data.id)) return prev;
         return [...prev, { ...data, content, decrypted: true, encrypted: usedEncryption }];
       });
@@ -359,7 +355,6 @@ export function useDM(user, keyPair) {
       if (!msg) return;
       if (msg.sender !== user.username && msg.receiver !== user.username) return;
 
-      // 更新会话列表
       loadDmList();
 
       const target = dmTargetRef.current;
@@ -368,12 +363,10 @@ export function useDM(user, keyPair) {
         (msg.sender === user.username && msg.receiver === target);
       if (!inConversation) return;
 
-      // 新消息进当前会话（去重）
       if (dmMessagesRef.current.find((m) => m.id === msg.id)) return;
       const [dec] = await decryptMessages([msg], target);
       setDmMessages((prev) => mergeMessages(prev, [dec]));
 
-      // 收到对方消息时立即标记已读
       if (msg.sender === target && msg.receiver === user.username) {
         try {
           await supabase.from("dm_messages").update({ read: true }).eq("id", msg.id);
@@ -396,7 +389,6 @@ export function useDM(user, keyPair) {
       setDmLive(false);
     }
 
-    // 轮询兜底（无论 Realtime 是否可用，始终低频运行，按 id 去重）
     const pollInterval = setInterval(async () => {
       const target = dmTargetRef.current;
       if (!target) return;
@@ -413,14 +405,13 @@ export function useDM(user, keyPair) {
       }
     }, CHAT_POLL_MS);
 
-    // 组件卸载 / 依赖变化时统一清理
     return () => {
       clearInterval(pollInterval);
       try { if (channel) supabase.removeChannel(channel); } catch {}
     };
   }, [user, loadDmList, decryptMessages, fetchNewMessages, markAsRead, checkUnread]);
 
-  // Persist opened conversation locally (so it shows even without messages)
+  // Persist opened conversation locally
   const persistConversation = useCallback((otherUser) => {
     if (!user || !otherUser) return;
     const key = `stgblog_dm_opened_${user.username}`;
@@ -435,11 +426,10 @@ export function useDM(user, keyPair) {
 
   const openDm = useCallback(async (otherUser) => {
     if (!user) return;
-    // 如果对话已删除，不自动恢复
+    // 如果对话已删除，不恢复
     if (isConversationDeleted(user.username, otherUser)) return;
     setDmTarget(otherUser);
     persistConversation(otherUser);
-    // Also add to local list immediately
     setDmList((prev) => {
       if (prev.some((c) => c.other === otherUser)) return prev;
       const newList = [{ other: otherUser, last: null, pinned: false }, ...prev];
@@ -456,20 +446,6 @@ export function useDM(user, keyPair) {
     checkUnread();
   }, [loadDmList, checkUnread]);
 
-  // Set nickname for a conversation
-  const setNickname = useCallback(async (otherUser, nickname) => {
-    if (!user) return;
-    const nicknames = loadNicknames(user.username);
-    if (nickname && nickname.trim()) {
-      nicknames[otherUser] = nickname.trim();
-    } else {
-      delete nicknames[otherUser];
-    }
-    saveNicknames(user.username, nicknames);
-    setDmList((prev) => prev.map((c) => c.other === otherUser ? { ...c, nickname: nickname.trim() || "" } : c));
-  }, [user]);
-
-  // Pin / Unpin conversation
   const togglePin = useCallback(async (otherUser) => {
     if (!user) return;
     const isPinned = dmListRef.current.find((c) => c.other === otherUser)?.pinned;
@@ -509,6 +485,18 @@ export function useDM(user, keyPair) {
       saveCachedConversations(user.username, updated);
       return updated;
     });
+  }, [user]);
+
+  const setNickname = useCallback(async (otherUser, nickname) => {
+    if (!user) return;
+    const nicknames = loadNicknames(user.username);
+    if (nickname && nickname.trim()) {
+      nicknames[otherUser] = nickname.trim();
+    } else {
+      delete nicknames[otherUser];
+    }
+    saveNicknames(user.username, nicknames);
+    setDmList((prev) => prev.map((c) => c.other === otherUser ? { ...c, nickname: nickname.trim() || "" } : c));
   }, [user]);
 
   return {
