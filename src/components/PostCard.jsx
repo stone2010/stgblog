@@ -41,7 +41,7 @@ const PostCard = memo(function PostCard({ post, onSelect, onLike, onShare, onRep
     <article className="post" onClick={() => onSelect(displayPost)}>
       {isRepost && (
         <div className="repost-indicator">
-          <Icons.RT /> <span>{repostAuthor} 杞彂浜?/span>
+          <Icons.RT /> <span>{repostAuthor} 转发</span>
         </div>
       )}
       <div className="post-avatar" style={{ cursor: "pointer" }} onClick={handleAuthorClick}>{displayPost.author[0]}</div>
@@ -52,9 +52,9 @@ const PostCard = memo(function PostCard({ post, onSelect, onLike, onShare, onRep
           <span className="post-dot">路</span>
           <span className="post-time">{formatTimeShort(displayPost.created_at)}</span>
           {displayPost.pinned && <span className="post-pin-icon"><Icons.Pin /></span>}
-          {displayPost.edited && <span className="post-edited-tag">宸茬紪杈?/span>}
+          {displayPost.edited && <span className="post-edited-tag">📝 已编辑</span>}
           {user && displayPost.author !== user.username && !followingSet.has(displayPost.author) && (
-            <button className="follow-inline-btn" onClick={(e) => { e.stopPropagation(); follow(displayPost.author); }}>+ 鍏虫敞</button>
+            <button className="follow-inline-btn" onClick={(e) => { e.stopPropagation(); follow(displayPost.author); }}>+ 关注</button>
           )}
           <div className="post-menu-wrap" style={{ marginLeft: "auto" }}>
             <button className="post-action more-btn" onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}>
