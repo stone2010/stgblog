@@ -155,6 +155,14 @@ export function saveViewed(postId) {
     localStorage.setItem("viewedPosts", JSON.stringify(Object.fromEntries(entries)));
   } catch {}
 }
+
+// ─── 直接增加浏览量（不受30分钟缓存限制，用于帖子详情页打开时计数）───
+export function incrementViewCount(postId) {
+  try {
+    supabase.rpc('increment_views', { p_post_id: postId });
+  } catch {}
+}
+
 export function getViewedSet() {
   try { return new Set(Object.keys(JSON.parse(localStorage.getItem("viewedPosts")) || {})); } catch { return new Set(); }
 }

@@ -37,7 +37,14 @@ export default function PostDetail({ post, onClose, onLike, onShare, onRepost, o
     })();
   }, [post]);
 
-  const commentTree = useMemo(() => buildTree(comments), [comments]);
+  
+  // Increment view count when post detail opens
+  useEffect(() => {
+    if (!post) return;
+    incrementViewCount(post.id);
+  }, [post?.id]);
+
+const commentTree = useMemo(() => buildTree(comments), [comments]);
 
   const handleComment = useCallback(async () => {
     if (!user || !post) return;
