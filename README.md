@@ -1,6 +1,6 @@
 # 开源论坛项目：复盘与说明
 
-> **当前状态：已烂尾** · 部署中（GitHub Actions → GitHub Pages）
+> **当前状态：半停摆，缺少用户但功能可正常使用** · 部署中（GitHub Actions → GitHub Pages）
 
 ## 一、原因说明
 
