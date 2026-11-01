@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { supabase } from "../supabase";
 import { generateHash } from "../utils";
-import { getOrCreateKeyPair } from "../crypto";
+import {
+  getOrCreateKeyPair, generateKeyPair, createKeyBackup, restoreKeyBackup, parsePubkeyRecord,
+} from "../crypto";
 
 const AuthContext = createContext(null);
 
@@ -42,15 +44,33 @@ export function AuthProvider({ children }) {
     });
     if (error || !data || data.length === 0) return { error: "用户名或密码错误" };
     const userData = data[0];
-    // Sync local key pair with database on login
+
+    // ─── 密钥同步（云备份恢复，多设备/清缓存后可解密历史）───
     try {
-      const kp = await getOrCreateKeyPair(name);
-      const localPubKeyStr = JSON.stringify(kp.publicKey);
+      const localKeys = await getOrCreateKeyPair(name);
       const { data: existing } = await supabase.from("users").select("pubkey").eq("username", name).maybeSingle();
-      if (existing && existing.pubkey !== localPubKeyStr) {
-        await supabase.from("users").update({ pubkey: localPubKeyStr }).eq("username", name);
+      const dbRecord = parsePubkeyRecord(existing?.pubkey);
+
+      let finalKeys = localKeys;
+      if (dbRecord?.encPriv) {
+        // 云端有加密私钥备份：用密码恢复（优先于本地密钥，保证多端一致）
+        const restoredPriv = await restoreKeyBackup(name, pass, dbRecord.encPriv);
+        if (restoredPriv) {
+          finalKeys = { publicKey: dbRecord.pub, privateKey: restoredPriv };
+          localStorage.setItem(`stgblog_keys_${name}`, JSON.stringify(finalKeys));
+        } else {
+          console.warn("[Crypto] 云端密钥备份无法用当前密码解密，继续使用本设备密钥");
+        }
+      }
+
+      // 数据库还不是新格式（legacy 或缺失）时，写入 {pub, encPriv}
+      if (!dbRecord?.encPriv) {
+        const encPriv = await createKeyBackup(name, pass, finalKeys.privateKey);
+        const dbPubStr = JSON.stringify({ pub: finalKeys.publicKey, ...(encPriv ? { encPriv } : {}) });
+        await supabase.from("users").update({ pubkey: dbPubStr }).eq("username", name);
       }
     } catch (e) { console.warn("Key sync on login failed:", e); }
+
     const u = { username: userData.username, hash_id: userData.hash_id, bio: userData.bio || "" };
     localStorage.setItem("stgblog_user", JSON.stringify(u));
     setUser(u);
@@ -60,12 +80,13 @@ export function AuthProvider({ children }) {
   const register = useCallback(async (name, pass) => {
     const hashId = generateHash();
     const kp = await getOrCreateKeyPair(name);
+    const encPriv = await createKeyBackup(name, pass, kp.privateKey);
     // 使用安全 RPC 函数，密码在服务端用 bcrypt 哈希后存储
     const { data, error } = await supabase.rpc("secure_register", {
       p_username: name,
       p_password: pass,
       p_hash_id: hashId,
-      p_pubkey: JSON.stringify(kp.publicKey),
+      p_pubkey: JSON.stringify({ pub: kp.publicKey, ...(encPriv ? { encPriv } : {}) }),
     });
     if (error) return { error: error.message || "注册失败" };
     const userData = data[0];
