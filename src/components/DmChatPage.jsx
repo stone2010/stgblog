@@ -32,6 +32,7 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
   const inputRef = useRef(null);
   const lastLoadMoreRef = useRef(0);
   const nearBottomRef = useRef(true);
+  const messagesEndRef = useRef(null);
 
   // ─── 公钥指纹 ───
   useEffect(() => {
