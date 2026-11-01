@@ -435,8 +435,8 @@ export function useDM(user, keyPair) {
 
   const openDm = useCallback(async (otherUser) => {
     if (!user) return;
-    // 如果之前被删除过，取消删除标记
-    unmarkConversationDeleted(user.username, otherUser);
+    // 如果对话已删除，不自动恢复
+    if (isConversationDeleted(user.username, otherUser)) return;
     setDmTarget(otherUser);
     persistConversation(otherUser);
     // Also add to local list immediately
@@ -447,7 +447,7 @@ export function useDM(user, keyPair) {
       return newList;
     });
     await loadDmMessages(otherUser);
-  }, [loadDmMessages, persistConversation, user, unmarkConversationDeleted]);
+  }, [loadDmMessages, persistConversation, user, isConversationDeleted]);
 
   const closeDm = useCallback(() => {
     setDmTarget(null);

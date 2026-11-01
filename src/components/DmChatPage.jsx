@@ -34,7 +34,6 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
   const messagesEndRef = useRef(null);
   const lastLoadMoreRef = useRef(0);
   const nearBottomRef = useRef(true);
-  const initialScrollDoneRef = useRef(false);
 
   // ─── 公钥指纹 ───
   useEffect(() => {
@@ -117,48 +116,14 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
     return () => clearTimeout(t);
   }, [warning]);
 
+  // ─── 自动滚动到底部：每次消息更新时滚动到底部 ───
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
-    if (nearBottomRef.current) {
-      container.scrollTop = container.scrollHeight;
-    }
+    container.scrollTop = container.scrollHeight;
   }, [dmMessages]);
 
-  useEffect(() => {
-    const container = messagesContainerRef.current;
-    if (container) container.scrollTop = container.scrollHeight;
-  }, [dmTarget]);
-
-  useEffect(() => {
-    const container = messagesContainerRef.current;
-    if (container && !initialScrollDoneRef.current) {
-      container.scrollTop = container.scrollHeight;
-      initialScrollDoneRef.current = true;
-    }
-  }, [dmTarget]);
-
-  const handleInputChange = (e) => {
-    setInput(e.target.value);
-    const el = e.target;
-    el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 120) + "px";
-  };
-
-  const handleScroll = useCallback(() => {
-    const container = messagesContainerRef.current;
-    if (!container) return;
-    const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-    nearBottomRef.current = distanceToBottom < 120;
-    if (container.scrollTop <= 8 && onLoadMore) {
-      const now = Date.now();
-      if (now - lastLoadMoreRef.current > 1200) {
-        lastLoadMoreRef.current = now;
-        onLoadMore();
-      }
-    }
-  }, [onLoadMore]);
-
+  // 进入会话后标记已读
   useEffect(() => {
     try { if (dmTarget && onMarkAsRead) onMarkAsRead(dmTarget); } catch {}
   }, [dmTarget, onMarkAsRead]);
