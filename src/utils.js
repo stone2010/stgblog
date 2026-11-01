@@ -1,4 +1,4 @@
-// 生成匿名内部ID
+// 鐢熸垚鍖垮悕鍐呴儴ID
 export function generateHash() {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let result = "STG-";
@@ -8,7 +8,7 @@ export function generateHash() {
   return result;
 }
 
-// ─── 热门排序（带时间衰减）───
+// 鈹€鈹€鈹€ 鐑棬鎺掑簭锛堝甫鏃堕棿琛板噺锛夆攢鈹€鈹€
 export function getHotPosts(posts) {
   const now = Date.now();
   return [...posts].sort((a, b) => {
@@ -22,7 +22,7 @@ export function getHotPosts(posts) {
   });
 }
 
-// ─── X (Twitter) 风格智能推荐算法 ───
+// 鈹€鈹€鈹€ X (Twitter) 椋庢牸鏅鸿兘鎺ㄨ崘绠楁硶 鈹€鈹€鈹€
 export function getRecommendPosts(posts, { followingSet = new Set(), likedPosts = new Set(), viewedPosts = new Set() } = {}) {
   const now = Date.now();
   
@@ -126,7 +126,7 @@ export function getRecommendPosts(posts, { followingSet = new Set(), likedPosts 
   return result;
 }
 
-// ─── 点赞 ───
+// 鈹€鈹€鈹€ 鐐硅禐 鈹€鈹€鈹€
 export function hasLiked(postId) {
   try { return (JSON.parse(localStorage.getItem("likedPosts")) || []).includes(postId); } catch { return false; }
 }
@@ -140,7 +140,7 @@ export function getLikedSet() {
   try { return new Set(JSON.parse(localStorage.getItem("likedPosts")) || []); } catch { return new Set(); }
 }
 
-// ─── 浏览计数 ───
+// 鈹€鈹€鈹€ 娴忚璁℃暟 鈹€鈹€鈹€
 export function hasViewed(postId) {
   try {
     const v = JSON.parse(localStorage.getItem("viewedPosts")) || {};
@@ -159,7 +159,7 @@ export function getViewedSet() {
   try { return new Set(Object.keys(JSON.parse(localStorage.getItem("viewedPosts")) || {})); } catch { return new Set(); }
 }
 
-// ─── 书签 ───
+// 鈹€鈹€鈹€ 涔︾ 鈹€鈹€鈹€
 export function hasBookmarked(postId) {
   try { return (JSON.parse(localStorage.getItem("bookmarkedPosts")) || []).includes(postId); } catch { return false; }
 }
@@ -176,7 +176,7 @@ export function getBookmarkedSet() {
   try { return new Set(JSON.parse(localStorage.getItem("bookmarkedPosts")) || []); } catch { return new Set(); }
 }
 
-// ─── 屏蔽/静音 ───
+// 鈹€鈹€鈹€ 灞忚斀/闈欓煶 鈹€鈹€鈹€
 export function getBlockedSet() {
   try { return new Set(JSON.parse(localStorage.getItem("blockedUsers")) || []); } catch { return new Set(); }
 }
@@ -202,7 +202,7 @@ export function toggleMute(username) {
   } catch { return false; }
 }
 
-// ─── 主题 ───
+// 鈹€鈹€鈹€ 涓婚 鈹€鈹€鈹€
 export function getTheme() {
   return localStorage.getItem("stgblog_theme") || "dark";
 }
@@ -211,27 +211,42 @@ export function setTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
 }
 
-// ─── 内容解析：#hashtag @mention 可点击 ───
+// 鈹€鈹€鈹€ 鍐呭瑙ｆ瀽锛?hashtag @mention 鍙偣鍑?鈹€鈹€鈹€
 export function parseContent(text) {
   if (!text) return [];
-  const regex = /(#\w+)|(@\w+)|(\n)/g;
-  const parts = [];
+  // 鍏堟彁鍙?markdown 鍥剧墖 ![alt](url)锛屾浛鎹负鍗犱綅鏍囪
+  const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+  const segments = [];
   let lastIndex = 0;
   let match;
-  while ((match = regex.exec(text)) !== null) {
+  while ((match = imageRegex.exec(text)) !== null) {
     if (match.index > lastIndex) {
-      parts.push({ type: "text", value: text.slice(lastIndex, match.index) });
+      segments.push({ type: "text", value: text.slice(lastIndex, match.index) });
     }
-    if (match[1]) parts.push({ type: "hashtag", value: match[1] });
-    else if (match[2]) parts.push({ type: "mention", value: match[2] });
-    else if (match[3]) parts.push({ type: "newline" });
-    lastIndex = regex.lastIndex;
+    segments.push({ type: "image", alt: match[1], src: match[2] });
+    lastIndex = imageRegex.lastIndex;
   }
-  if (lastIndex < text.length) parts.push({ type: "text", value: text.slice(lastIndex) });
+  if (lastIndex < text.length) segments.push({ type: "text", value: text.slice(lastIndex) });
+
+  // 瀵?text 娈靛啀鍋?hashtag/mention/newline 瑙ｆ瀽
+  const parts = [];
+  const subRegex = /(#\w+)|(@\w+)|(\n)/g;
+  for (const seg of segments) {
+    if (seg.type !== "text") { parts.push(seg); continue; }
+    let li = 0; let m;
+    while ((m = subRegex.exec(seg.value)) !== null) {
+      if (m.index > li) parts.push({ type: "text", value: seg.value.slice(li, m.index) });
+      if (m[1]) parts.push({ type: "hashtag", value: m[1] });
+      else if (m[2]) parts.push({ type: "mention", value: m[2] });
+      else if (m[3]) parts.push({ type: "newline" });
+      li = subRegex.lastIndex;
+    }
+    if (li < seg.value.length) parts.push({ type: "text", value: seg.value.slice(li) });
+  }
   return parts;
 }
 
-// ─── 格式化时间（精确到秒，Telegram 风格）───
+// 鈹€鈹€鈹€ 鏍煎紡鍖栨椂闂达紙绮剧‘鍒扮锛孴elegram 椋庢牸锛夆攢鈹€鈹€
 export function formatTime(value) {
   if (!value) return "";
   try {
@@ -245,39 +260,39 @@ export function formatTime(value) {
     if (isToday) return time;
     const yesterday = new Date(now);
     yesterday.setDate(yesterday.getDate() - 1);
-    if (d.toDateString() === yesterday.toDateString()) return `昨天 ${time}`;
+    if (d.toDateString() === yesterday.toDateString()) return `鏄ㄥぉ ${time}`;
     if (diff < 604800000) {
-      const days = ["日", "一", "二", "三", "四", "五", "六"];
-      return `周${days[d.getDay()]} ${time}`;
+      const days = ["鏃?, "涓€", "浜?, "涓?, "鍥?, "浜?, "鍏?];
+      return `鍛?{days[d.getDay()]} ${time}`;
     }
     return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${time}`;
   } catch { return String(value); }
 }
 
-// ─── 格式化时间（简短，用于帖子列表）───
+// 鈹€鈹€鈹€ 鏍煎紡鍖栨椂闂达紙绠€鐭紝鐢ㄤ簬甯栧瓙鍒楄〃锛夆攢鈹€鈹€
 export function formatTimeShort(value) {
   if (!value) return "";
   try {
     const d = new Date(value);
     const diff = Date.now() - d.getTime();
-    if (diff < 60000) return "刚刚";
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时`;
-    if (diff < 604800000) return `${Math.floor(diff / 86400000)}天`;
+    if (diff < 60000) return "鍒氬垰";
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}鍒嗛挓`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}灏忔椂`;
+    if (diff < 604800000) return `${Math.floor(diff / 86400000)}澶ー;
     const pad = (n) => String(n).padStart(2, "0");
     return `${d.getMonth() + 1}/${pad(d.getDate())}`;
   } catch { return String(value); }
 }
 
-// ─── 格式化数字 ───
+// 鈹€鈹€鈹€ 鏍煎紡鍖栨暟瀛?鈹€鈹€鈹€
 export function formatCount(n) {
   if (!n) return "0";
-  if (n >= 10000) return (n / 10000).toFixed(1) + "万";
+  if (n >= 10000) return (n / 10000).toFixed(1) + "涓?;
   if (n >= 1000) return (n / 1000).toFixed(1) + "k";
   return String(n);
 }
 
-// ─── 构建评论树 ───
+// 鈹€鈹€鈹€ 鏋勫缓璇勮鏍?鈹€鈹€鈹€
 export function buildTree(comments) {
   const map = {};
   const roots = [];
