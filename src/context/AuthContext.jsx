@@ -81,21 +81,15 @@ export function AuthProvider({ children }) {
     const hashId = generateHash();
     const kp = await getOrCreateKeyPair(name);
     const encPriv = await createKeyBackup(name, pass, kp.privateKey);
-    const pubkeyStr = JSON.stringify({ pub: kp.publicKey, ...(encPriv ? { encPriv } : {}) });
     // 使用安全 RPC 函数，密码在服务端用 bcrypt 哈希后存储
     const { data, error } = await supabase.rpc("secure_register", {
       p_username: name,
       p_password: pass,
       p_hash_id: hashId,
-      p_pubkey: pubkeyStr,
+      p_pubkey: JSON.stringify({ pub: kp.publicKey, ...(encPriv ? { encPriv } : {}) }),
     });
     if (error) return { error: error.message || "注册失败" };
-    if (!data || data.length === 0) return { error: "注册失败：未返回用户数据" };
     const userData = data[0];
-    // 同步密钥到云端（确保新注册用户密钥已备份）
-    try {
-      await supabase.from("users").update({ pubkey: pubkeyStr }).eq("username", name);
-    } catch (e) { console.warn("Key sync on register failed:", e); }
     const u = { username: userData.username, hash_id: userData.hash_id, bio: userData.bio || "" };
     localStorage.setItem("stgblog_user", JSON.stringify(u));
     setUser(u);

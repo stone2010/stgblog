@@ -176,46 +176,6 @@ function AppInner() {
     });
   }, []);
 
-  // Increment view count when opening post detail
-  const handleIncrementViews = useCallback((postId) => {
-    const batch = [{ id: postId, views: 0 }];
-    setPosts((prev) => {
-      const updated = [...prev];
-      const idx = updated.findIndex((p) => p.id === postId);
-      if (idx >= 0) updated[idx] = { ...updated[idx], views: (updated[idx].views || 0) + 1 };
-      return updated;
-    });
-    if (selectedPost?.id === postId) {
-      setSelectedPost((s) => s ? { ...s, views: (s.views || 0) + 1 } : s);
-    }
-    try { supabase.rpc("increment_views", { p_post_id: postId }); } catch {}
-  }, [selectedPost]);
-
-  // ─── Scroll position preservation ───
-  const scrollPositionsRef = useRef({});
-  const feedScrollRef = useRef(null);
-
-  const openPostDetail = useCallback((post) => {
-    // Save current scroll position before navigating to detail
-    const scrollContainer = document.querySelector(".feed-scroll");
-    if (scrollContainer) {
-      scrollPositionsRef.current["home"] = scrollContainer.scrollTop;
-    }
-    setSelectedPost(post);
-  }, []);
-
-  const closePostDetail = useCallback(() => {
-    setSelectedPost(null);
-    // Restore scroll position
-    const saved = scrollPositionsRef.current["home"];
-    if (saved !== undefined) {
-      requestAnimationFrame(() => {
-        const scrollContainer = document.querySelector(".feed-scroll");
-        if (scrollContainer) scrollContainer.scrollTop = saved;
-      });
-    }
-  }, []);
-
   useEffect(() => {
     if (!posts.length) return;
     clearTimeout(viewCountTimerRef.current);
@@ -376,8 +336,8 @@ function AppInner() {
       await supabase.from("posts").delete().eq("id", post.id);
     }
     setPosts((prev) => prev.filter((p) => p.id !== post.id));
-    closePostDetail();
-  }, [user, closePostDetail]);
+    setSelectedPost(null);
+  }, [user]);
 
   const handleEditPost = useCallback(async (postId, newContent) => {
     if (!user) return;
@@ -490,7 +450,7 @@ function AppInner() {
     if (!notif.read) markOneRead(notif.id);
     if (notif.post_id) {
       const found = posts.find((p) => p.id === notif.post_id);
-      if (found) { openPostDetail(found); return; }
+      if (found) { setSelectedPost(found); setPage("home"); return; }
     }
     if (notif.type === "follow") {
       setViewingProfile(notif.user_from);
@@ -539,10 +499,9 @@ function AppInner() {
   const renderPage = () => {
     if (followersPage) return <FollowersPage username={followersPage.username} type={followersPage.type} onBack={() => { setFollowersPage(null); setPage("home"); }} onUserClick={openUserClick} />;
     if (selectedPost) return (
-      <PostDetail post={selectedPost} onClose={closePostDetail}
+      <PostDetail post={selectedPost} onClose={() => setSelectedPost(null)}
         onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark}
-        onUserClick={openUserClick} onDeletePost={handleDeletePost} onEditPost={setEditPostModal}
-        onIncrementViews={handleIncrementViews} />
+        onUserClick={openUserClick} onDeletePost={handleDeletePost} onEditPost={setEditPostModal} />
     );
     if (page === "dm-chat" && dmTarget) return (
       <DmChatPage dmTarget={dmTarget} dmMessages={dmMessages} dmSending={dmSending}
@@ -550,7 +509,7 @@ function AppInner() {
         onLoadMore={loadMoreDmMessages} dmLive={dmLive} />
     );
     if (page === "notifications") return <NotificationPage notifications={notifications} onNotifClick={handleNotifClick} onBack={() => navigate("home")} />;
-    if (page === "search") return <SearchPage searchKey={searchKey} setSearchKey={setSearchKey} posts={posts} onSelectPost={(p) => openPostDetail(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onBack={() => navigate("home")} />;
+    if (page === "search") return <SearchPage searchKey={searchKey} setSearchKey={setSearchKey} posts={posts} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onBack={() => navigate("home")} />;
     if (page === "dm") return <DmListPage dmList={dmList} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} onNewDm={() => setNewDmOpen(true)} onTogglePin={togglePin} onDeleteConversation={deleteConversation} />;
     if (page === "groups") return <GroupListPage groups={groups} onOpenGroup={(g) => { openGroup(g); setPage("group-chat"); }} onCreateGroup={() => setCreateGroupOpen(true)} onJoinGroup={() => setJoinGroupOpen(true)} />;
     if (page === "group-chat" && activeGroup) return (
@@ -561,9 +520,9 @@ function AppInner() {
         onOpenSettings={() => setGroupSettingsOpen(true)} onShareKey={shareGroupKey}
         onLoadMore={loadMoreGroupMessages} />
     );
-    if (page === "profile-view" && viewingProfile) return <ProfileViewPage viewingProfile={viewingProfile} posts={posts} onBack={() => { setViewingProfile(null); setPage("home"); setMobileTab("home"); }} onSelectPost={(p) => openPostDetail(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} />;
-    if (page === "profile") return <ProfilePage posts={posts} onAuthOpen={() => setAuthOpen(true)} onSelectPost={(p) => openPostDetail(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onFollowersPage={(type) => setFollowersPage({ username: user?.username, type })} onOpenUser={openUserClick} />;
-    return <HomeFeed posts={posts} postsLoading={postsLoading} hasMore={hasMore} loadMorePosts={loadMorePosts} tab={tab} setTab={setTab} searchKey={searchKey} composeText={composeText} setComposeText={setComposeText} onPublish={handlePublish} publishing={publishing} composeRef={composeRef} onSelectPost={(p) => openPostDetail(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onHashtag={handleHashtag} />;
+    if (page === "profile-view" && viewingProfile) return <ProfileViewPage viewingProfile={viewingProfile} posts={posts} onBack={() => { setViewingProfile(null); setPage("home"); setMobileTab("home"); }} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} />;
+    if (page === "profile") return <ProfilePage posts={posts} onAuthOpen={() => setAuthOpen(true)} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onFollowersPage={(type) => setFollowersPage({ username: user?.username, type })} onOpenUser={openUserClick} />;
+    return <HomeFeed posts={posts} postsLoading={postsLoading} hasMore={hasMore} loadMorePosts={loadMorePosts} tab={tab} setTab={setTab} searchKey={searchKey} composeText={composeText} setComposeText={setComposeText} onPublish={handlePublish} publishing={publishing} composeRef={composeRef} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onHashtag={handleHashtag} />;
   };
 
   return (

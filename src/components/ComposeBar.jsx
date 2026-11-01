@@ -4,10 +4,8 @@ import { useAuth } from "../context/AuthContext";
 export default function ComposeBar({ value, onChange, onPublish, publishing, composeRef }) {
   const { user } = useAuth();
   const textareaRef = useRef(null);
-  const emojiWrapperRef = useRef(null);
   const [showEmoji, setShowEmoji] = useState(false);
   const [activeCategory, setActiveCategory] = useState("smileys");
-  const [emojiPos, setEmojiPos] = useState(null);
 
   const handlePublish = useCallback(() => {
     onPublish();
@@ -21,41 +19,66 @@ export default function ComposeBar({ value, onChange, onPublish, publishing, com
 
   const emojiCategories = {
     smileys: { name: "笑脸", icon: "😊", emojis: [
-      "😀","😃","😄","😁","😆","😅","🤣","😂",
-      "🙂","🙃","😉","😊","😇","🥰","😍","🤩",
-      "😘","😗","😚","😋","😛","😜","🤪","😝",
-      "🤭","🤫","🤔","😐","😑","😶","🙄","😏",
-      "😣","😥","😢","😭","😤","😠","😡","🤬",
-      "😈","👿","👹","👺","🤡","💩","👻","👽",
-      "👾","🤖","🎃","😺","😸","😹","😻","😼",
-      "😽","🙀","😿","😾"
+      "😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂",
+      "🙂", "🙃", "😉", "😊", "😇", "🥰", "😍", "🤩",
+      "😘", "😗", "😚", "😙", "😋", "😛", "😜", "🤪",
+      "🤨", "🧐", "🤓", "😎", "🥸", "🥳", "😏", "😒",
+      "😞", "😔", "😟", "😕", "🙁", "☹️", "😣", "😖",
+      "😫", "😩", "🥺", "😢", "😭", "😤", "😠", "😡",
+      "🤬", "🤯", "😳", "🥵", "🥶", "😱", "😨", "😰",
+      "😥", "😓", "🤗", "🤔", "🤭", "🤫", "🤥", "😶"
     ]},
     hearts: { name: "爱心", icon: "❤️", emojis: [
-      "❤️","🧡","💛","💚","💙","💜","🖤","🤍",
-      "🤎","💔","❣️","💕","💞","💓","💗","💖",
-      "💘","💝","💌","💋","💌","💤","💦","💨",
+      "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍",
+      "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖",
+      "💘", "💝", "💟", "♥️", "💌", "💋", "👩‍❤️‍👨", "👨‍❤️‍👨",
+      "👩‍❤️‍👩", "💑", "👫", "👭", "👬", "🏳️‍🌈"
     ]},
     animals: { name: "动物", icon: "🐶", emojis: [
-      "🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼",
-      "🐨","🐯","🦁","🐮","🐷","🐸","🐵","🐔",
+      "🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼",
+      "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔",
+      "🐧", "🐦", "🐤", "🐣", "🐥", "🦆", "🦅", "🦉",
+      "🦇", "🐺", "🐗", "🐴", "🦄", "🐝", "🐛", "🦋",
+      "🐌", "🐞", "🐜", "🪲", "🦟", "🦗", "🕷️", "🕸️",
+      "🦂", "🐢", "🐍", "🦎", "🦖", "🦕", "🐙", "🦑",
+      "🦐", "🦞", "🦀", "🐡", "🐠", "🐟", "🐬", "🦈",
+      "🐳", "🐋", "🦭", "🐊", "🐅", "🐆", "🦓", "🦍"
     ]},
     food: { name: "食物", icon: "🍎", emojis: [
-      "🍎","🍊","🍋","🍌","🍉","🍇","🍓","🍑",
-      "🍒","🥝","🍅","🥑","🌽","🥕","🥦",
+      "🍎", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🍑",
+      "🍒", "🥝", "🍅", "🥑", "🌽", "🥕", "🥦", "🥬",
+      "🥒", "🌶️", "🫑", "🥜", "🍞", "🥐", "🥖", "🧀",
+      "🍖", "🍗", "🥩", "🥓", "🍔", "🍟", "🍕", "🌭",
+      "🌮", "🌯", "🥙", "🧆", "🥚", "🍳", "🥘", "🍲",
+      "🥣", "🥗", "🍿", "🧈", "🧂", "🍱", "🍘", "🍙",
+      "🍚", "🍛", "🍜", "🍝", "🍠", "🍢", "🍣", "🍤",
+      "🍥", "🥮", "🥟", "🥠", "🥡", "🍦", "🍧", "🍨"
     ]},
     gestures: { name: "手势", icon: "👍", emojis: [
-      "👋","🖐️","✋","👌","✌️","🤞","👊","💪",
+      "👋", "🤚", "🖐️", "🖖", "👌", "🤏", "✌️", "🤞",
+      "🤟", "🤘", "🤙", "👈", "👉", "👆", "👇", "☝️",
+      "✋", "👍", "👎", "✊", "👊", "🤛", "🤜", "🤝",
+      "🙏", "✍️", "💅", "🤳", "💪", "🦾", "🦵", "🦿"
     ]},
     celebration: { name: "庆祝", icon: "🎉", emojis: [
-      "🎉","🎊","🎈","🎁","🎂","🥳","⭐","🌟",
-      "✨","💫","🎉","🎉","🎉",
+      "🎉", "🎊", "🎈", "🎁", "🎀", "🎂", "🥳", "⭐",
+      "🌟", "✨", "💫", "⚡", "💥", "🎆", "🎇", "🧨",
+      "🔥", "🎵", "🎶", "🎤", "🎧", "🎸", "🎹", "🥁"
     ]},
     travel: { name: "旅行", icon: "✈️", emojis: [
-      "✈️","🚀","🚗","🚲","🚁","⛵",
+      "✈️", "🚁", "🚀", "🚂", "🚃", "🚄", "🚅", "🚆",
+      "🚇", "🚈", "🚉", "🚊", "🚝", "🚞", "🚋", "🚌",
+      "🚍", "🚎", "🚐", "🚑", "🚒", "🚓", "🚔", "🚨",
+      "🚗", "🚘", "🚙", "🚚", "🚛", "🚜", "🚲", "🛴",
+      "🛵", "🛺", "🚡", "🚠", "🚟", "🚢", "⛵", "🚤"
     ]},
     objects: { name: "物品", icon: "📱", emojis: [
-      "📱","💻","⌨️","🖥️","🖨️","🖱️","🔋","🔌",
-      "💡","🔦","📚","✏️","📖","📝",
+      "📱", "📲", "💻", "⌨️", "🖥️", "🖨️", "🖱️", "🖲️",
+      "📡", "🔋", "🔌", "💡", "🔦", "🏮", "🕯️", "📔",
+      "📢", "📣", "📯", "🔔", "🔕", "🎼", "🎵", "🎶",
+      "🎤", "🎧", "📻", "🎹", "🥁", "🎸", "🎺", "🎻",
+      "🎷", "🪕", "🎬", "🎮", "🎯", "🎲", "🎰", "🎳",
+      "📷", "📸", "📹", "🎥", "📞", "☎️", "📟", "📠"
     ]}
   };
 
@@ -98,67 +121,18 @@ export default function ComposeBar({ value, onChange, onPublish, publishing, com
         />
         <div className="compose-bottom">
           <div className="compose-tools">
-            <input
-              type="file"
-              accept="image/*"
-              id="compose-image-input"
-              style={{ display: "none" }}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  const reader = new FileReader();
-                  reader.onload = (ev) => {
-                    const img = document.createElement("img");
-                    img.src = ev.target.result;
-                    img.onload = () => {
-                      const canvas = document.createElement("canvas");
-                      const maxW = 800;
-                      let w = img.width, h = img.height;
-                      if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
-                      canvas.width = w; canvas.height = h;
-                      const ctx = canvas.getContext("2d");
-                      ctx.drawImage(img, 0, 0, w, h);
-                      const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
-                      const placeholder = `\n![${file.name}](${dataUrl})\n`;
-                      const textarea = textareaRef.current;
-                      const start = textarea.selectionStart;
-                      const newValue = value.slice(0, start) + placeholder + value.slice(start);
-                      onChange(newValue);
-                      setTimeout(() => {
-                        textarea.focus();
-                        textarea.selectionStart = textarea.selectionEnd = start + placeholder.length;
-                      }, 0);
-                    };
-                  };
-                  reader.readAsDataURL(file);
-                  e.target.value = "";
-                }
-              }}
-            />
-            <label htmlFor="compose-image-input" className="compose-tool" title="插入图片" style={{ cursor: "pointer" }}>
-              📷
-            </label>
-
-            <div className="emoji-trigger-wrapper" ref={emojiWrapperRef}>
-              <button
-                className={`compose-tool emoji-trigger ${showEmoji ? 'active' : ''}`}
-                type="button"
-                onClick={(e) => {
-                  if (!showEmoji) {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    setEmojiPos({ x: rect.left, y: rect.top });
-                  }
-                  setShowEmoji(v => !v);
-                }}
+            <button className="compose-tool">📷</button>
+            
+            <div className="emoji-trigger-wrapper">
+              <button 
+                className={`compose-tool emoji-trigger ${showEmoji ? 'active' : ''}`} 
+                type="button" 
+                onClick={() => setShowEmoji(v => !v)}
               >
                 😊
               </button>
-              {showEmoji && emojiPos && (
-                <div
-                  className="emoji-picker"
-                  style={{ top: emojiPos.y, left: emojiPos.x }}
-                  onClick={(e) => e.stopPropagation()}
-                >
+              {showEmoji && (
+                <div className="emoji-picker">
                   <div className="emoji-categories">
                     {Object.entries(emojiCategories).map(([key, category]) => (
                       <button
@@ -178,6 +152,8 @@ export default function ComposeBar({ value, onChange, onPublish, publishing, com
                         className="emoji-item"
                         type="button"
                         onClick={() => insertEmoji(emoji)}
+                        onMouseEnter={(e) => e.currentTarget.classList.add('hover')}
+                        onMouseLeave={(e) => e.currentTarget.classList.remove('hover')}
                       >
                         {emoji}
                       </button>

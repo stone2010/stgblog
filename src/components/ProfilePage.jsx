@@ -22,10 +22,6 @@ export default function ProfilePage({ posts, onAuthOpen, onSelectPost, onLike, o
   // DM privacy state
   const [dmKeyCopied, setDmKeyCopied] = useState(false);
 
-  const downloadApk = () => {
-    window.location.href = "https://stone2010.github.io/stgblog/stgblog.apk";
-  };
-
   const userPosts = useMemo(() => {
     if (!user) return [];
     if (profileTab === "likes") {
@@ -108,7 +104,7 @@ export default function ProfilePage({ posts, onAuthOpen, onSelectPost, onLike, o
           <div className="profile-actions">
             <button className="profile-edit" onClick={() => { setEditBio(user.bio || ""); setEditOpen(true); }}>编辑资料</button>
             <button className="profile-edit" onClick={() => setPwModalOpen(true)}>修改密码</button>
-            <button className="profile-edit" onClick={logout} style={{ color: "var(--accent)", borderColor: "rgba(228,0,43,0.3)" }}>退出</button>
+            <button className="profile-edit" onClick={logout} style={{ color: "var(--red)", borderColor: "rgba(244,33,46,0.3)" }}>退出</button>
           </div>
         </div>
       </div>
@@ -134,17 +130,6 @@ export default function ProfilePage({ posts, onAuthOpen, onSelectPost, onLike, o
             <p style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>分享此密钥给你信任的人，他们才能给你发私信</p>
           </div>
         )}
-      </div>
-
-      {/* APK Download */}
-      <div className="profile-section">
-        <div className="profile-section-title">应用下载</div>
-        <div className="dm-privacy-toggle">
-          <button className="dm-privacy-btn" onClick={downloadApk}>
-            下载 STGBLOG Android 客户端 (WebView)
-          </button>
-          <p style={{ fontSize: 11, color: "var(--muted)", marginTop: 6 }}>轻量 WebView 壳，指向 stgblog.github.io/stgblog</p>
-        </div>
       </div>
 
       <div className="profile-tabs">
@@ -194,7 +179,7 @@ export default function ProfilePage({ posts, onAuthOpen, onSelectPost, onLike, o
               <input className="auth-input" type="password" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} placeholder="确认新密码"
                 onKeyDown={(e) => { if (e.key === "Enter") handleChangePassword(); }} />
               {pwError && <div className="auth-err">{pwError}</div>}
-              {pwSuccess && <div style={{ padding: "10px 14px", background: "rgba(228,0,43,0.06)", border: "1px solid rgba(228,0,43,0.2)", borderRadius: 0, color: "var(--accent)", fontSize: 12, marginBottom: 8 }}>{pwSuccess}</div>}
+              {pwSuccess && <div style={{ padding: "10px 14px", background: "rgba(0,186,124,0.08)", border: "1px solid rgba(0,186,124,0.2)", borderRadius: 8, color: "var(--green)", fontSize: 12, marginBottom: 8 }}>{pwSuccess}</div>}
               <button className="auth-btn" onClick={handleChangePassword} disabled={pwLoading}>{pwLoading ? "修改中..." : "修改密码"}</button>
             </div>
           </div>

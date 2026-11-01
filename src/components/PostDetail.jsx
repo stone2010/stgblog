@@ -3,7 +3,7 @@ import { supabase } from "../supabase";
 import { useAuth } from "../context/AuthContext";
 import { Icons } from "./Icons";
 import CommentNode from "./CommentNode";
-import { hasLiked, hasBookmarked, formatTime, formatTimeShort, formatCount, buildTree, parseContent, hasViewed, saveViewed } from "../utils";
+import { hasLiked, hasBookmarked, formatTime, formatTimeShort, formatCount, buildTree, parseContent } from "../utils";
 
 function RenderContent({ content }) {
   const parts = parseContent(content);
@@ -13,14 +13,13 @@ function RenderContent({ content }) {
         if (p.type === "hashtag") return <span key={i} className="hashtag">{p.value}</span>;
         if (p.type === "mention") return <span key={i} className="mention">{p.value}</span>;
         if (p.type === "newline") return <br key={i} />;
-        if (p.type === "image") return <img key={i} src={p.src} alt={p.alt} style={{ maxWidth: "100%", borderRadius: 12, marginTop: 8, display: "block" }} />;
         return <span key={i}>{p.value}</span>;
       })}
     </>
   );
 }
 
-export default function PostDetail({ post, onClose, onLike, onShare, onRepost, onBookmark, onUserClick, onDeletePost, onEditPost, onIncrementViews }) {
+export default function PostDetail({ post, onClose, onLike, onShare, onRepost, onBookmark, onUserClick, onDeletePost, onEditPost }) {
   const { user, followingSet, follow, unfollow } = useAuth();
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
@@ -29,14 +28,6 @@ export default function PostDetail({ post, onClose, onLike, onShare, onRepost, o
   const [replyText, setReplyText] = useState("");
   const [replySubmitting, setReplySubmitting] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-
-  // 鈹€鈹€鈹€ View counting: increment when post detail opens 鈹€鈹€鈹€
-  useEffect(() => {
-    if (!post) return;
-    if (hasViewed(post.id)) return;
-    saveViewed(post.id);
-    onIncrementViews?.(post.id);
-  }, [post, onIncrementViews]);
 
   useEffect(() => {
     if (!post) return;
@@ -122,7 +113,7 @@ export default function PostDetail({ post, onClose, onLike, onShare, onRepost, o
     <div className="detail">
       <div className="detail-top">
         <button className="detail-back" onClick={onClose}><Icons.Back /></button>
-        <span className="detail-top-title">甯栧瓙</span>
+        <span className="detail-top-title">帖子</span>
       </div>
       <div className="detail-author">
         <div className="detail-avatar" style={{ cursor: "pointer" }} onClick={() => onUserClick(post.author)}>{post.author[0]}</div>
@@ -134,7 +125,7 @@ export default function PostDetail({ post, onClose, onLike, onShare, onRepost, o
           followingSet.has(post.author) ? (
             <button className="follow-btn following" onClick={() => unfollow(post.author)}>已关注</button>
           ) : (
-            <button className="follow-btn" onClick={() => follow(post.author)}>鍏虫敞</button>
+            <button className="follow-btn" onClick={() => follow(post.author)}>关注</button>
           )
         )}
         <div className="post-menu-wrap" style={{ marginLeft: "auto" }}>
@@ -143,16 +134,16 @@ export default function PostDetail({ post, onClose, onLike, onShare, onRepost, o
             <div className="post-menu" onClick={(e) => e.stopPropagation()}>
               {user && post.author === user.username && (
                 <>
-                  <button onClick={() => { onEditPost?.(post); setShowMenu(false); }}><Icons.Edit /> 缂栬緫</button>
-                  <button onClick={() => { onDeletePost(post); setShowMenu(false); }} style={{ color: "var(--red)" }}>馃棏 鍒犻櫎</button>
+                  <button onClick={() => { onEditPost?.(post); setShowMenu(false); }}><Icons.Edit /> 编辑</button>
+                  <button onClick={() => { onDeletePost(post); setShowMenu(false); }} style={{ color: "var(--red)" }}>🗑 删除</button>
                   <div className="menu-divider" />
                 </>
               )}
-              <button onClick={() => { onRepost?.(post); setShowMenu(false); }}><Icons.RT /> 杞彂</button>
+              <button onClick={() => { onRepost?.(post); setShowMenu(false); }}><Icons.RT /> 转发</button>
               <button onClick={() => { onBookmark?.(post); setShowMenu(false); }}>
-                {bookmarked ? <Icons.BookmarkFill /> : <Icons.Bookmark />} {bookmarked ? "已收藏" : "收藏"}
+                {bookmarked ? <Icons.BookmarkFill /> : <Icons.Bookmark />} {bookmarked ? "取消书签" : "加入书签"}
               </button>
-              <button onClick={() => { onShare(post); setShowMenu(false); }}><Icons.Share /> 鍒嗕韩</button>
+              <button onClick={() => { onShare(post); setShowMenu(false); }}><Icons.Share /> 分享</button>
             </div>
           )}
         </div>
@@ -169,12 +160,12 @@ export default function PostDetail({ post, onClose, onLike, onShare, onRepost, o
       )}
       <div className="detail-time-bar">
         <span>{new Intl.DateTimeFormat("zh-CN", { dateStyle: "full", timeStyle: "short" }).format(new Date(post.created_at))}</span>
-        {post.edited && <span style={{ color: "var(--dim)", fontSize: 12 }}>📝 已编辑</span>}
+        {post.edited && <span style={{ color: "var(--dim)", fontSize: 12 }}>· 已编辑</span>}
       </div>
       <div className="detail-stats">
         <span><b>{formatCount(post.views || 0)}</b> 浏览</span>
         <span><b>{formatCount(post.reposts || 0)}</b> 转发</span>
-        <span><b>{formatCount(post.likes || 0)}</b> 点赞</span>
+        <span><b>{formatCount(post.likes || 0)}</b> 赞</span>
         <span><b>{comments.length}</b> 评论</span>
       </div>
       <div className="detail-actions">
@@ -195,11 +186,11 @@ export default function PostDetail({ post, onClose, onLike, onShare, onRepost, o
         {user && (
           <div className="cmt-input-area">
             <div className="comment-avatar">{user.username[0]}</div>
-            <textarea className="cmt-textarea" value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="写评论..." rows={1} maxLength={500} />
+            <textarea className="cmt-textarea" value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="发表评论..." rows={1} maxLength={500} />
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 11, color: commentText.length > 450 ? "var(--red)" : "var(--muted)" }}>{commentText.length}/500</span>
               <button className="cmt-send" onClick={handleComment} disabled={commentLoading || !commentText.trim()}>
-                {commentLoading ? "..." : "鍥炲"}
+                {commentLoading ? "..." : "回复"}
               </button>
             </div>
           </div>

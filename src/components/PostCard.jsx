@@ -11,7 +11,6 @@ function RenderContent({ content, onHashtag, onMention }) {
         if (p.type === "hashtag") return <span key={i} className="hashtag" onClick={(e) => { e.stopPropagation(); onHashtag?.(p.value); }}>{p.value}</span>;
         if (p.type === "mention") return <span key={i} className="mention" onClick={(e) => { e.stopPropagation(); onMention?.(p.value.slice(1)); }}>{p.value}</span>;
         if (p.type === "newline") return <br key={i} />;
-        if (p.type === "image") return <img key={i} src={p.src} alt={p.alt} style={{ maxWidth: "100%", borderRadius: 12, marginTop: 8, display: "block" }} />;
         return <span key={i}>{p.value}</span>;
       })}
     </div>
@@ -41,7 +40,7 @@ const PostCard = memo(function PostCard({ post, onSelect, onLike, onShare, onRep
     <article className="post" onClick={() => onSelect(displayPost)}>
       {isRepost && (
         <div className="repost-indicator">
-          <Icons.RT /> <span>{repostAuthor} 转发</span>
+          <Icons.RT /> <span>{repostAuthor} 转发了</span>
         </div>
       )}
       <div className="post-avatar" style={{ cursor: "pointer" }} onClick={handleAuthorClick}>{displayPost.author[0]}</div>
@@ -49,10 +48,10 @@ const PostCard = memo(function PostCard({ post, onSelect, onLike, onShare, onRep
         <div className="post-head">
           <span className="post-author" onClick={handleAuthorClick} style={{ cursor: "pointer" }}>{displayPost.author}</span>
           <span className="post-handle">@{displayPost.author}</span>
-          <span className="post-dot">路</span>
+          <span className="post-dot">·</span>
           <span className="post-time">{formatTimeShort(displayPost.created_at)}</span>
           {displayPost.pinned && <span className="post-pin-icon"><Icons.Pin /></span>}
-          {displayPost.edited && <span className="post-edited-tag">📝 已编辑</span>}
+          {displayPost.edited && <span className="post-edited-tag">已编辑</span>}
           {user && displayPost.author !== user.username && !followingSet.has(displayPost.author) && (
             <button className="follow-inline-btn" onClick={(e) => { e.stopPropagation(); follow(displayPost.author); }}>+ 关注</button>
           )}
@@ -65,16 +64,16 @@ const PostCard = memo(function PostCard({ post, onSelect, onLike, onShare, onRep
                 {user && displayPost.author !== user.username && (
                   <>
                     <button onClick={() => { onRepost?.(displayPost); setShowMenu(false); }}>
-                      <Icons.RT /> 杞彂
+                      <Icons.RT /> 转发
                     </button>
                     <button onClick={() => { onBookmark?.(displayPost); setShowMenu(false); }}>
-                      {bookmarked ? <Icons.BookmarkFill /> : <Icons.Bookmark />} {bookmarked ? "鍙栨秷涔︾" : "鍔犲叆涔︾"}
+                      {bookmarked ? <Icons.BookmarkFill /> : <Icons.Bookmark />} {bookmarked ? "取消书签" : "加入书签"}
                     </button>
                     <div className="menu-divider" />
                   </>
                 )}
                 <button onClick={(e) => { e.stopPropagation(); setShowMenu(false); }}>
-                  <Icons.Share /> 鍒嗕韩閾炬帴
+                  <Icons.Share /> 分享链接
                 </button>
               </div>
             )}
@@ -91,27 +90,27 @@ const PostCard = memo(function PostCard({ post, onSelect, onLike, onShare, onRep
           </div>
         )}
         <div className="post-actions">
-          <button className="post-action" onClick={(e) => { e.stopPropagation(); onSelect(displayPost); }} title="璇勮">
-            <span className="pa-icon">馃挰</span>
+          <button className="post-action" onClick={(e) => { e.stopPropagation(); onSelect(displayPost); }} title="评论">
+            <span className="pa-icon">💬</span>
             <span className="pa-count">{formatCount(displayPost.comment_count || 0)}</span>
           </button>
-          <button className={`post-action retweet ${isRepost ? "reposted" : ""}`} onClick={(e) => { e.stopPropagation(); onRepost?.(displayPost); }} title="杞彂">
+          <button className={`post-action retweet ${isRepost ? "reposted" : ""}`} onClick={(e) => { e.stopPropagation(); onRepost?.(displayPost); }} title="转发">
             <span className="pa-icon"><Icons.RT /></span>
             <span className="pa-count">{formatCount(displayPost.reposts || 0)}</span>
           </button>
-          <button className={`post-action ${liked ? "liked" : ""}`} onClick={(e) => { e.stopPropagation(); onLike(displayPost); }} title="鍠滄">
+          <button className={`post-action ${liked ? "liked" : ""}`} onClick={(e) => { e.stopPropagation(); onLike(displayPost); }} title="喜欢">
             <span className="pa-icon">{liked ? <Icons.HeartFill /> : <Icons.Heart />}</span>
             <span className="pa-count">{formatCount(displayPost.likes || 0)}</span>
           </button>
-          <button className="post-action views-action" title="娴忚">
+          <button className="post-action views-action" title="浏览">
             <span className="pa-icon"><Icons.Views /></span>
             <span className="pa-count">{formatCount(displayPost.views || 0)}</span>
           </button>
           <div className="post-actions-right">
-            <button className={`post-action bookmark-action ${bookmarked ? "bookmarked" : ""}`} onClick={(e) => { e.stopPropagation(); onBookmark?.(displayPost); }} title="涔︾">
+            <button className={`post-action bookmark-action ${bookmarked ? "bookmarked" : ""}`} onClick={(e) => { e.stopPropagation(); onBookmark?.(displayPost); }} title="书签">
               <span className="pa-icon">{bookmarked ? <Icons.BookmarkFill /> : <Icons.Bookmark />}</span>
             </button>
-            <button className="post-action share-action" onClick={(e) => { e.stopPropagation(); onShare(displayPost); }} title="鍒嗕韩">
+            <button className="post-action share-action" onClick={(e) => { e.stopPropagation(); onShare(displayPost); }} title="分享">
               <span className="pa-icon"><Icons.Share /></span>
             </button>
           </div>
