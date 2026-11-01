@@ -13,6 +13,7 @@ function RenderContent({ content }) {
         if (p.type === "hashtag") return <span key={i} className="hashtag">{p.value}</span>;
         if (p.type === "mention") return <span key={i} className="mention">{p.value}</span>;
         if (p.type === "newline") return <br key={i} />;
+        if (p.type === "image") return <img key={i} src={p.src} alt={p.alt} style={{ maxWidth: "100%", borderRadius: 12, marginTop: 8, display: "block" }} />;
         return <span key={i}>{p.value}</span>;
       })}
     </>
@@ -29,7 +30,7 @@ export default function PostDetail({ post, onClose, onLike, onShare, onRepost, o
   const [replySubmitting, setReplySubmitting] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
 
-  // ─── View counting: increment when post detail opens ───
+  // 鈹€鈹€鈹€ View counting: increment when post detail opens 鈹€鈹€鈹€
   useEffect(() => {
     if (!post) return;
     if (hasViewed(post.id)) return;
@@ -121,7 +122,7 @@ export default function PostDetail({ post, onClose, onLike, onShare, onRepost, o
     <div className="detail">
       <div className="detail-top">
         <button className="detail-back" onClick={onClose}><Icons.Back /></button>
-        <span className="detail-top-title">帖子</span>
+        <span className="detail-top-title">甯栧瓙</span>
       </div>
       <div className="detail-author">
         <div className="detail-avatar" style={{ cursor: "pointer" }} onClick={() => onUserClick(post.author)}>{post.author[0]}</div>
@@ -131,9 +132,9 @@ export default function PostDetail({ post, onClose, onLike, onShare, onRepost, o
         </div>
         {user && post.author !== user.username && (
           followingSet.has(post.author) ? (
-            <button className="follow-btn following" onClick={() => unfollow(post.author)}>已关注</button>
+            <button className="follow-btn following" onClick={() => unfollow(post.author)}>宸插叧娉?/button>
           ) : (
-            <button className="follow-btn" onClick={() => follow(post.author)}>关注</button>
+            <button className="follow-btn" onClick={() => follow(post.author)}>鍏虫敞</button>
           )
         )}
         <div className="post-menu-wrap" style={{ marginLeft: "auto" }}>
@@ -142,16 +143,16 @@ export default function PostDetail({ post, onClose, onLike, onShare, onRepost, o
             <div className="post-menu" onClick={(e) => e.stopPropagation()}>
               {user && post.author === user.username && (
                 <>
-                  <button onClick={() => { onEditPost?.(post); setShowMenu(false); }}><Icons.Edit /> 编辑</button>
-                  <button onClick={() => { onDeletePost(post); setShowMenu(false); }} style={{ color: "var(--red)" }}>🗑 删除</button>
+                  <button onClick={() => { onEditPost?.(post); setShowMenu(false); }}><Icons.Edit /> 缂栬緫</button>
+                  <button onClick={() => { onDeletePost(post); setShowMenu(false); }} style={{ color: "var(--red)" }}>馃棏 鍒犻櫎</button>
                   <div className="menu-divider" />
                 </>
               )}
-              <button onClick={() => { onRepost?.(post); setShowMenu(false); }}><Icons.RT /> 转发</button>
+              <button onClick={() => { onRepost?.(post); setShowMenu(false); }}><Icons.RT /> 杞彂</button>
               <button onClick={() => { onBookmark?.(post); setShowMenu(false); }}>
-                {bookmarked ? <Icons.BookmarkFill /> : <Icons.Bookmark />} {bookmarked ? "取消书签" : "加入书签"}
+                {bookmarked ? <Icons.BookmarkFill /> : <Icons.Bookmark />} {bookmarked ? "鍙栨秷涔︾" : "鍔犲叆涔︾"}
               </button>
-              <button onClick={() => { onShare(post); setShowMenu(false); }}><Icons.Share /> 分享</button>
+              <button onClick={() => { onShare(post); setShowMenu(false); }}><Icons.Share /> 鍒嗕韩</button>
             </div>
           )}
         </div>
@@ -168,16 +169,16 @@ export default function PostDetail({ post, onClose, onLike, onShare, onRepost, o
       )}
       <div className="detail-time-bar">
         <span>{new Intl.DateTimeFormat("zh-CN", { dateStyle: "full", timeStyle: "short" }).format(new Date(post.created_at))}</span>
-        {post.edited && <span style={{ color: "var(--dim)", fontSize: 12 }}>· 已编辑</span>}
+        {post.edited && <span style={{ color: "var(--dim)", fontSize: 12 }}>路 宸茬紪杈?/span>}
       </div>
       <div className="detail-stats">
-        <span><b>{formatCount(post.views || 0)}</b> 浏览</span>
-        <span><b>{formatCount(post.reposts || 0)}</b> 转发</span>
-        <span><b>{formatCount(post.likes || 0)}</b> 赞</span>
-        <span><b>{comments.length}</b> 评论</span>
+        <span><b>{formatCount(post.views || 0)}</b> 娴忚</span>
+        <span><b>{formatCount(post.reposts || 0)}</b> 杞彂</span>
+        <span><b>{formatCount(post.likes || 0)}</b> 璧?/span>
+        <span><b>{comments.length}</b> 璇勮</span>
       </div>
       <div className="detail-actions">
-        <button className="detail-action">💬 <span className="pa-count">{comments.length}</span></button>
+        <button className="detail-action">馃挰 <span className="pa-count">{comments.length}</span></button>
         <button className="detail-action retweet" onClick={() => onRepost?.(post)}><Icons.RT /> <span className="pa-count">{post.reposts || 0}</span></button>
         <button className={`detail-action ${liked ? "liked" : ""}`} onClick={() => onLike(post)}>
           {liked ? <Icons.HeartFill /> : <Icons.Heart />} <span className="pa-count">{post.likes || 0}</span>
@@ -194,11 +195,11 @@ export default function PostDetail({ post, onClose, onLike, onShare, onRepost, o
         {user && (
           <div className="cmt-input-area">
             <div className="comment-avatar">{user.username[0]}</div>
-            <textarea className="cmt-textarea" value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="发表评论..." rows={1} maxLength={500} />
+            <textarea className="cmt-textarea" value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="鍙戣〃璇勮..." rows={1} maxLength={500} />
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 11, color: commentText.length > 450 ? "var(--red)" : "var(--muted)" }}>{commentText.length}/500</span>
               <button className="cmt-send" onClick={handleComment} disabled={commentLoading || !commentText.trim()}>
-                {commentLoading ? "..." : "回复"}
+                {commentLoading ? "..." : "鍥炲"}
               </button>
             </div>
           </div>
@@ -209,7 +210,7 @@ export default function PostDetail({ post, onClose, onLike, onShare, onRepost, o
             replyText={replyText} setReplyText={setReplyText}
             submitting={replySubmitting} onSubmitReply={handleReply} onUserClick={onUserClick} />
         ))}
-        {!user && <p style={{ textAlign: "center", padding: 20, color: "var(--muted)", fontSize: 13 }}>登录后评论</p>}
+        {!user && <p style={{ textAlign: "center", padding: 20, color: "var(--muted)", fontSize: 13 }}>鐧诲綍鍚庤瘎璁?/p>}
       </div>
     </div>
   );
