@@ -1,4 +1,4 @@
-/* STGBLOG v9.0 — Cipher Night（深空墨蓝 · 翡翠青加密主题） */
+/* STGBLOG v10.0 — Cipher Night（深空墨蓝 · 翡翠青加密主题）· 现代化升级 */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#070b14;--bg2:#0b1120;--bg3:#111830;--bg4:#1a2340;--bg5:#243054;
@@ -7,6 +7,7 @@
   --text:#eef2ff;--text-secondary:#9aa6cc;--text-muted:#6a769e;--text-dim:#48537a;
   --accent:#10b981;--accent-hover:#059669;--accent-active:#047857;--accent-glow:rgba(16,185,129,0.10);
   --accent-light:#34d399;--accent-dark:#065f46;
+  --indigo:#6366f1;--indigo-glow:rgba(99,102,241,0.15);
   --gemini-gradient:linear-gradient(135deg,#34d399,#22d3ee 55%,#818cf8);
   --gemini-gradient-subtle:linear-gradient(135deg,rgba(52,211,153,0.85),rgba(34,211,238,0.55),rgba(129,140,248,0.45));
   --red:#f87171;--red-hover:#ef4444;--green:#34d399;--green-hover:#10b981;
@@ -21,6 +22,7 @@
   --ease:cubic-bezier(0.4,0,0.2,1);--ease-fast:cubic-bezier(0.4,0,0.2,1);--ease-bounce:cubic-bezier(0.34,1.56,0.64,1);--ease-smooth:cubic-bezier(0.25,0.1,0.25,1);
   --nav-h:60px;--bottom-h:60px;
   --hover:rgba(255,255,255,0.05);--hover-strong:rgba(255,255,255,0.09);
+  --glass:rgba(255,255,255,0.03);--glass-strong:rgba(255,255,255,0.06);
 }
 [data-theme="light"]{
   --bg:#f4f7fc;--bg2:#ffffff;--bg3:#eef2fa;--bg4:#dfe6f3;--bg5:#cdd7ec;
@@ -42,6 +44,17 @@ body{
   font-family:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
   background:var(--bg);color:var(--text);line-height:1.5;min-height:100vh;
   overflow-x:hidden;
+  background-attachment:fixed;
+  background-image:
+    radial-gradient(ellipse at 20% 0%, rgba(16,185,129,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 10%, rgba(99,102,241,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 100%, rgba(34,211,238,0.04) 0%, transparent 50%);
+}
+[data-theme="light"] body{
+  background-image:
+    radial-gradient(ellipse at 20% 0%, rgba(5,150,105,0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 10%, rgba(79,70,229,0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 100%, rgba(6,182,212,0.03) 0%, transparent 50%);
 }
 .topnav-title,.topnav-logo{font-family:'Space Grotesk','Inter',-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
 input,textarea,select,button{font:inherit;color:inherit}
@@ -255,7 +268,8 @@ a{color:var(--accent);text-decoration:none}
 .bnav-compose:active{transform:scale(0.9)}
 
 /* ===== Feed / Timeline ===== */
-.feed{padding-bottom:80px}
+.feed{padding-bottom:80px;overflow-y:auto;scroll-behavior:smooth}
+.feed-scroll{max-height:calc(100vh - var(--nav-h) - var(--bottom-h) - 80px);overflow-y:auto;scroll-behavior:smooth}
 .feed-header{
   position:sticky;top:var(--nav-h);z-index:50;
   background:rgba(7,11,20,0.78);backdrop-filter:blur(16px);
@@ -276,11 +290,12 @@ a{color:var(--accent);text-decoration:none}
 }
 .feed-tab:hover{background:rgba(99,102,241,0.05)}
 
-/* ===== Post Card (Google Gemini Style) ===== */
+/* ===== Post Card (Modern Gemini Style) ===== */
 .post{
   padding:16px 20px;border-bottom:1px solid var(--border);
   display:flex;gap:14px;cursor:pointer;
   transition:background 0.15s var(--ease);
+  position:relative;
 }
 .post:hover{background:var(--hover)}
 .post-avatar{
@@ -288,10 +303,12 @@ a{color:var(--accent);text-decoration:none}
   background:var(--gemini-gradient);
   border-radius:50%;display:flex;align-items:center;justify-content:center;
   font-size:17px;font-weight:600;color:#fff;
+  transition:transform 0.2s var(--ease-bounce);
 }
+.post:hover .post-avatar{transform:scale(1.05)}
 .post-body{flex:1;min-width:0}
 .post-head{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
-.post-author{font-size:15px;font-weight:500;color:var(--text)}
+.post-author{font-size:15px;font-weight:500;color:var(--text);transition:color 0.15s var(--ease)}
 .post-author:hover{color:var(--accent)}
 .post-handle{font-size:13px;color:var(--text-secondary)}
 .post-dot{font-size:11px;color:var(--text-muted)}
@@ -329,16 +346,18 @@ a{color:var(--accent);text-decoration:none}
 .post-action.retweet{color:#22c55e}
 .post-action.retweet:hover{background:rgba(34,197,94,0.06)}
 
-/* ===== Compose / New Post ===== */
+/* ===== Compose / New Post (Modern) ===== */
 .compose-bar{
   display:flex;gap:14px;padding:14px 16px;
   border-bottom:1px solid var(--border);
+  background:var(--glass);
 }
 .compose-avatar{
   width:40px;height:40px;flex-shrink:0;
   background:var(--gemini-gradient);
   border-radius:50%;display:flex;align-items:center;justify-content:center;
   font-size:16px;font-weight:600;color:#fff;
+  transition:transform 0.2s var(--ease-bounce);
 }
 .compose-input{flex:1;display:flex;flex-direction:column;gap:10px;padding-top:2px}
 .compose-textarea{
@@ -357,7 +376,7 @@ a{color:var(--accent);text-decoration:none}
   border-radius:50%;color:var(--accent);font-size:20px;
   transition:all 0.15s var(--ease);
 }
-.compose-tool:hover{background:var(--accent-glow);transform:scale(1.05)}
+.compose-tool:hover{background:var(--accent-glow);transform:scale(1.08)}
 .compose-tool:active{transform:scale(0.9)}
 .install-btn-nav{
   color:var(--accent);
@@ -374,79 +393,71 @@ a{color:var(--accent);text-decoration:none}
 .compose-submit:active:not(:disabled){transform:scale(0.96)}
 .compose-submit:disabled{opacity:0.35;cursor:not-allowed}
 
-/* ===== Emoji Picker (Google Style) ===== */
+/* ===== Emoji Picker (Modern) ===== */
 .emoji-trigger-wrapper{position:relative}
 .emoji-trigger{transition:all 0.15s var(--ease)}
-.emoji-trigger.active{background:rgba(99,102,241,0.1);transform:scale(1.1)}
+.emoji-trigger.active{background:rgba(16,185,129,0.12);transform:scale(1.08)}
 .emoji-picker{
   position:absolute;bottom:100%;left:0;
   margin-bottom:8px;
-  background:#ffffff;
+  background:var(--card);
+  border:1px solid var(--border);
   border-radius:var(--r);
-  box-shadow:var(--shadow-lg);
+  box-shadow:var(--shadow-elevated);
   z-index:100;
-  width:320px;
-  max-height:400px;
+  width:340px;
+  max-height:420px;
   display:flex;
   flex-direction:column;
-  animation:emojiPickerIn 0.15s var(--ease-bounce);
+  animation:emojiPickerIn 0.18s var(--ease-bounce);
 }
 @keyframes emojiPickerIn{
-  from{opacity:0;transform:translateY(8px) scale(0.98)}
+  from{opacity:0;transform:translateY(8px) scale(0.96)}
   to{opacity:1;transform:translateY(0) scale(1)}
-}
-[data-theme="dark"] .emoji-picker{
-  background:#1a1a1a;
-  box-shadow:0 8px 32px rgba(0,0,0,0.4),0 0 0 1px rgba(255,255,255,0.04);
 }
 .emoji-categories{
   display:flex;
   align-items:center;
-  padding:8px 12px;
-  border-bottom:1px solid rgba(0,0,0,0.04);
-  gap:4px;
+  padding:8px 10px;
+  border-bottom:1px solid var(--border);
+  gap:2px;
   overflow-x:auto;
   scrollbar-width:none;
 }
 .emoji-categories::-webkit-scrollbar{display:none}
-[data-theme="dark"] .emoji-categories{border-bottom-color:rgba(255,255,255,0.04)}
 .emoji-category-btn{
-  width:36px;height:36px;
+  width:38px;height:38px;
   display:flex;align-items:center;justify-content:center;
   font-size:18px;
-  border-radius:50%;
+  border-radius:10px;
   transition:all 0.1s var(--ease);
   flex-shrink:0;
-  color:#5f6368;
+  color:var(--text-muted);
 }
-[data-theme="dark"] .emoji-category-btn{color:#9aa0a6}
-.emoji-category-btn:hover{background:rgba(0,0,0,0.04)}
-[data-theme="dark"] .emoji-category-btn:hover{background:rgba(255,255,255,0.04)}
+.emoji-category-btn:hover{background:var(--hover)}
 .emoji-category-btn.active{
-  background:#6366f1;
+  background:var(--accent);
   color:#fff;
 }
 .emoji-grid{
   display:grid;
   grid-template-columns:repeat(8,1fr);
   gap:2px;
-  padding:8px;
+  padding:10px;
   overflow-y:auto;
   flex:1;
-  max-height:320px;
+  max-height:340px;
 }
 .emoji-item{
-  width:36px;height:36px;
+  width:38px;height:38px;
   display:flex;align-items:center;justify-content:center;
   font-size:22px;
-  border-radius:var(--r5);
+  border-radius:10px;
   transition:all 0.1s var(--ease);
   cursor:pointer;
 }
-.emoji-item:hover{background:rgba(0,0,0,0.04);transform:scale(1.15)}
-[data-theme="dark"] .emoji-item:hover{background:rgba(255,255,255,0.04)}
-.emoji-item:active{background:rgba(0,0,0,0.08);transform:scale(0.95)}
-[data-theme="dark"] .emoji-item:active{background:rgba(255,255,255,0.08)}
+.emoji-item:hover{background:var(--hover-strong);transform:scale(1.12)}
+.emoji-item:active{transform:scale(0.92)}
 
 /* ===== Post Detail / Thread ===== */
 .detail{border-bottom:1px solid var(--border)}
@@ -837,14 +848,34 @@ a{color:var(--accent);text-decoration:none}
 .seg.on{background:var(--card);color:var(--text);box-shadow:var(--shadow-sm)}
 
 /* ===== Utility ===== */
-.empty-state{text-align:center;padding:48px 16px}
-.empty-state .icon{font-size:48px;margin-bottom:16px}
-.empty-state h3{font-size:16px;font-weight:500;color:var(--text);margin-bottom:6px}
-.empty-state p{font-size:14px;color:var(--text-secondary)}
+.empty-state{
+  text-align:center;padding:60px 24px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  margin:16px 12px;
+}
+.empty-state .icon{
+  width:72px;height:72px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:36px;
+  background:var(--glass-strong);
+  border:1px solid var(--border);
+  border-radius:50%;
+  margin-bottom:16px;
+  transition:transform 0.3s var(--ease-bounce);
+}
+.empty-state:hover .icon{transform:scale(1.08)}
+.empty-state h3{font-size:17px;font-weight:600;color:var(--text);margin-bottom:6px}
+.empty-state p{font-size:14px;color:var(--text-muted);max-width:280px;line-height:1.5}
 .loader{
-  width:28px;height:28px;border:2px solid var(--border);
-  border-top-color:var(--accent);border-radius:50%;
-  animation:spin 0.6s linear infinite;margin:40px auto;
+  display:flex;justify-content:center;align-items:center;
+  padding:40px;
+}
+.loader::after{
+  content:'';width:32px;height:32px;
+  border:3px solid var(--border);
+  border-top-color:var(--accent);
+  border-radius:50%;
+  animation:spin 0.8s linear infinite;
 }
 @keyframes spin{to{transform:rotate(360deg)}}
 .err{
@@ -1019,9 +1050,15 @@ a{color:var(--accent);text-decoration:none}
 
 /* ===== Profile banner ===== */
 .profile-banner{
-  height:120px;margin:-16px -16px 16px;
+  height:140px;margin:-16px -16px 20px;
   background:var(--gemini-gradient);
   border-radius:var(--r) var(--r) 0 0;
+  position:relative;
+  overflow:hidden;
+}
+.profile-banner::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(180deg,transparent 0%,rgba(0,0,0,0.25) 100%);
 }
 .profile-tabs{display:flex;border-bottom:1px solid var(--border)}
 .profile-tab{

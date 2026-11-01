@@ -61,7 +61,7 @@ export default function HomeFeed({
           ))}
         </div>
       </div>
-      <div className="feed">
+      <div className="feed feed-scroll">
         <ComposeBar value={composeText} onChange={setComposeText} onPublish={onPublish} publishing={publishing} composeRef={composeRef} />
         {postsLoading && <div className="loader" />}
         {!postsLoading && displayedPosts.length === 0 && (

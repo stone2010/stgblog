@@ -27,14 +27,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 5. 创建安全注册函数
+-- 5. 创建安全注册函数（修复：返回 pubkey 字段）
 CREATE OR REPLACE FUNCTION secure_register(
   p_username TEXT,
   p_password TEXT,
   p_hash_id TEXT,
   p_pubkey TEXT
 )
-RETURNS TABLE(username TEXT, hash_id TEXT, bio TEXT) AS $$
+RETURNS TABLE(username TEXT, hash_id TEXT, pubkey TEXT, bio TEXT) AS $$
 BEGIN
   -- 检查用户名是否已存在
   IF EXISTS (SELECT 1 FROM users WHERE username = p_username) THEN
@@ -50,7 +50,7 @@ BEGIN
     p_pubkey,
     ''
   )
-  RETURNING users.username, users.hash_id, users.bio;
+  RETURNING users.username, users.hash_id, users.pubkey, users.bio;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

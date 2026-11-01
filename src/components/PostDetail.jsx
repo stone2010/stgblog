@@ -3,7 +3,7 @@ import { supabase } from "../supabase";
 import { useAuth } from "../context/AuthContext";
 import { Icons } from "./Icons";
 import CommentNode from "./CommentNode";
-import { hasLiked, hasBookmarked, formatTime, formatTimeShort, formatCount, buildTree, parseContent } from "../utils";
+import { hasLiked, hasBookmarked, formatTime, formatTimeShort, formatCount, buildTree, parseContent, hasViewed, saveViewed } from "../utils";
 
 function RenderContent({ content }) {
   const parts = parseContent(content);
@@ -19,7 +19,7 @@ function RenderContent({ content }) {
   );
 }
 
-export default function PostDetail({ post, onClose, onLike, onShare, onRepost, onBookmark, onUserClick, onDeletePost, onEditPost }) {
+export default function PostDetail({ post, onClose, onLike, onShare, onRepost, onBookmark, onUserClick, onDeletePost, onEditPost, onIncrementViews }) {
   const { user, followingSet, follow, unfollow } = useAuth();
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
@@ -28,6 +28,14 @@ export default function PostDetail({ post, onClose, onLike, onShare, onRepost, o
   const [replyText, setReplyText] = useState("");
   const [replySubmitting, setReplySubmitting] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+
+  // ─── View counting: increment when post detail opens ───
+  useEffect(() => {
+    if (!post) return;
+    if (hasViewed(post.id)) return;
+    saveViewed(post.id);
+    onIncrementViews?.(post.id);
+  }, [post, onIncrementViews]);
 
   useEffect(() => {
     if (!post) return;
