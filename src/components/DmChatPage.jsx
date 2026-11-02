@@ -34,7 +34,6 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
   const nearBottomRef = useRef(true);
   const messagesEndRef = useRef(null);
 
-  // ─── 公钥指纹 ───
   useEffect(() => {
     (async () => {
       setRemoteFP(await pubkeyFingerprint(keyPair?.publicKey));
@@ -97,14 +96,12 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
     return () => clearTimeout(t);
   }, [warning]);
 
-  // ─── 自动滚动到底部 ───
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
     container.scrollTop = container.scrollHeight;
   }, [dmMessages]);
 
-  // 进入会话后标记已读
   useEffect(() => {
     try { if (dmTarget && onMarkAsRead) onMarkAsRead(dmTarget); } catch {}
   }, [dmTarget, onMarkAsRead]);
@@ -175,26 +172,47 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
     }
   };
 
-  const handleInputChange = (e) => {
-    setInput(e.target.value);
-    const el = e.target;
-    el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 120) + "px";
-  };
+  const renderMessage = (msg) => {
+    if (!msg) return null;
+    const isMine = msg.sender === user?.username;
+    const isEncrypted = !!msg.encrypted || msg.content === "[加密消息]";
+    const isRevoked = msg.revoked || msg.content === "[消息已撤回]";
+    const isDeleteRequest = msg.delete_request;
+    const decryptionFailed = !msg.content && !isMine && (msg.encrypted || isEncrypted);
+    let body = null;
+    if (isRevoked) body = "💬 消息已撤回";
+    else if (isDeleteRequest) body = "🗑️ 对方请求删除此消息";
+    else if (msg.content) body = msg.content;
+    else if (decryptionFailed) body = "🔒 无法解密此消息";
+    else if (isEncrypted) body = "🔒 加密消息";
+    else body = "";
 
-  const handleScroll = useCallback(() => {
-    const container = messagesContainerRef.current;
-    if (!container) return;
-    const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-    nearBottomRef.current = distanceToBottom < 120;
-    if (container.scrollTop <= 8 && onLoadMore) {
-      const now = Date.now();
-      if (now - lastLoadMoreRef.current > 1200) {
-        lastLoadMoreRef.current = now;
-        onLoadMore();
-      }
-    }
-  }, [onLoadMore]);
+    const isFail = decryptionFailed && !msg.content;
+    return (
+      <div key={msg.id || `i${Math.random()}`} className={`dm-msg ${isMine ? "sent" : "received"} ${msg.decryptError ? "decrypt-fail" : ""} ${isRevoked ? "revoked" : ""} ${isDeleteRequest ? "delete-request" : ""}`}>
+        <div className="dm-msg-bubble">{body}</div>
+        <div className="dm-msg-meta">
+          <span className="dm-msg-time">{formatTime(msg.created_at)}</span>
+          {(isEncrypted || msg.decrypted) && <span className="dm-msg-lock">🔒</span>}
+          {isMine && !isRevoked && !isDeleteRequest && (
+            <>
+              <span className={`dm-tick ${msg.read ? "read" : "sent"}`}>
+                {msg.read ? <CheckDouble /> : <CheckSingle />}
+              </span>
+              <span className="dm-msg-actions" onClick={(e) => { e.stopPropagation(); }}>
+                <button className="dm-msg-action-btn" title="撤回" onClick={() => setRevokeConfirm(msg.id)}>
+                  ❌
+                </button>
+                <button className="dm-msg-action-btn" title="请求删除" onClick={() => setDeleteRequestConfirm(msg.id)}>
+                  🗑️
+                </button>
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="dm-chat">
@@ -231,47 +249,7 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
             <span>端到端加密 · 仅你与 {dmTarget} 可见</span>
           </div>
         )}
-        {messages.map((msg) => {
-          if (!msg) return null;
-          const isMine = msg.sender === user?.username;
-          const isEncrypted = !!msg.encrypted || msg.content === "[加密消息]";
-          const isRevoked = msg.revoked || msg.content === "[消息已撤回]";
-          const isDeleteRequest = msg.delete_request;
-          const decryptionFailed = !msg.content && !isMine && (msg.encrypted || isEncrypted);
-          let body = null;
-          if (isRevoked) body = "💬 消息已撤回";
-          else if (isDeleteRequest) body = "🗑️ 对方请求删除此消息";
-          else if (msg.content) body = msg.content;
-          else if (decryptionFailed) body = "🔒 无法解密此消息";
-          else if (isEncrypted) body = "🔒 加密消息";
-          else body = "";
-
-          const isFail = decryptionFailed && !msg.content;
-          return (
-            <div key={msg.id || `i${Math.random()}`} className={`dm-msg ${isMine ? "sent" : "received"} ${msg.decryptError ? "decrypt-fail" : ""} ${isRevoked ? "revoked" : ""} ${isDeleteRequest ? "delete-request" : ""}`}>
-              <div className="dm-msg-bubble">{body}</div>
-              <div className="dm-msg-meta">
-                <span className="dm-msg-time">{formatTime(msg.created_at)}</span>
-                {(isEncrypted || msg.decrypted) && <span className="dm-msg-lock">🔒</span>}
-                {isMine && !isRevoked && !isDeleteRequest && (
-                  <>
-                    <span className={`dm-tick ${msg.read ? "read" : "sent"}`}>
-                      {msg.read ? <CheckDouble /> : <CheckSingle />}
-                    </span>
-                    <span className="dm-msg-actions" onClick={(e) => { e.stopPropagation(); }}>
-                      <button className="dm-msg-action-btn" title="撤回" onClick={() => setRevokeConfirm(msg.id)}>
-                        ❌
-                      </button>
-                      <button className="dm-msg-action-btn" title="请求删除" onClick={() => setDeleteRequestConfirm(msg.id)}>
-                        🗑️
-                      </button>
-                    </span>
-                  </>
-                )}
-              </div>
-            </div>
-          );
-        })}
+        {messages.map(renderMessage)}
         <div ref={messagesEndRef} />
       </div>
       {warning && <div className="dm-chat-warning">⚠️ {warning}</div>}
