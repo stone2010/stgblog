@@ -4,7 +4,6 @@ import { generateHash } from "../utils";
 import {
   getOrCreateKeyPair, generateKeyPair, createKeyBackup, restoreKeyBackup, parsePubkeyRecord,
 } from "../crypto";
-import { withErrorHandler } from "../utils/errorHandler";
 
 const AuthContext = createContext(null);
 
@@ -14,28 +13,20 @@ export function AuthProvider({ children }) {
   });
   const [keyPair, setKeyPair] = useState(null);
   const [followingSet, setFollowingSet] = useState(new Set());
-const [dmPrivacy, setDmPrivacy] = useState("open");
-const [dmKey, setDmKey] = useState(null);
+  const [dmPrivacy, setDmPrivacy] = useState("open");
+  const [dmKey, setDmKey] = useState(null);
+  // ─── 界面主题（dark=暗夜液态玻璃 / light=浅色液态玻璃 / classic=经典普通）───
   const [uiTheme, setUiTheme] = useState(() => {
-    try { return localStorage.getItem("stgblog_ui_theme") || "cipher"; } catch { return "cipher"; }
+    try { return localStorage.getItem("stgblog_theme") || "dark"; } catch { return "dark"; }
   });
 
-  // 保存 UI 主题到 localStorage
   useEffect(() => {
-    localStorage.setItem("stgblog_ui_theme", uiTheme);
-    // 应用到 document
-    const auroraLink = document.getElementById("theme-aurora-css");
-    if (auroraLink) {
-      if (uiTheme === "aurora") {
-        auroraLink.disabled = false;
-        document.documentElement.classList.add("theme-aurora");
-      } else {
-        auroraLink.disabled = true;
-        document.documentElement.classList.remove("theme-aurora");
-      }
-    }
+    try {
+      if (uiTheme === "dark") delete document.documentElement.dataset.theme;
+      else document.documentElement.dataset.theme = uiTheme;
+      localStorage.setItem("stgblog_theme", uiTheme);
+    } catch {}
   }, [uiTheme]);
-
 
   // Load key pair when user changes
   useEffect(() => {
@@ -58,14 +49,11 @@ const [dmKey, setDmKey] = useState(null);
   }, [user]);
 
   const login = useCallback(async (name, pass) => {
-    // 使用安全 RPC 函数，密码在服务端用 bcrypt 哈希
-    const { data, error } = await withErrorHandler(async () => {
-      const { data, error } = await supabase.rpc("secure_login", {
-        p_username: name,
-        p_password: pass,
-      });
-      return { data, error };
-    })();
+    // 使用安全 RPC 函数，密码在服务端用 bcrypt 验证
+    const { data, error } = await supabase.rpc("secure_login", {
+      p_username: name,
+      p_password: pass,
+    });
     if (error || !data || data.length === 0) return { error: "用户名或密码错误" };
     const userData = data[0];
 
@@ -113,15 +101,12 @@ const [dmKey, setDmKey] = useState(null);
     const kp = await getOrCreateKeyPair(name);
     const encPriv = await createKeyBackup(name, pass, kp.privateKey);
     // 使用安全 RPC 函数，密码在服务端用 bcrypt 哈希后存储
-    const { data, error } = await withErrorHandler(async () => {
-      const { data, error } = await supabase.rpc("secure_register", {
-        p_username: name,
-        p_password: pass,
-        p_hash_id: hashId,
-        p_pubkey: JSON.stringify({ pub: kp.publicKey, ...(encPriv ? { encPriv } : {}) }),
-      });
-      return { data, error };
-    })();
+    const { data, error } = await supabase.rpc("secure_register", {
+      p_username: name,
+      p_password: pass,
+      p_hash_id: hashId,
+      p_pubkey: JSON.stringify({ pub: kp.publicKey, ...(encPriv ? { encPriv } : {}) }),
+    });
     if (error) return { error: error.message || "注册失败" };
     const userData = data[0];
     const u = { username: userData.username, hash_id: userData.hash_id, bio: userData.bio || "" };
@@ -201,8 +186,7 @@ const [dmKey, setDmKey] = useState(null);
 
   return (
     <AuthContext.Provider value={{
-      user, keyPair, followingSet, dmPrivacy, dmKey,
-      uiTheme, setUiTheme,
+      user, keyPair, followingSet, dmPrivacy, dmKey, uiTheme, setUiTheme,
       login, register, logout, updateBio, follow, unfollow,
       updateDmPrivacy, getDmKey,
     }}>
