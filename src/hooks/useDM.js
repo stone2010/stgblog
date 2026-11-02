@@ -347,6 +347,25 @@ export function useDM(user, keyPair) {
     } catch {}
   }, [user, checkUnread]);
 
+  // ─── 撤回消息：服务端清空内容，双方同步显示"消息已撤回" ───
+  const recallDm = useCallback(async (msgId) => {
+    if (!user || !msgId) return false;
+    try {
+      const { error } = await supabase.from("dm_messages").update({
+        content: "[消息已撤回]", ciphertext: null, iv: null, encrypted: false,
+      }).eq("id", msgId).eq("sender", user.username);
+      if (error) { console.warn("Recall rejected:", error.message); return false; }
+      setDmMessages((prev) => prev.map((m) => (m.id === msgId
+        ? { ...m, content: "[消息已撤回]", ciphertext: null, iv: null, encrypted: false, decrypted: true }
+        : m)));
+      loadDmList();
+      return true;
+    } catch (e) {
+      console.error("Recall failed:", e);
+      return false;
+    }
+  }, [user, loadDmList]);
+
   // ─── 实时消息：Realtime 订阅 + 轮询兜底 ───
   useEffect(() => {
     if (!user) { setDmLive(false); return; }
@@ -376,12 +395,31 @@ export function useDM(user, keyPair) {
       }
     };
 
+    // 对方撤回 / 消息更新：实时替换本地对应消息
+    const handleUpdated = (msg) => {
+      if (!msg) return;
+      if (msg.sender !== user.username && msg.receiver !== user.username) return;
+      loadDmList();
+      const target = dmTargetRef.current;
+      const inConversation =
+        (msg.sender === target && msg.receiver === user.username) ||
+        (msg.sender === user.username && msg.receiver === target);
+      if (!inConversation) return;
+      const recalled = msg.content === "[消息已撤回]";
+      setDmMessages((prev) => mergeMessages(prev, [{
+        ...msg,
+        ...(recalled ? { decrypted: true } : {}),
+      }]));
+    };
+
     let channel = null;
     try {
       channel = supabase
         .channel("dm_messages_live")
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "dm_messages" },
           (payload) => { handleIncoming(payload.new); })
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "dm_messages" },
+          (payload) => { handleUpdated(payload.new); })
         .subscribe((status) => {
           setDmLive(status === "SUBSCRIBED");
         });
@@ -502,7 +540,7 @@ export function useDM(user, keyPair) {
   return {
     dmList, dmTarget, dmMessages, dmSending, dmUnreadCount,
     dmHasMore, dmLoadingMore, dmLive,
-    loadDmList, loadDmMessages, loadMoreDmMessages, sendDm, openDm, closeDm, markAsRead,
+    loadDmList, loadDmMessages, loadMoreDmMessages, sendDm, openDm, closeDm, markAsRead, recallDm,
     setDmTarget, togglePin, deleteConversation, setNickname,
   };
 }
