@@ -25,6 +25,7 @@ import GroupSettingsModal from "./components/GroupSettingsModal";
 import RepostModal from "./components/RepostModal";
 import EditPostModal from "./components/EditPostModal";
 import ErrorBoundary from "./components/ErrorBoundary";
+import Onboarding from "./components/Onboarding";
 
 function AppInner() {
   const { user, followingSet, keyPair, uiTheme, setUiTheme } = useAuth();
@@ -48,6 +49,9 @@ function AppInner() {
   const [newDmOpen, setNewDmOpen] = useState(false);
   const [repostModal, setRepostModal] = useState(null); // post to repost
   const [editPostModal, setEditPostModal] = useState(null); // post to edit
+  const [onboardingShown, setOnboardingShown] = useState(() => {
+    try { return localStorage.getItem("stgblog_onboarding_shown") === "true"; } catch { return false; }
+  });
 
   // UI Theme
   useEffect(() => {
@@ -657,6 +661,9 @@ function AppInner() {
           onDeleteGroup={(id) => { deleteGroup(id); setGroupSettingsOpen(false); setPage("groups"); }}
           onLeaveGroup={(id) => { leaveGroup(id); setGroupSettingsOpen(false); setPage("groups"); }}
           onGetMembers={getGroupMembers} />
+      )}
+      {(!onboardingShown && !user) && (
+        <Onboarding onComplete={() => setOnboardingShown(true)} />
       )}
     </div>
   );
