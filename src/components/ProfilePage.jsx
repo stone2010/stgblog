@@ -1,11 +1,11 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { supabase } from "../supabase";
-import { useAuth } from "../context/AuthContext";
+import { useAuth, ACCENT_COLORS } from "../context/AuthContext";
 import { Icons } from "./Icons";
 import PostCard from "./PostCard";
 
 export default function ProfilePage({ posts, onAuthOpen, onSelectPost, onLike, onShare, onRepost, onBookmark, onFollowersPage }) {
-  const { user, followingSet, logout, updateBio, dmPrivacy, dmKey, uiTheme, setUiTheme, updateDmPrivacy } = useAuth();
+  const { user, followingSet, logout, updateBio, dmPrivacy, dmKey, uiTheme, setUiTheme, accentColor, setAccentColor, updateDmPrivacy } = useAuth();
   const [editOpen, setEditOpen] = useState(false);
   const [editBio, setEditBio] = useState("");
   const [profileTab, setProfileTab] = useState("posts");
@@ -147,6 +147,24 @@ export default function ProfilePage({ posts, onAuthOpen, onSelectPost, onLike, o
           </button>
         </div>
         <p style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>切换界面视觉风格，即时生效，所有设备独立记忆</p>
+      </div>
+
+      {/* Accent Color Settings */}
+      <div className="profile-section">
+        <div className="profile-section-title">主题色</div>
+        <div className="theme-color-row">
+          {Object.entries(ACCENT_COLORS).map(([key, c]) => (
+            <button
+              key={key}
+              className={`theme-color-dot ${accentColor === key ? "on" : ""}`}
+              style={{ background: c.accent }}
+              onClick={() => setAccentColor(key)}
+              title={c.label}
+              aria-label={`主题色：${c.label}`}
+            />
+          ))}
+        </div>
+        <p style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>选择应用强调色，按钮、链接、高亮都会跟随变化</p>
       </div>
 
       <div className="profile-tabs">
