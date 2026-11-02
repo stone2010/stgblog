@@ -1,3 +1,5 @@
+import { supabase } from "./supabase";
+
 // 生成匿名内部ID
 export function generateHash() {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
