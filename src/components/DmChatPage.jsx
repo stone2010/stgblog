@@ -17,7 +17,7 @@ const CheckDouble = () => (
   </svg>
 );
 
-export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, onBack, onUserClick, onMarkAsRead, onLoadMore, dmLive }) {
+export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, onBack, onUserClick, onMarkAsRead, onLoadMore, onRecall, dmLive }) {
   const { user, keyPair } = useAuth();
   const [input, setInput] = useState("");
   const [showVerify, setShowVerify] = useState(false);
@@ -26,19 +26,17 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
   const [localFP, setLocalFP] = useState(null);
   const [copied, setCopied] = useState(false);
   const [warning, setWarning] = useState(null);
-  const [revokeConfirm, setRevokeConfirm] = useState(null);
-  const [deleteRequestConfirm, setDeleteRequestConfirm] = useState(null);
+  const [revokeConfirm, setRevokeConfirm] = useState(null); // 存待撤回的消息 id
   const messagesContainerRef = useRef(null);
   const inputRef = useRef(null);
   const lastLoadMoreRef = useRef(0);
   const nearBottomRef = useRef(true);
   const messagesEndRef = useRef(null);
-  const scrollLockRef = useRef(false); // 锁定滚动，防止用户手动滚动时被打断
 
   // ─── 公钥指纹 ───
   useEffect(() => {
     (async () => {
-      setRemoteFP(await pubkeyFingerprint(keyPair?.publicKey));
+      setLocalFP(await pubkeyFingerprint(keyPair?.publicKey));
     })();
   }, [keyPair]);
 
@@ -93,6 +91,27 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
     }
   }, [input, onSend, dmSending, dmTarget, hasRemoteKey]);
 
+  const handleInputChange = (e) => {
+    setInput(e.target.value);
+    const el = e.target;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 120) + "px";
+  };
+
+  const handleScroll = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    nearBottomRef.current = distanceToBottom < 120;
+    if (container.scrollTop <= 8 && onLoadMore) {
+      const now = Date.now();
+      if (now - lastLoadMoreRef.current > 1200) {
+        lastLoadMoreRef.current = now;
+        onLoadMore();
+      }
+    }
+  }, [onLoadMore]);
+
   useEffect(() => {
     if (!warning) return;
     const t = setTimeout(() => setWarning(null), 2500);
@@ -103,7 +122,6 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
-    // 使用 setTimeout 确保 DOM 已更新后再滚动
     const t = setTimeout(() => {
       container.scrollTop = container.scrollHeight;
     }, 50);
@@ -148,36 +166,19 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
     </div>
   );
 
+  // ─── 撤回：由 useDM.recallDm 统一处理（服务端 + 本地 + 对方端实时同步）───
   const handleRevoke = async (msgId) => {
-    if (!user) return;
-    setRevokeConfirm(null);
+    if (!user || !onRecall || !msgId) return;
     try {
-      await supabase.from("dm_messages").update({ content: "[消息已撤回]", encrypted: false, ciphertext: null, iv: null, revoked: true })
-        .eq("id", msgId);
+      const ok = await onRecall(msgId);
+      if (ok) {
+        setRevokeConfirm(null);
+      } else {
+        setWarning("撤回失败，请稍后重试");
+      }
     } catch (e) {
       console.error("Revoke failed:", e);
       setWarning("撤回失败，请检查网络后重试");
-    }
-  };
-
-  const handleDeleteRequest = async (msgId) => {
-    if (!user) return;
-    setDeleteRequestConfirm(null);
-    try {
-      await supabase.from("dm_messages").insert([{
-        sender: user.username,
-        receiver: dmTarget,
-        content: "[删除请求]",
-        ciphertext: null,
-        iv: null,
-        encrypted: false,
-        delete_request: true,
-        delete_request_target: msgId,
-      }]);
-      setWarning("删除请求已发送，等待对方确认");
-    } catch (e) {
-      console.error("Delete request failed:", e);
-      setWarning("发送删除请求失败");
     }
   };
 
@@ -191,7 +192,7 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
         <div className="dm-chat-title" onClick={() => onUserClick?.(dmTarget)}>
           <span className="dm-chat-name">{dmTarget || '未知'}</span>
           <span className={`dm-chat-status ${hasRemoteKey && dmLive ? "on" : ""}`}>
-            {getEncryptionStatusText()}
+            {hasRemoteKey ? (dmLive ? "实时同步中" : "端到端加密") : "加密不可用"}
           </span>
         </div>
         <button className={`dm-chat-lock ${showVerify ? "active" : ""}`} onClick={() => setShowVerify(!showVerify)}>
@@ -221,39 +222,29 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
           const isMine = msg.sender === user?.username;
           const isEncrypted = !!msg.encrypted || msg.content === "[加密消息]";
           const isRevoked = msg.revoked || msg.content === "[消息已撤回]";
-          const isDeleteRequest = msg.delete_request;
           const decryptionFailed = !msg.content && !isMine && (msg.encrypted || isEncrypted);
           let body = null;
-          if (isRevoked) body = "💬 消息已撤回";
-          else if (isDeleteRequest) body = "🗑️ 对方请求删除此消息";
+          if (isRevoked) body = "消息已撤回";
           else if (msg.content) body = msg.content;
           else if (decryptionFailed) body = "🔒 无法解密此消息";
           else if (isEncrypted) body = "🔒 加密消息";
           else body = "";
 
-          const isFail = decryptionFailed && !msg.content;
           return (
-            <div key={msg.id || `i${Math.random()}`} className={`dm-msg ${isMine ? "sent" : "received"} ${msg.decryptError ? "decrypt-fail" : ""} ${isRevoked ? "revoked" : ""} ${isDeleteRequest ? "delete-request" : ""}`}>
+            <div key={msg.id || `i${Math.random()}`} className={`dm-msg ${isMine ? "sent" : "received"} ${msg.decryptError ? "decrypt-fail" : ""} ${isRevoked ? "revoked" : ""}`}>
               <div className="dm-msg-bubble">{body}</div>
               <div className="dm-msg-meta">
                 <span className="dm-msg-time">{formatTime(msg.created_at)}</span>
-                {(isEncrypted || msg.decrypted) && <span className="dm-msg-lock">🔒</span>}
-                {isMine && !isRevoked && !isDeleteRequest && (
-                  <>
-                    <span className={`dm-tick ${msg.read ? "read" : "sent"}`}>
-                      {msg.read ? <CheckDouble /> : <CheckSingle />}
-                    </span>
-                    {!isRevoked && !isDeleteRequest && (
-                      <span className="dm-msg-actions" onClick={(e) => { e.stopPropagation(); }}>
-                        <button className="dm-msg-action-btn" title="撤回" onClick={() => setRevokeConfirm(msg.id)}>
-                          ❌
-                        </button>
-                        <button className="dm-msg-action-btn" title="请求删除" onClick={() => setDeleteRequestConfirm(msg.id)}>
-                          🗑️
-                        </button>
-                      </span>
-                    )}
-                  </>
+                {!isRevoked && (isEncrypted || msg.decrypted) && <span className="dm-msg-lock">🔒</span>}
+                {isMine && !isRevoked && (
+                  <span className={`dm-tick ${msg.read ? "read" : "sent"}`}>
+                    {msg.read ? <CheckDouble /> : <CheckSingle />}
+                  </span>
+                )}
+                {isMine && !isRevoked && onRecall && (
+                  <button className="dm-msg-recall-btn" title="撤回这条消息" onClick={() => setRevokeConfirm(msg.id)}>
+                    撤回
+                  </button>
                 )}
               </div>
             </div>
@@ -262,26 +253,14 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
         <div ref={messagesEndRef} />
       </div>
       {warning && <div className="dm-chat-warning">⚠️ {warning}</div>}
-      {revokeConfirm && (
+      {revokeConfirm != null && (
         <div className="dm-confirm-overlay" onClick={() => setRevokeConfirm(null)}>
           <div className="dm-confirm-box">
             <h3>撤回消息</h3>
             <p>确定要撤回这条消息吗？撤回后双方都将无法查看。</p>
             <div className="dm-confirm-actions">
               <button className="dm-confirm-cancel" onClick={() => setRevokeConfirm(null)}>取消</button>
-              <button className="dm-confirm-ok" onClick={() => handleRevoke(revokeConfirm.id)}>确认撤回</button>
-            </div>
-          </div>
-        </div>
-      )}
-      {deleteRequestConfirm && (
-        <div className="dm-confirm-overlay" onClick={() => setDeleteRequestConfirm(null)}>
-          <div className="dm-confirm-box">
-            <h3>删除请求</h3>
-            <p>确定要向对方发送删除请求吗？对方同意后此消息将被删除。</p>
-            <div className="dm-confirm-actions">
-              <button className="dm-confirm-cancel" onClick={() => setDeleteRequestConfirm(null)}>取消</button>
-              <button className="dm-confirm-ok" onClick={() => handleDeleteRequest(deleteRequestConfirm.id)}>发送请求</button>
+              <button className="dm-confirm-ok" onClick={() => handleRevoke(revokeConfirm)}>确认撤回</button>
             </div>
           </div>
         </div>
