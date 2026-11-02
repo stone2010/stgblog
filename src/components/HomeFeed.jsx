@@ -7,7 +7,7 @@ import ComposeBar from "./ComposeBar";
 export default function HomeFeed({
   posts, postsLoading, hasMore, loadMorePosts, tab, setTab, searchKey,
   composeText, setComposeText, onPublish, publishing, composeRef,
-  onSelectPost, onLike, onShare, onRepost, onBookmark, onHashtag,
+  onSelectPost, onLike, onShare, onRepost, onBookmark, onHashtag, onAuthOpen,
 }) {
   const { user, followingSet } = useAuth();
   const sentinelRef = useRef(null);
@@ -66,9 +66,18 @@ export default function HomeFeed({
         {postsLoading && <div className="loader" />}
         {!postsLoading && displayedPosts.length === 0 && (
           <div className="empty-state">
-            <div className="icon">{tab === "书签" ? "🔖" : "📝"}</div>
-            <h3>{tab === "书签" ? "暂无书签" : "暂无内容"}</h3>
+            <div className="icon">{tab === "书签" ? "🔖" : tab === "关注" ? "👥" : "📝"}</div>
+            <h3>{tab === "书签" ? "暂无书签" : tab === "关注" ? "暂无关注内容" : "暂无内容"}</h3>
             <p>{tab === "书签" ? "收藏帖子后会出现在这里" : tab === "关注" ? "关注一些用户后，他们的帖子会出现在这里" : user ? "成为第一个发帖的人" : "登录后发帖互动"}</p>
+            {!user ? (
+              <button className="empty-state-btn" onClick={() => setAuthOpen(true)}>
+                <span>登录</span> <span>开始使用</span>
+              </button>
+            ) : (
+              <button className="empty-state-btn" onClick={() => composeRef.current?.focus()}>
+                <span>➕ 发布帖子</span>
+              </button>
+            )}
           </div>
         )}
         {displayedPosts.map((post) => (

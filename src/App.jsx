@@ -535,7 +535,7 @@ function AppInner() {
     );
     if (page === "profile-view" && viewingProfile) return <ProfileViewPage viewingProfile={viewingProfile} posts={posts} onBack={() => { setViewingProfile(null); setPage("home"); setMobileTab("home"); }} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} />;
     if (page === "profile") return <ProfilePage posts={posts} onAuthOpen={() => setAuthOpen(true)} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onFollowersPage={(type) => setFollowersPage({ username: user?.username, type })} onOpenUser={openUserClick} />;
-    return <HomeFeed posts={posts} postsLoading={postsLoading} hasMore={hasMore} loadMorePosts={loadMorePosts} tab={tab} setTab={setTab} searchKey={searchKey} composeText={composeText} setComposeText={setComposeText} onPublish={handlePublish} publishing={publishing} composeRef={composeRef} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onHashtag={handleHashtag} />;
+    return <HomeFeed posts={posts} postsLoading={postsLoading} hasMore={hasMore} loadMorePosts={loadMorePosts} tab={tab} setTab={setTab} searchKey={searchKey} composeText={composeText} setComposeText={setComposeText} onPublish={handlePublish} publishing={publishing} composeRef={composeRef} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onHashtag={handleHashtag} onAuthOpen={() => setAuthOpen(true)} />;
   };
 
   return (
