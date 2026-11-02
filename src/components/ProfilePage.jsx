@@ -5,7 +5,7 @@ import { Icons } from "./Icons";
 import PostCard from "./PostCard";
 
 export default function ProfilePage({ posts, onAuthOpen, onSelectPost, onLike, onShare, onRepost, onBookmark, onFollowersPage }) {
-  const { user, followingSet, logout, updateBio, dmPrivacy, dmKey, uiTheme, setUiTheme } = useAuth();
+  const { user, followingSet, logout, updateBio, dmPrivacy, dmKey, uiTheme, setUiTheme, updateDmPrivacy } = useAuth();
   const [editOpen, setEditOpen] = useState(false);
   const [editBio, setEditBio] = useState("");
   const [profileTab, setProfileTab] = useState("posts");
@@ -136,14 +136,17 @@ export default function ProfilePage({ posts, onAuthOpen, onSelectPost, onLike, o
       <div className="profile-section">
         <div className="profile-section-title">界面主题</div>
         <div className="dm-privacy-toggle">
-          <button className={`dm-privacy-btn ${uiTheme === "cipher" ? "on" : ""}`} onClick={() => setUiTheme("cipher")}>
-            暗夜主题
+          <button className={`dm-privacy-btn ${uiTheme === "dark" ? "on" : ""}`} onClick={() => setUiTheme("dark")}>
+            暗夜 · 液态玻璃
           </button>
-          <button className={`dm-privacy-btn ${uiTheme === "aurora" ? "on" : ""}`} onClick={() => setUiTheme("aurora")}>
-            极光主题
+          <button className={`dm-privacy-btn ${uiTheme === "light" ? "on" : ""}`} onClick={() => setUiTheme("light")}>
+            浅色 · 液态玻璃
+          </button>
+          <button className={`dm-privacy-btn ${uiTheme === "classic" ? "on" : ""}`} onClick={() => setUiTheme("classic")}>
+            经典 · 普通
           </button>
         </div>
-        <p style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>切换界面视觉风格，即时生效</p>
+        <p style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>切换界面视觉风格，即时生效，所有设备独立记忆</p>
       </div>
 
       <div className="profile-tabs">
