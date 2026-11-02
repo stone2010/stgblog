@@ -27,7 +27,7 @@ import EditPostModal from "./components/EditPostModal";
 import ErrorBoundary from "./components/ErrorBoundary";
 
 function AppInner() {
-  const { user, followingSet, keyPair } = useAuth();
+  const { user, followingSet, keyPair, uiTheme, setUiTheme } = useAuth();
 
   // Posts
   const [posts, setPosts] = useState([]);
@@ -48,6 +48,15 @@ function AppInner() {
   const [newDmOpen, setNewDmOpen] = useState(false);
   const [repostModal, setRepostModal] = useState(null); // post to repost
   const [editPostModal, setEditPostModal] = useState(null); // post to edit
+
+  // UI Theme
+  useEffect(() => {
+    if (uiTheme === "aurora") {
+      document.documentElement.classList.add("theme-aurora");
+    } else {
+      document.documentElement.classList.remove("theme-aurora");
+    }
+  }, [uiTheme]);
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
   const [joinGroupOpen, setJoinGroupOpen] = useState(false);
   const [groupSettingsOpen, setGroupSettingsOpen] = useState(false);

@@ -13,8 +13,28 @@ export function AuthProvider({ children }) {
   });
   const [keyPair, setKeyPair] = useState(null);
   const [followingSet, setFollowingSet] = useState(new Set());
-  const [dmPrivacy, setDmPrivacy] = useState("open");
-  const [dmKey, setDmKey] = useState(null);
+const [dmPrivacy, setDmPrivacy] = useState("open");
+const [dmKey, setDmKey] = useState(null);
+  const [uiTheme, setUiTheme] = useState(() => {
+    try { return localStorage.getItem("stgblog_ui_theme") || "cipher"; } catch { return "cipher"; }
+  });
+
+  // 保存 UI 主题到 localStorage
+  useEffect(() => {
+    localStorage.setItem("stgblog_ui_theme", uiTheme);
+    // 应用到 document
+    const auroraLink = document.getElementById("theme-aurora-css");
+    if (auroraLink) {
+      if (uiTheme === "aurora") {
+        auroraLink.disabled = false;
+        document.documentElement.classList.add("theme-aurora");
+      } else {
+        auroraLink.disabled = true;
+        document.documentElement.classList.remove("theme-aurora");
+      }
+    }
+  }, [uiTheme]);
+
 
   // Load key pair when user changes
   useEffect(() => {
@@ -175,6 +195,7 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       user, keyPair, followingSet, dmPrivacy, dmKey,
+      uiTheme, setUiTheme,
       login, register, logout, updateBio, follow, unfollow,
       updateDmPrivacy, getDmKey,
     }}>

@@ -5,7 +5,7 @@ import { Icons } from "./Icons";
 import PostCard from "./PostCard";
 
 export default function ProfilePage({ posts, onAuthOpen, onSelectPost, onLike, onShare, onRepost, onBookmark, onFollowersPage }) {
-  const { user, followingSet, logout, updateBio, dmPrivacy, dmKey, updateDmPrivacy } = useAuth();
+  const { user, followingSet, logout, updateBio, uiTheme, setUiTheme } = useAuth();
   const [editOpen, setEditOpen] = useState(false);
   const [editBio, setEditBio] = useState("");
   const [profileTab, setProfileTab] = useState("posts");
@@ -130,6 +130,20 @@ export default function ProfilePage({ posts, onAuthOpen, onSelectPost, onLike, o
             <p style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>分享此密钥给你信任的人，他们才能给你发私信</p>
           </div>
         )}
+      </div>
+
+      {/* UI Theme Settings */}
+      <div className="profile-section">
+        <div className="profile-section-title">界面主题</div>
+        <div className="dm-privacy-toggle">
+          <button className={`dm-privacy-btn ${uiTheme === "cipher" ? "on" : ""}`} onClick={() => setUiTheme("cipher")}>
+            暗夜主题
+          </button>
+          <button className={`dm-privacy-btn ${uiTheme === "aurora" ? "on" : ""}`} onClick={() => setUiTheme("aurora")}>
+            极光主题
+          </button>
+        </div>
+        <p style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>切换界面视觉风格，即时生效</p>
       </div>
 
       <div className="profile-tabs">
