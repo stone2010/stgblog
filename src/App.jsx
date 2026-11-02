@@ -62,37 +62,6 @@ function AppInner() {
     }
   }, [uiTheme]);
 
-  // ─── 键盘快捷键 ───
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      // Ctrl+Enter 发送帖子
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-        e.preventDefault();
-        const textarea = composeRef.current;
-        if (textarea && composeText.trim()) {
-          textarea.focus();
-          handlePublish();
-        }
-      }
-      // Ctrl+K 打开搜索
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
-        e.preventDefault();
-        setPage("search");
-      }
-      // Esc 关闭模态框
-      if (e.key === "Escape") {
-        setAuthOpen(false);
-        setNewDmOpen(false);
-        setRepostModal(null);
-        setEditPostModal(null);
-        setCreateGroupOpen(false);
-        setJoinGroupOpen(false);
-        setGroupSettingsOpen(false);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [composeText, handlePublish]);
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
   const [joinGroupOpen, setJoinGroupOpen] = useState(false);
   const [groupSettingsOpen, setGroupSettingsOpen] = useState(false);
@@ -371,6 +340,39 @@ function AppInner() {
       setPublishing(false);
     }
   }, [user, composeText, publishing]);
+
+  // ─── 键盘快捷键（Ctrl+Enter 发布 · Ctrl+K 搜索 · Esc 关闭弹层）───
+  // 注意：必须定义在 handlePublish 之后，否则依赖数组会在渲染期触发 TDZ 错误
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ctrl+Enter 发送帖子
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        const textarea = composeRef.current;
+        if (textarea && composeText.trim()) {
+          textarea.focus();
+          handlePublish();
+        }
+      }
+      // Ctrl+K 打开搜索
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        setPage("search");
+      }
+      // Esc 关闭模态框
+      if (e.key === "Escape") {
+        setAuthOpen(false);
+        setNewDmOpen(false);
+        setRepostModal(null);
+        setEditPostModal(null);
+        setCreateGroupOpen(false);
+        setJoinGroupOpen(false);
+        setGroupSettingsOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [composeText, handlePublish]);
 
   const handleDeletePost = useCallback(async (post) => {
     if (!post || !user || post.author !== user.username) return;
