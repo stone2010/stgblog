@@ -529,7 +529,7 @@ function AppInner() {
   }, [installPrompt]);
 
   const topTitle = () => {
-    if (selectedPost) return "帖子";
+    // 详情页顶部保持品牌名，页头"← 帖子"由详情卡片自身呈现，避免两级标题重复
     if (page === "dm-chat") return dmTarget;
     if (page === "group-chat" && activeGroup) return activeGroup.name;
     if (page === "search") return "搜索";
