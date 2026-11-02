@@ -1,4 +1,4 @@
-const CACHE_NAME = "stgblog-v6";
+const CACHE_NAME = "stgblog-v7";
 const STATIC_ASSETS = ["./", "./index.html", "./icon-192.png", "./icon-512.png", "./icon.svg"];
 
 self.addEventListener("install", (event) => {
