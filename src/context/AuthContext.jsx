@@ -7,6 +7,34 @@ import {
 
 const AuthContext = createContext(null);
 
+// ─── 主题色色板（强调色，全局 CSS 变量生效）───
+export const ACCENT_COLORS = {
+  green:  { label: "翠绿", accent: "#10b981", hover: "#059669", active: "#047857", light: "#34d399", dark: "#065f46" },
+  blue:   { label: "远蓝", accent: "#3b82f6", hover: "#2563eb", active: "#1d4ed8", light: "#60a5fa", dark: "#1e40af" },
+  violet: { label: "星紫", accent: "#8b5cf6", hover: "#7c3aed", active: "#6d28d9", light: "#a78bfa", dark: "#5b21b6" },
+  pink:   { label: "樱粉", accent: "#ec4899", hover: "#db2777", active: "#be185d", light: "#f472b6", dark: "#9d174d" },
+  orange: { label: "暖橙", accent: "#f97316", hover: "#ea580c", active: "#c2410c", light: "#fb923c", dark: "#9a3412" },
+  cyan:   { label: "湖青", accent: "#06b6d4", hover: "#0891b2", active: "#0e7490", light: "#22d3ee", dark: "#155e75" },
+};
+
+function applyAccentColors(key) {
+  const c = ACCENT_COLORS[key];
+  const root = document.documentElement.style;
+  if (!c || key === "green") {
+    // 默认色：清除内联覆盖，交还样式表控制
+    ["--accent", "--accent-hover", "--accent-active", "--accent-light", "--accent-dark", "--accent-glow", "--border-focus"]
+      .forEach((v) => root.removeProperty(v));
+    return;
+  }
+  root.setProperty("--accent", c.accent);
+  root.setProperty("--accent-hover", c.hover);
+  root.setProperty("--accent-active", c.active);
+  root.setProperty("--accent-light", c.light);
+  root.setProperty("--accent-dark", c.dark);
+  root.setProperty("--accent-glow", c.accent + "1a");   // 10% 透明光晕
+  root.setProperty("--border-focus", c.accent + "73");  // 45% 聚焦边框
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem("stgblog_user")) || null; } catch { return null; }
@@ -27,6 +55,18 @@ export function AuthProvider({ children }) {
       localStorage.setItem("stgblog_theme", uiTheme);
     } catch {}
   }, [uiTheme]);
+
+  // ─── 主题色（强调色自选，即时生效、按设备记忆）───
+  const [accentColor, setAccentColor] = useState(() => {
+    try { return localStorage.getItem("stgblog_accent") || "green"; } catch { return "green"; }
+  });
+
+  useEffect(() => {
+    try {
+      applyAccentColors(accentColor);
+      localStorage.setItem("stgblog_accent", accentColor);
+    } catch {}
+  }, [accentColor]);
 
   // Load key pair when user changes
   useEffect(() => {
@@ -186,7 +226,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      user, keyPair, followingSet, dmPrivacy, dmKey, uiTheme, setUiTheme,
+      user, keyPair, followingSet, dmPrivacy, dmKey, uiTheme, setUiTheme, accentColor, setAccentColor,
       login, register, logout, updateBio, follow, unfollow,
       updateDmPrivacy, getDmKey,
     }}>
