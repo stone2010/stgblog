@@ -5,7 +5,7 @@ import { Icons } from "./Icons";
 import PostCard from "./PostCard";
 
 export default function ProfilePage({ posts, onAuthOpen, onSelectPost, onLike, onShare, onRepost, onBookmark, onFollowersPage }) {
-  const { user, followingSet, logout, updateBio, uiTheme, setUiTheme } = useAuth();
+  const { user, followingSet, logout, updateBio, dmPrivacy, dmKey, uiTheme, setUiTheme } = useAuth();
   const [editOpen, setEditOpen] = useState(false);
   const [editBio, setEditBio] = useState("");
   const [profileTab, setProfileTab] = useState("posts");
