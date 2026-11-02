@@ -61,6 +61,38 @@ function AppInner() {
       document.documentElement.classList.remove("theme-aurora");
     }
   }, [uiTheme]);
+
+  // ─── 键盘快捷键 ───
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ctrl+Enter 发送帖子
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        const textarea = composeRef.current;
+        if (textarea && composeText.trim()) {
+          textarea.focus();
+          handlePublish();
+        }
+      }
+      // Ctrl+K 打开搜索
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        setPage("search");
+      }
+      // Esc 关闭模态框
+      if (e.key === "Escape") {
+        setAuthOpen(false);
+        setNewDmOpen(false);
+        setRepostModal(null);
+        setEditPostModal(null);
+        setCreateGroupOpen(false);
+        setJoinGroupOpen(false);
+        setGroupSettingsOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [composeText, handlePublish]);
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
   const [joinGroupOpen, setJoinGroupOpen] = useState(false);
   const [groupSettingsOpen, setGroupSettingsOpen] = useState(false);
