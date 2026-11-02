@@ -4,6 +4,7 @@ import { generateHash } from "../utils";
 import {
   getOrCreateKeyPair, generateKeyPair, createKeyBackup, restoreKeyBackup, parsePubkeyRecord,
 } from "../crypto";
+import { withErrorHandler } from "../utils/errorHandler";
 
 const AuthContext = createContext(null);
 
@@ -57,11 +58,14 @@ const [dmKey, setDmKey] = useState(null);
   }, [user]);
 
   const login = useCallback(async (name, pass) => {
-    // 使用安全 RPC 函数，密码在服务端用 bcrypt 验证
-    const { data, error } = await supabase.rpc("secure_login", {
-      p_username: name,
-      p_password: pass,
-    });
+    // 使用安全 RPC 函数，密码在服务端用 bcrypt 哈希
+    const { data, error } = await withErrorHandler(async () => {
+      const { data, error } = await supabase.rpc("secure_login", {
+        p_username: name,
+        p_password: pass,
+      });
+      return { data, error };
+    })();
     if (error || !data || data.length === 0) return { error: "用户名或密码错误" };
     const userData = data[0];
 
@@ -109,12 +113,15 @@ const [dmKey, setDmKey] = useState(null);
     const kp = await getOrCreateKeyPair(name);
     const encPriv = await createKeyBackup(name, pass, kp.privateKey);
     // 使用安全 RPC 函数，密码在服务端用 bcrypt 哈希后存储
-    const { data, error } = await supabase.rpc("secure_register", {
-      p_username: name,
-      p_password: pass,
-      p_hash_id: hashId,
-      p_pubkey: JSON.stringify({ pub: kp.publicKey, ...(encPriv ? { encPriv } : {}) }),
-    });
+    const { data, error } = await withErrorHandler(async () => {
+      const { data, error } = await supabase.rpc("secure_register", {
+        p_username: name,
+        p_password: pass,
+        p_hash_id: hashId,
+        p_pubkey: JSON.stringify({ pub: kp.publicKey, ...(encPriv ? { encPriv } : {}) }),
+      });
+      return { data, error };
+    })();
     if (error) return { error: error.message || "注册失败" };
     const userData = data[0];
     const u = { username: userData.username, hash_id: userData.hash_id, bio: userData.bio || "" };
