@@ -218,7 +218,7 @@ export function isAdmin(user) {
   return !!user && user.username === ADMIN_USERNAME;
 }
 
-// ─── 主题 ───
+// ─── 主题（颜色模式：dark / light）───
 export function getTheme() {
   return localStorage.getItem("stgblog_theme") || "dark";
 }

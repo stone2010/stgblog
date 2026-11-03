@@ -1698,16 +1698,57 @@ input:active, textarea:active {
   html{background:var(--bg)}
 }
 
-/* ─── 主题：经典普通模式（data-theme="classic"：实底卡片 · 无光斑 · 无毛玻璃）─── */
-[data-theme="classic"]{
+/* ─── 界面偏好：关闭玻璃效果（data-glass="off"：实底卡片 · 无光斑 · 无毛玻璃）───
+   与颜色模式完全独立：classic 暗色 / classic 浅色 都支持 ─── */
+html[data-glass="off"]{background:var(--bg)}
+[data-glass="off"]{
   --card:#151a26;--card-hover:#1a2030;--card-active:#202737;
   --glass-bg:#151a26;--glass-border:rgba(255,255,255,0.12);--glass-hi:rgba(255,255,255,0.08);--glass-blur:0px;
   --shadow:0 1px 2px rgba(0,0,0,0.35);--shadow-lg:0 4px 14px rgba(0,0,0,0.35);
   --shadow-card:0 1px 2px rgba(0,0,0,0.3);--shadow-hover:0 4px 12px rgba(0,0,0,0.4);
   --shadow-elevated:0 8px 24px rgba(0,0,0,0.45);
+  --hover:rgba(255,255,255,0.05);
 }
-[data-theme="classic"] body::before,[data-theme="classic"] body::after{display:none}
-[data-theme="classic"] .topnav,[data-theme="classic"] .feed-header,[data-theme="classic"] .post,[data-theme="classic"] .sidebar .brand{backdrop-filter:none;-webkit-backdrop-filter:none}
+[data-glass="off"][data-theme="light"]{
+  --card:#ffffff;--card-hover:#f7fafc;--card-active:#f0f4f8;
+  --glass-bg:#ffffff;--glass-border:rgba(16,24,50,0.10);--glass-hi:rgba(16,24,50,0.04);
+  --shadow:0 1px 2px rgba(16,32,80,0.06),0 3px 10px rgba(16,32,80,0.06);
+  --shadow-lg:0 4px 14px rgba(16,32,80,0.08),0 10px 30px rgba(16,32,80,0.07);
+  --shadow-card:0 1px 2px rgba(16,32,80,0.05),0 3px 8px rgba(20,34,88,0.06);
+  --shadow-hover:0 4px 12px rgba(16,32,80,0.1),0 8px 22px rgba(20,34,88,0.07);
+  --shadow-elevated:0 8px 24px rgba(16,32,80,0.12),0 14px 40px rgba(20,34,88,0.1);
+  --hover:rgba(10,26,60,0.045);
+}
+[data-glass="off"] body::before,[data-glass="off"] body::after{display:none}
+[data-glass="off"] .topnav,[data-glass="off"] .bnav,[data-glass="off"] .feed-header,
+[data-glass="off"] .post,[data-glass="off"] .compose-bar,[data-glass="off"] .detail,
+[data-glass="off"] .cmt-input-area,[data-glass="off"] .sidebar .brand{
+  backdrop-filter:none;-webkit-backdrop-filter:none;
+}
+[data-glass="off"] .topnav,[data-glass="off"] .bnav,[data-glass="off"] .feed-header{
+  background:var(--bg2);
+  box-shadow:none;
+}
+[data-glass="off"] .topnav{border-bottom:1px solid var(--border-light)}
+[data-glass="off"] .bnav{border-top:1px solid var(--border-light)}
+[data-glass="off"] .notif-dropdown,[data-glass="off"] .post-menu,[data-glass="off"] .dm-context-menu,
+[data-glass="off"] .emoji-picker,[data-glass="off"] .auth-modal,[data-glass="off"] .ann-card,
+[data-glass="off"] .group-settings-modal,[data-glass="off"] .install-banner{
+  backdrop-filter:none;-webkit-backdrop-filter:none;
+}
+[data-glass="off"] .topnav-login,[data-glass="off"] .sidebar-compose,[data-glass="off"] .compose-submit,
+[data-glass="off"] .auth-btn,[data-glass="off"] .cmt-send,[data-glass="off"] .dm-send-btn,
+[data-glass="off"] .install-btn,[data-glass="off"] .empty-state-btn,[data-glass="off"] .ann-ok{
+  background-image:none;
+}
+
+/* ─── 界面偏好：字号缩放（data-zoom）─── */
+html[data-zoom="sm"]{zoom:0.9}
+html[data-zoom="lg"]{zoom:1.12}
+@media(max-width:768px){
+  html[data-zoom="sm"]{zoom:0.92}
+  html[data-zoom="lg"]{zoom:1.1}
+}
 
 /* ─── 聊天撤回 ─── */
 .dm-msg-recall-btn{font-size:11px;color:var(--text-muted);background:none;border:none;padding:2px 6px;cursor:pointer;border-radius:6px;transition:all 0.15s var(--ease);opacity:0.7}
@@ -1842,4 +1883,65 @@ input:active, textarea:active {
   .ann-card{padding:16px 16px 14px;max-height:72vh}
   .ann-content{font-size:15px}
   .compose-ann-check{font-size:11px;padding:4px 8px}
+}
+
+/* ═══════════════════════════════════════════════════════════
+   v12 设置页（独立页面）：外观 / 私信 / 账号
+   ═══════════════════════════════════════════════════════════ */
+.settings-page{padding-bottom:20px}
+.settings-section{
+  margin:12px 12px 0;
+  border:1px solid var(--glass-border);
+  border-radius:var(--r2);
+  background:var(--glass-bg);
+  backdrop-filter:blur(var(--glass-blur)) saturate(1.7);
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(1.7);
+  box-shadow:var(--shadow-card),inset 0 1px 0 var(--glass-hi);
+  padding:16px 18px;
+}
+.settings-section-title{
+  font-size:13px;font-weight:700;letter-spacing:0.04em;
+  color:var(--text-secondary);margin-bottom:14px;
+}
+.settings-row{margin-bottom:16px}
+.settings-row:last-child{margin-bottom:2px}
+.settings-row-label{display:flex;flex-direction:column;gap:2px;margin-bottom:8px}
+.settings-row-name{font-size:14px;font-weight:600}
+.settings-row-hint{font-size:12px;color:var(--text-muted)}
+.settings-seg{max-width:340px;margin-bottom:0}
+.settings-seg .seg{display:inline-flex;align-items:center;gap:5px;padding:8px 14px;font-size:13px}
+.settings-seg-icon{font-size:14px;line-height:1}
+.theme-color-row{display:flex;gap:12px;flex-wrap:wrap;padding:2px 0}
+.settings-action{
+  display:flex;align-items:center;gap:10px;width:100%;
+  padding:13px 14px;margin-bottom:8px;
+  background:var(--bg3);border:1px solid var(--border);
+  border-radius:var(--r3);cursor:pointer;
+  font-size:14px;font-weight:600;color:var(--text);
+  box-shadow:inset 0 1px 0 var(--glass-hi);
+  transition:all 0.15s var(--ease);
+}
+.settings-action:hover{background:var(--hover-strong);border-color:var(--border-light)}
+.settings-action:active{transform:scale(0.99)}
+.settings-action-icon{font-size:16px}
+.settings-action-arrow{margin-left:auto;color:var(--text-muted);font-size:18px;line-height:1}
+.settings-action-danger{color:var(--red)}
+.settings-action-danger:hover{background:rgba(248,113,113,0.08);border-color:rgba(248,113,113,0.3)}
+.settings-empty{
+  padding:14px;text-align:center;font-size:13px;
+  color:var(--text-muted);background:var(--bg3);
+  border-radius:var(--r3);border:1px dashed var(--border);
+}
+.settings-footer{
+  text-align:center;font-size:11px;color:var(--text-dim);
+  padding:18px 20px 6px;
+}
+/* classic（关闭玻璃）下设置页也回实底 */
+[data-glass="off"] .settings-section{backdrop-filter:none;-webkit-backdrop-filter:none;background:var(--card)}
+
+@media(max-width:768px){
+  .settings-section{margin:10px 10px 0;padding:14px 14px}
+  .settings-seg{max-width:none}
+  .settings-seg .seg{flex:1;justify-content:center;padding:10px 8px}
+  .settings-action{padding:14px}
 }

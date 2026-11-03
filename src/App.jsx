@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "./supabase";
-import { hasLiked, hasViewed, saveLiked, saveViewed, toggleBookmark, getTheme, setTheme as applyTheme, isAdmin } from "./utils";
+import { hasLiked, hasViewed, saveLiked, saveViewed, toggleBookmark, isAdmin } from "./utils";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { useNotifications } from "./hooks/useNotifications";
 import { useDM } from "./hooks/useDM";
@@ -15,6 +15,7 @@ import DmListPage from "./components/DmListPage";
 import DmChatPage from "./components/DmChatPage";
 import ProfilePage from "./components/ProfilePage";
 import ProfileViewPage from "./components/ProfileViewPage";
+import SettingsPage from "./components/SettingsPage";
 import FollowersPage from "./components/FollowersPage";
 import NewDmModal from "./components/NewDmModal";
 import GroupListPage from "./components/GroupListPage";
@@ -29,7 +30,7 @@ import Onboarding from "./components/Onboarding";
 import AnnouncementModal from "./components/AnnouncementModal";
 
 function AppInner() {
-  const { user, followingSet, keyPair, uiTheme, setUiTheme } = useAuth();
+  const { user, followingSet, keyPair, colorMode, setColorMode } = useAuth();
 
   // Posts
   const [posts, setPosts] = useState([]);
@@ -55,21 +56,19 @@ function AppInner() {
     try { return localStorage.getItem("stgblog_onboarding_shown") === "true"; } catch { return false; }
   });
 
-  // UI Theme
+  // UI Theme（由 AuthContext 统一管理颜色模式/玻璃效果/字号；这里只保留旧版 Aurora 兼容）
   useEffect(() => {
-    if (uiTheme === "aurora") {
-      document.documentElement.classList.add("theme-aurora");
-    } else {
-      document.documentElement.classList.remove("theme-aurora");
-    }
-  }, [uiTheme]);
+    try { if (localStorage.getItem("stgblog_theme") === "aurora") document.documentElement.classList.add("theme-aurora"); } catch {}
+  }, []);
 
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
   const [joinGroupOpen, setJoinGroupOpen] = useState(false);
   const [groupSettingsOpen, setGroupSettingsOpen] = useState(false);
 
-  // Theme
-  const [theme, setThemeState] = useState(getTheme);
+  // Theme（颜色模式来自 AuthContext，全局生效）
+  const toggleTheme = useCallback(() => {
+    setColorMode((c) => (c === "dark" ? "light" : "dark"));
+  }, [setColorMode]);
 
   // PWA
   const [installPrompt, setInstallPrompt] = useState(null);
@@ -86,12 +85,6 @@ function AppInner() {
   const { notifications, unreadCount, markAllRead, markOneRead } = useNotifications(user?.username);
   const { dmList, dmTarget, dmMessages, dmSending, dmUnreadCount, dmLive, loadDmList, loadMoreDmMessages, sendDm, openDm, closeDm, markAsRead, recallDm, setDmTarget, togglePin, deleteConversation, setNickname } = useDM(user, keyPair);
   const { groups, activeGroup, groupMessages, groupMembers, groupSending, loadGroups, createGroup, joinGroup, shareGroupKey, leaveGroup, loadGroupMessages, loadMoreGroupMessages, sendGroupMessage, getGroupMembers, kickMember, deleteGroup, openGroup, closeGroup, updateGroupName, setMemberRole, transferOwnership } = useGroupChat(user, keyPair);
-
-  // ─── Theme ───
-  useEffect(() => { applyTheme(theme); }, [theme]);
-  const toggleTheme = useCallback(() => {
-    setThemeState((t) => { const next = t === "dark" ? "light" : "dark"; applyTheme(next); return next; });
-  }, []);
 
   // ─── Load posts ───
   const PAGE_SIZE = 30;
@@ -210,7 +203,7 @@ function AppInner() {
     if (p === "dm" && user) loadDmList();
     if (p === "groups" && user) loadGroups();
     closeGroup();
-    setMobileTab(p === "home" ? "home" : p === "dm" ? "dm" : p === "groups" ? "groups" : p === "profile" ? "me" : p === "notifications" ? "notif" : "home");
+    setMobileTab(p === "home" ? "home" : p === "dm" ? "dm" : p === "groups" ? "groups" : (p === "profile" || p === "settings") ? "me" : p === "notifications" ? "notif" : "home");
     window.history.pushState({ page: p }, "", `#${p}`);
   }, [user, loadDmList, setDmTarget, loadGroups, closeGroup]);
 
@@ -570,6 +563,7 @@ function AppInner() {
     if (page === "notifications") return "通知";
     if (page === "profile-view") return viewingProfile;
     if (page === "followers") return followersPage?.type === "followers" ? "粉丝" : "关注";
+    if (page === "settings") return "设置";
     if (page === "profile") return "个人";
     return "STGBLOG";
   };
@@ -600,7 +594,8 @@ function AppInner() {
         onLoadMore={loadMoreGroupMessages} />
     );
     if (page === "profile-view" && viewingProfile) return <ProfileViewPage viewingProfile={viewingProfile} posts={posts} onBack={() => { setViewingProfile(null); setPage("home"); setMobileTab("home"); }} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} />;
-    if (page === "profile") return <ProfilePage posts={posts} onAuthOpen={() => setAuthOpen(true)} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onFollowersPage={(type) => setFollowersPage({ username: user?.username, type })} onOpenUser={openUserClick} />;
+    if (page === "settings") return <SettingsPage onBack={() => { if (user) { navigate("profile"); } else { navigate("home"); } }} />;
+    if (page === "profile") return <ProfilePage posts={posts} onAuthOpen={() => setAuthOpen(true)} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onFollowersPage={(type) => setFollowersPage({ username: user?.username, type })} onOpenUser={openUserClick} onOpenSettings={() => navigate("settings")} />;
     return <HomeFeed posts={posts} postsLoading={postsLoading} hasMore={hasMore} loadMorePosts={loadMorePosts} tab={tab} setTab={setTab} searchKey={searchKey} composeText={composeText} setComposeText={setComposeText} onPublish={handlePublish} publishing={publishing} composeRef={composeRef} isAnnouncement={composeAnnouncement} onAnnouncementChange={setComposeAnnouncement} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onHashtag={handleHashtag} onAuthOpen={() => setAuthOpen(true)} />;
   };
 
@@ -613,9 +608,10 @@ function AppInner() {
             <span className="topnav-title">{topTitle()}</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <button className="compose-tool" onClick={toggleTheme} title="切换主题">
-              {theme === "dark" ? <Icons.ThemeLight /> : <Icons.ThemeDark />}
+            <button className="compose-tool" onClick={toggleTheme} title="切换颜色模式">
+              {colorMode === "dark" ? <Icons.ThemeLight /> : <Icons.ThemeDark />}
             </button>
+            <button className="compose-tool" onClick={() => navigate("settings")} title="设置"><Icons.Settings /></button>
             {canInstall && (
               <button className="compose-tool install-btn-nav" onClick={handleInstall} title="安装到桌面"><Icons.Install /></button>
             )}
@@ -665,7 +661,8 @@ function AppInner() {
           {user && <button className="sidebar-btn" onClick={() => navigate("dm")}><span className="sb-icon"><Icons.Msg /></span>私信{dmUnreadCount > 0 && <span className="sidebar-badge">{dmUnreadCount > 9 ? "9+" : dmUnreadCount}</span>}</button>}
           {user && <button className="sidebar-btn" onClick={() => navigate("groups")}><span className="sb-icon"><Icons.Group /></span>群组</button>}
           {user && <button className="sidebar-btn" onClick={() => navigate("profile")}><span className="sb-icon"><Icons.User /></span>个人</button>}
-          <button className="sidebar-btn" onClick={toggleTheme}><span className="sb-icon">{theme === "dark" ? <Icons.ThemeLight /> : <Icons.ThemeDark />}</span>{theme === "dark" ? "亮色模式" : "暗色模式"}</button>
+          <button className="sidebar-btn" onClick={toggleTheme}><span className="sb-icon">{colorMode === "dark" ? <Icons.ThemeLight /> : <Icons.ThemeDark />}</span>{colorMode === "dark" ? "亮色模式" : "暗色模式"}</button>
+          <button className="sidebar-btn" onClick={() => navigate("settings")}><span className="sb-icon"><Icons.Settings /></span>设置</button>
           {user ? (
             <button className="sidebar-compose" onClick={() => { navigate("home"); setMobileTab("home"); setTimeout(() => composeRef.current?.focus(), 100); }}>发帖</button>
           ) : (

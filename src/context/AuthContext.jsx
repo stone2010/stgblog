@@ -43,18 +43,56 @@ export function AuthProvider({ children }) {
   const [followingSet, setFollowingSet] = useState(new Set());
   const [dmPrivacy, setDmPrivacy] = useState("open");
   const [dmKey, setDmKey] = useState(null);
-  // ─── 界面主题（dark=暗夜液态玻璃 / light=浅色液态玻璃 / classic=经典普通）───
-  const [uiTheme, setUiTheme] = useState(() => {
-    try { return localStorage.getItem("stgblog_theme") || "dark"; } catch { return "dark"; }
+  // ─── 界面偏好 1：颜色模式（dark=暗夜 / light=浅色），旧版"classic"见下方迁移 ───
+  const [colorMode, setColorMode] = useState(() => {
+    try {
+      const v = localStorage.getItem("stgblog_theme");
+      return v === "light" ? "light" : "dark";
+    } catch { return "dark"; }
   });
 
   useEffect(() => {
     try {
-      if (uiTheme === "dark") delete document.documentElement.dataset.theme;
-      else document.documentElement.dataset.theme = uiTheme;
-      localStorage.setItem("stgblog_theme", uiTheme);
+      if (colorMode === "light") document.documentElement.setAttribute("data-theme", "light");
+      else document.documentElement.removeAttribute("data-theme");
+      localStorage.setItem("stgblog_theme", colorMode);
     } catch {}
-  }, [uiTheme]);
+  }, [colorMode]);
+
+  // ─── 界面偏好 2：玻璃效果（glass=液态玻璃 / classic=经典普通），与颜色模式独立 ───
+  const [glassMode, setGlassMode] = useState(() => {
+    try {
+      const stored = localStorage.getItem("stgblog_glass");
+      if (stored) return stored;
+      // 旧数据迁移：三合一的 "classic" 等价于 关闭玻璃 + 深色模式
+      if ((localStorage.getItem("stgblog_theme") || "") === "classic") {
+        localStorage.setItem("stgblog_theme", "dark");
+        return "classic";
+      }
+      return "glass";
+    } catch { return "glass"; }
+  });
+
+  useEffect(() => {
+    try {
+      if (glassMode === "classic") document.documentElement.setAttribute("data-glass", "off");
+      else document.documentElement.removeAttribute("data-glass");
+      localStorage.setItem("stgblog_glass", glassMode);
+    } catch {}
+  }, [glassMode]);
+
+  // ─── 界面偏好 3：字号（sm / md / lg）───
+  const [fontSize, setFontSize] = useState(() => {
+    try { return localStorage.getItem("stgblog_fontsize") || "md"; } catch { return "md"; }
+  });
+
+  useEffect(() => {
+    try {
+      if (fontSize && fontSize !== "md") document.documentElement.setAttribute("data-zoom", fontSize);
+      else document.documentElement.removeAttribute("data-zoom");
+      localStorage.setItem("stgblog_fontsize", fontSize);
+    } catch {}
+  }, [fontSize]);
 
   // ─── 主题色（强调色自选，即时生效、按设备记忆）───
   const [accentColor, setAccentColor] = useState(() => {
@@ -226,7 +264,8 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      user, keyPair, followingSet, dmPrivacy, dmKey, uiTheme, setUiTheme, accentColor, setAccentColor,
+      user, keyPair, followingSet, dmPrivacy, dmKey,
+      colorMode, setColorMode, glassMode, setGlassMode, fontSize, setFontSize, accentColor, setAccentColor,
       login, register, logout, updateBio, follow, unfollow,
       updateDmPrivacy, getDmKey,
     }}>
