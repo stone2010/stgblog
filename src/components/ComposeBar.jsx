@@ -1,7 +1,8 @@
 import React, { useRef, useCallback, useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import { isAdmin } from "../utils";
 
-export default function ComposeBar({ value, onChange, onPublish, publishing, composeRef }) {
+export default function ComposeBar({ value, onChange, onPublish, publishing, composeRef, isAnnouncement, onAnnouncementChange }) {
   const { user } = useAuth();
   const textareaRef = useRef(null);
   const [showEmoji, setShowEmoji] = useState(false);
@@ -163,6 +164,16 @@ export default function ComposeBar({ value, onChange, onPublish, publishing, com
               )}
             </div>
             {charCount > 0 && <span className={`char-counter ${charClass}`}>{charCount}/2000</span>}
+            {isAdmin(user) && (
+              <label className={`compose-ann-check ${isAnnouncement ? "on" : ""}`} title="选中后发布的帖子会作为公告推送给所有用户">
+                <input
+                  type="checkbox"
+                  checked={!!isAnnouncement}
+                  onChange={(e) => onAnnouncementChange?.(e.target.checked)}
+                />
+                <span className="compose-ann-icon">📢</span> 公告
+              </label>
+            )}
           </div>
           <button className="compose-submit" onClick={handlePublish} disabled={!value.trim() || publishing}>{publishing ? "发送中..." : "发帖"}</button>
         </div>

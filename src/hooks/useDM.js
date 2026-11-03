@@ -463,19 +463,28 @@ export function useDM(user, keyPair) {
   }, [user]);
 
   const openDm = useCallback(async (otherUser) => {
-    if (!user) return;
-    // 如果对话已删除，不恢复
-    if (isConversationDeleted(user.username, otherUser)) return;
+    if (!user || !otherUser) return;
+    // 显式打开（列表/新私信/个人页入口）总是恢复会话：
+    // 若曾被"删除"（本地隐藏），这里视为用户主动重新开启，解除隐藏标记。
+    // 被动出现（对方来消息）仍保持隐藏 —— loadDmList 会继续过滤已删除会话。
+    unmarkConversationDeleted(user.username, otherUser);
     setDmTarget(otherUser);
     persistConversation(otherUser);
+    // 确保列表里能看到并去掉旧缓存里的删除痕迹
+    try {
+      const cached = JSON.parse(localStorage.getItem(CACHE_KEY(user.username))) || [];
+      if (!cached.some((c) => c.other === otherUser)) {
+        cached.unshift({ other: otherUser, last: null, pinned: false, nickname: "" });
+        localStorage.setItem(CACHE_KEY(user.username), JSON.stringify(cached));
+      }
+    } catch {}
     setDmList((prev) => {
       if (prev.some((c) => c.other === otherUser)) return prev;
-      const newList = [{ other: otherUser, last: null, pinned: false }, ...prev];
-      saveCachedConversations(user.username, newList);
-      return newList;
+      return [{ other: otherUser, last: null, pinned: false, nickname: "" }, ...prev];
     });
     await loadDmMessages(otherUser);
-  }, [loadDmMessages, persistConversation, user, isConversationDeleted]);
+    loadDmList();
+  }, [loadDmMessages, persistConversation, user, loadDmList]);
 
   const closeDm = useCallback(() => {
     setDmTarget(null);

@@ -166,6 +166,7 @@ const commentTree = useMemo(() => buildTree(comments), [comments]);
         </div>
       )}
       <div className="detail-time-bar">
+        {post.is_announcement && <span className="post-ann-badge">📢 公告</span>}
         <span>{new Intl.DateTimeFormat("zh-CN", { dateStyle: "full", timeStyle: "short" }).format(new Date(post.created_at))}</span>
         {post.edited && <span style={{ color: "var(--dim)", fontSize: 12 }}>· 已编辑</span>}
       </div>

@@ -212,6 +212,12 @@ export function toggleMute(username) {
   } catch { return false; }
 }
 
+// ─── 管理员判定（公告发布等能力）───
+export const ADMIN_USERNAME = "Stone";
+export function isAdmin(user) {
+  return !!user && user.username === ADMIN_USERNAME;
+}
+
 // ─── 主题 ───
 export function getTheme() {
   return localStorage.getItem("stgblog_theme") || "dark";

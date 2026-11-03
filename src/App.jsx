@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "./supabase";
-import { hasLiked, hasViewed, saveLiked, saveViewed, toggleBookmark, getTheme, setTheme as applyTheme } from "./utils";
+import { hasLiked, hasViewed, saveLiked, saveViewed, toggleBookmark, getTheme, setTheme as applyTheme, isAdmin } from "./utils";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { useNotifications } from "./hooks/useNotifications";
 import { useDM } from "./hooks/useDM";
@@ -26,6 +26,7 @@ import RepostModal from "./components/RepostModal";
 import EditPostModal from "./components/EditPostModal";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Onboarding from "./components/Onboarding";
+import AnnouncementModal from "./components/AnnouncementModal";
 
 function AppInner() {
   const { user, followingSet, keyPair, uiTheme, setUiTheme } = useAuth();
@@ -36,6 +37,7 @@ function AppInner() {
   const [tab, setTab] = useState("最新");
   const [searchKey, setSearchKey] = useState("");
   const [composeText, setComposeText] = useState("");
+  const [composeAnnouncement, setComposeAnnouncement] = useState(false);
 
   // Navigation
   const [page, setPage] = useState("home");
@@ -309,29 +311,59 @@ function AppInner() {
     setPublishing(true);
     try {
       let post = null;
-      try {
-        const { data, error } = await supabase.rpc("create_post", {
-          p_username: user.username,
-          p_content: content,
-          p_category: "动态",
-        });
-        if (error) throw error;
-        if (data) post = Array.isArray(data) ? data[0] : data;
-      } catch (rpcErr) {
-        console.warn("RPC create_post 失败，回退到直接插入:", rpcErr);
-        const { data, error } = await supabase.from("posts").insert([{
-          title: content.slice(0, 60),
-          content,
-          author: user.username,
-          category: "动态",
-          likes: 0, views: 0, reposts: 0, pinned: false, edited: false,
-        }]).select("*").single();
-        if (error) throw error;
-        post = data;
+      const makeAnnouncement = isAdmin(user) && composeAnnouncement;
+      if (makeAnnouncement) {
+        // 公告走直接插入，带上 is_announcement 标记（create_post RPC 不含该字段）
+        try {
+          const { data, error } = await supabase.from("posts").insert([{
+            title: content.slice(0, 60),
+            content,
+            author: user.username,
+            category: "公告",
+            likes: 0, views: 0, reposts: 0, pinned: false, edited: false,
+            is_announcement: true,
+          }]).select("*").single();
+          if (error) throw error;
+          post = data;
+        } catch (annErr) {
+          console.warn("公告插入失败（可能需要运行 migration_v10_announcement.sql），回退普通发帖:", annErr);
+          const columnName = annErr?.message || "";
+          if (/is_announcement/.test(columnName)) alert("公告标记失败：数据库缺少 is_announcement 字段。\n请在 Supabase SQL 编辑器运行仓库里的 migration_v10_announcement.sql 后重试。");
+          // 回退为普通发帖（与普通路径一致）
+          const { data, error } = await supabase.rpc("create_post", {
+            p_username: user.username,
+            p_content: content,
+            p_category: "动态",
+          });
+          if (error) throw annErr;
+          post = Array.isArray(data) ? data[0] : data;
+        }
+      } else {
+        try {
+          const { data, error } = await supabase.rpc("create_post", {
+            p_username: user.username,
+            p_content: content,
+            p_category: "动态",
+          });
+          if (error) throw error;
+          if (data) post = Array.isArray(data) ? data[0] : data;
+        } catch (rpcErr) {
+          console.warn("RPC create_post 失败，回退到直接插入:", rpcErr);
+          const { data, error } = await supabase.from("posts").insert([{
+            title: content.slice(0, 60),
+            content,
+            author: user.username,
+            category: "动态",
+            likes: 0, views: 0, reposts: 0, pinned: false, edited: false,
+          }]).select("*").single();
+          if (error) throw error;
+          post = data;
+        }
       }
       if (post) {
         setPosts((prev) => [post, ...prev]);
         setComposeText("");
+        setComposeAnnouncement(false);
       }
     } catch (e) {
       console.error("发帖失败:", e);
@@ -339,7 +371,7 @@ function AppInner() {
     } finally {
       setPublishing(false);
     }
-  }, [user, composeText, publishing]);
+  }, [user, composeText, publishing, composeAnnouncement]);
 
   // ─── 键盘快捷键（Ctrl+Enter 发布 · Ctrl+K 搜索 · Esc 关闭弹层）───
   // 注意：必须定义在 handlePublish 之后，否则依赖数组会在渲染期触发 TDZ 错误
@@ -569,7 +601,7 @@ function AppInner() {
     );
     if (page === "profile-view" && viewingProfile) return <ProfileViewPage viewingProfile={viewingProfile} posts={posts} onBack={() => { setViewingProfile(null); setPage("home"); setMobileTab("home"); }} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} />;
     if (page === "profile") return <ProfilePage posts={posts} onAuthOpen={() => setAuthOpen(true)} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onFollowersPage={(type) => setFollowersPage({ username: user?.username, type })} onOpenUser={openUserClick} />;
-    return <HomeFeed posts={posts} postsLoading={postsLoading} hasMore={hasMore} loadMorePosts={loadMorePosts} tab={tab} setTab={setTab} searchKey={searchKey} composeText={composeText} setComposeText={setComposeText} onPublish={handlePublish} publishing={publishing} composeRef={composeRef} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onHashtag={handleHashtag} onAuthOpen={() => setAuthOpen(true)} />;
+    return <HomeFeed posts={posts} postsLoading={postsLoading} hasMore={hasMore} loadMorePosts={loadMorePosts} tab={tab} setTab={setTab} searchKey={searchKey} composeText={composeText} setComposeText={setComposeText} onPublish={handlePublish} publishing={publishing} composeRef={composeRef} isAnnouncement={composeAnnouncement} onAnnouncementChange={setComposeAnnouncement} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onHashtag={handleHashtag} onAuthOpen={() => setAuthOpen(true)} />;
   };
 
   return (
@@ -682,6 +714,7 @@ function AppInner() {
       )}
 
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
+      <AnnouncementModal user={user} />
       {newDmOpen && <NewDmModal onClose={() => setNewDmOpen(false)} onStartDm={(target) => { setNewDmOpen(false); openDm(target); setPage("dm-chat"); }} />}
       {repostModal && <RepostModal post={repostModal} onRepost={doRepost} onQuote={doQuote} onClose={() => setRepostModal(null)} />}
       {editPostModal && <EditPostModal post={editPostModal} onSave={handleEditPost} onClose={() => setEditPostModal(null)} />}

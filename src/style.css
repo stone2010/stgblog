@@ -1746,3 +1746,100 @@ input:active, textarea:active {
   content:"✓";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   color:#fff;font-size:14px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,0.4);
 }
+
+/* ═══════════════════════════════════════════════════════════
+   v11 公告机制：弹窗卡片 / 徽章 / 管理员复选
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── 公告弹窗卡片（玻璃） ── */
+.ann-overlay{
+  position:fixed;inset:0;z-index:1000;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(4,6,12,0.45);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  animation:annIn 0.25s var(--ease);
+  padding:20px;
+}
+.ann-overlay.fade{opacity:0;transition:opacity 0.18s ease}
+@keyframes annIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.ann-card{
+  width:100%;max-width:420px;max-height:min(70vh,560px);
+  display:flex;flex-direction:column;
+  background:var(--card);
+  backdrop-filter:blur(30px) saturate(1.8);-webkit-backdrop-filter:blur(30px) saturate(1.8);
+  border:1px solid var(--glass-border);
+  border-radius:var(--r2);
+  box-shadow:var(--shadow-elevated),inset 0 1px 0 var(--glass-hi);
+  padding:18px 20px 16px;
+  animation:annCardIn 0.3s var(--ease-bounce);
+}
+@keyframes annCardIn{from{opacity:0;transform:translateY(14px) scale(0.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+.ann-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.ann-icon{font-size:18px}
+.ann-title{font-size:15px;font-weight:700;letter-spacing:0.02em}
+.ann-close{
+  margin-left:auto;background:none;border:none;cursor:pointer;
+  color:var(--text-muted);font-size:15px;padding:4px 6px;border-radius:8px;
+  transition:all 0.15s var(--ease);
+}
+.ann-close:hover{color:var(--text);background:var(--hover)}
+.ann-meta{display:flex;align-items:center;gap:6px;margin-bottom:10px;font-size:12px;color:var(--text-muted)}
+.ann-author{color:var(--accent-light);font-weight:600}
+.ann-content{
+  flex:1;overflow-y:auto;
+  white-space:pre-wrap;word-break:break-word;
+  font-size:14px;line-height:1.65;color:var(--text);
+  padding:14px;border-radius:var(--r3);
+  background:var(--bg3);
+  box-shadow:inset 0 1px 0 var(--glass-hi);
+  border:1px solid var(--border);
+}
+.ann-ok{
+  margin-top:14px;width:100%;padding:10px;
+  font-size:14px;font-weight:600;color:#04120c;
+  background:linear-gradient(180deg,var(--accent-light),var(--accent));
+  border:none;border-radius:var(--r3);cursor:pointer;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.35),0 4px 14px rgba(16,185,129,0.3);
+  transition:transform 0.15s var(--ease),filter 0.15s var(--ease);
+}
+.ann-ok:hover{filter:brightness(1.06)}
+.ann-ok:active{transform:scale(0.98)}
+[data-theme="classic"] .ann-card{backdrop-filter:none;-webkit-backdrop-filter:none}
+[data-theme="light"] .ann-ok{color:#fff}
+
+/* ── 帖子上的公告徽章 ── */
+.post-ann-badge{
+  display:inline-flex;align-items:center;gap:3px;
+  font-size:10px;font-weight:600;letter-spacing:0.03em;
+  color:var(--gold);padding:2px 8px;border-radius:var(--r-pill);
+  background:rgba(251,191,36,0.12);
+  border:1px solid rgba(251,191,36,0.30);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.10);
+  flex-shrink:0;
+}
+
+/* ── 管理员发帖时的公告复选 ── */
+.compose-ann-check{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:12px;font-weight:600;color:var(--text-secondary);
+  padding:4px 10px;border-radius:var(--r-pill);cursor:pointer;
+  background:var(--bg3);border:1px solid var(--border);
+  box-shadow:inset 0 1px 0 var(--glass-hi);
+  transition:all 0.15s var(--ease);
+  user-select:none;
+}
+.compose-ann-check input{position:absolute;opacity:0;pointer-events:none}
+.compose-ann-check .compose-ann-icon{font-size:13px}
+.compose-ann-check:hover{color:var(--text);border-color:var(--border-light)}
+.compose-ann-check.on{
+  color:var(--gold);border-color:rgba(251,191,36,0.45);
+  background:rgba(251,191,36,0.10);
+}
+
+/* ── 移动端适配 ── */
+@media(max-width:768px){
+  .ann-overlay{padding:16px}
+  .ann-card{padding:16px 16px 14px;max-height:72vh}
+  .ann-content{font-size:15px}
+  .compose-ann-check{font-size:11px;padding:4px 8px}
+}

@@ -78,10 +78,12 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
         setInput("");
         if (inputRef.current) inputRef.current.style.height = "auto";
         nearBottomRef.current = true;
-        setTimeout(() => {
-          const container = messagesContainerRef.current;
-          if (container) container.scrollTop = container.scrollHeight;
-        }, 50);
+        const container = messagesContainerRef.current;
+        if (container) {
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            container.scrollTop = container.scrollHeight;
+          }));
+        }
       } else {
         setWarning("发送失败，请检查网络后重试");
       }
@@ -118,15 +120,38 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
     return () => clearTimeout(t);
   }, [warning]);
 
-  // ─── 自动滚动到底部：每次消息更新时滚动到底部 ───
+  // ─── 自动滚动：打开会话 / 新消息到达时定位到最新消息 ───
+  // 规则：
+  //   · 刚打开会话（首屏消息载入）→ 总是滚到最底部
+  //   · 顶部加载了更早的历史（最后一仍是旧消息）→ 保持当前阅读位置
+  //   · 新消息追加 → 仅当本来就贴近底部、或消息是自己发的时才跟随滚动
+  const lastSeenMsgRef = useRef(null);
+  useEffect(() => {
+    nearBottomRef.current = true;
+    lastSeenMsgRef.current = null;
+    const el = inputRef.current;
+    if (el) el.style.height = "auto";
+    setInput("");
+  }, [dmTarget]);
+
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
-    const t = setTimeout(() => {
+    const last = messages.length ? messages[messages.length - 1] : null;
+    const lastId = last ? last.id : null;
+    if (lastId == null) return;                       // 空会话：无需滚动
+    const prevId = lastSeenMsgRef.current;
+    if (prevId === lastId) return;                    // 顶部加载历史：保持位置
+    const isFirstLoad = prevId == null;
+    lastSeenMsgRef.current = lastId;
+    const mine = last && last.sender === user?.username;
+    if (!isFirstLoad && !mine && !nearBottomRef.current) return; // 正在回看历史：不打扰
+    container.style.scrollBehavior = "auto";
+    requestAnimationFrame(() => requestAnimationFrame(() => {
       container.scrollTop = container.scrollHeight;
-    }, 50);
-    return () => clearTimeout(t);
-  }, [dmMessages]);
+      nearBottomRef.current = true;
+    }));
+  }, [messages, user]);
 
   // 进入会话后标记已读
   useEffect(() => {
