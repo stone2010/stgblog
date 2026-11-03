@@ -11,6 +11,7 @@ import NotificationPage from "./components/NotificationPage";
 import HomeFeed from "./components/HomeFeed";
 import SearchPage from "./components/SearchPage";
 import PostDetail from "./components/PostDetail";
+import { EditorialTopStrip } from "./components/EditorialChrome";
 import DmListPage from "./components/DmListPage";
 import DmChatPage from "./components/DmChatPage";
 import ProfilePage from "./components/ProfilePage";
@@ -30,7 +31,7 @@ import Onboarding from "./components/Onboarding";
 import AnnouncementModal from "./components/AnnouncementModal";
 
 function AppInner() {
-  const { user, followingSet, keyPair, colorMode, setColorMode } = useAuth();
+  const { user, followingSet, keyPair, colorMode, setColorMode, styleMode } = useAuth();
 
   // Posts
   const [posts, setPosts] = useState([]);
@@ -621,6 +622,7 @@ function AppInner() {
 
   return (
     <div className="app">
+      {styleMode === "editorial" && <EditorialTopStrip />}
       <nav className="topnav">
         <div className="topnav-inner">
           <div className="topnav-brand" onClick={() => navigate("home")} style={{ cursor: "pointer" }}>

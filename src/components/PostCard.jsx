@@ -17,7 +17,7 @@ function RenderContent({ content, onHashtag, onMention }) {
   );
 }
 
-const PostCard = memo(function PostCard({ post, onSelect, onLike, onShare, onRepost, onBookmark, onHashtag }) {
+const PostCard = memo(function PostCard({ post, index = 0, editorial = false, onSelect, onLike, onShare, onRepost, onBookmark, onHashtag }) {
   const { user, followingSet, follow } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
   const bookmarked = hasBookmarked(post.id);
@@ -26,6 +26,13 @@ const PostCard = memo(function PostCard({ post, onSelect, onLike, onShare, onRep
   const isRepost = !!post.repost_of;
   const displayPost = isRepost ? (post.repost_data || post) : post;
   const repostAuthor = isRepost ? post.author : null;
+
+  // 编辑部封面文案:取正文首行,去掉 #/@ 符号,截取前 12 字
+  const edCoverWord = React.useMemo(() => {
+    const first = (displayPost.title || displayPost.content || "").split("\n").find((l) => l.trim()) || "";
+    const cleaned = first.replace(/[#@＞>]/g, "").trim();
+    return cleaned.slice(0, 12) || "STG";
+  }, [displayPost.title, displayPost.content]);
 
   const handleAuthorClick = useCallback((e) => {
     e.stopPropagation();
@@ -38,6 +45,13 @@ const PostCard = memo(function PostCard({ post, onSelect, onLike, onShare, onRep
 
   return (
     <article className="post" onClick={() => onSelect(displayPost)}>
+      {editorial && (
+        <div className={`ed-cover${displayPost.is_announcement ? " ed-cover-ann" : ""}`}>
+          <span className="ed-fig ed-micro">FIG. {String(index + 1).padStart(2, "0")}</span>
+          <span className="ed-cover-word">{edCoverWord}</span>
+          <span className="ed-mark ed-micro">{displayPost.is_announcement ? "ANNOUNCEMENT ✳" : "STG NOTE"}</span>
+        </div>
+      )}
       {isRepost && (
         <div className="repost-indicator">
           <Icons.RT /> <span>{repostAuthor} 转发了</span>

@@ -1,194 +1,481 @@
 /* ============================================================
-   STGBLOG — Editorial 编辑部印刷风主题
-   启用方式：html[data-style="editorial"]（设置 → 外观 → 界面风格）
-   视觉语言：米白纸张 · 黑色油墨 · 红色标记 · 细线版式 · 衬线标题
-   与默认液态玻璃主题完全独立，可随时在设置中切换
+   STGBLOG — Editorial 编辑部印刷风主题 V2
+   视觉基准:stgblog-editorial-reference-v2.html(严格执行)
+   启用:html[data-style="editorial"](设置→界面风格→编辑部)
+   设计语言:米白纸张 #EEEAE0 · 油墨 #171715 · 红标记 #D9362B
+            细线 #AAA69B · 直角 · 无阴影 · 衬线标题 · 12 列网格
    ============================================================ */
 
-/* ── 1. 变量重定义（覆盖深/浅两套默认变量）── */
+/* ── 1. 设计变量(V2 参数)── */
 html[data-style="editorial"]{
-  --bg:#f3f0e8;--bg2:#efece2;
+  --paper:#eeeae0;--ink:#171715;--ed-red:#d9362b;--ed-muted:#77746c;--rule:#aaa69b;
+  --ed-serif:"Iowan Old Style",Georgia,"Noto Serif SC","Source Han Serif SC","SimSun",serif;
+  --ed-sans:Arial,"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;
+
+  --bg:#eeeae0;--bg2:#e9e4d8;
   --bg3:rgba(23,23,21,0.05);--bg4:rgba(23,23,21,0.09);--bg5:rgba(23,23,21,0.14);
-  --card:#fffdf7;--card-hover:#fffef9;--card-active:#ffffff;
-  --border:#c9c5ba;--border-light:#171715;--border-focus:rgba(227,59,47,0.55);
-  --text:#171715;--text-secondary:#55534c;--text-muted:#77756e;--text-dim:#a39f95;
-  --accent:#e33b2f;--accent-hover:#c22d22;--accent-active:#a5251b;--accent-glow:rgba(227,59,47,0.12);
-  --accent-light:#f0665c;--accent-dark:#8f1f16;
-  --gemini-gradient:linear-gradient(135deg,#e33b2f,#b3261c);
-  --gemini-gradient-subtle:linear-gradient(135deg,rgba(227,59,47,0.9),rgba(179,38,28,0.45));
-  --red:#e33b2f;--red-hover:#c22d22;--green:#2f7d4f;--green-hover:#256a41;
+  --card:#f4f1e9;--card-hover:#f7f4ec;--card-active:#fbf9f3;
+  --border:var(--rule);--border-light:var(--ink);--border-focus:rgba(217,54,43,0.55);
+  --text:#171715;--text-secondary:#55534c;--text-muted:#77746c;--text-dim:#a5a196;
+  --accent:#d9362b;--accent-hover:#bc2c22;--accent-active:#a1251c;--accent-glow:rgba(217,54,43,0.12);
+  --accent-light:#ef665c;--accent-dark:#8f1f16;
+  --gemini-gradient:linear-gradient(135deg,#d9362b,#b3261c);
+  --gemini-gradient-subtle:linear-gradient(135deg,rgba(217,54,43,0.9),rgba(179,38,28,0.45));
+  --red:#d9362b;--red-hover:#bc2c22;--green:#2f7d4f;--green-hover:#256a41;
   --r:0px;--r2:0px;--r3:0px;--r4:0px;--r5:0px;
-  --glass-bg:rgba(255,253,247,0.96);
-  --glass-border:#171715;
-  --glass-hi:transparent;
-  --glass-blur:0px;
+  --glass-bg:#eeeae0;--glass-border:#171715;--glass-hi:transparent;--glass-blur:0px;
   --shadow:none;--shadow-lg:none;--shadow-sm:none;
   --shadow-card:none;--shadow-hover:none;--shadow-elevated:none;
   --hover:rgba(23,23,21,0.05);--hover-strong:rgba(23,23,21,0.09);
 }
 
-/* ── 2. 纸张底色，去掉玻璃光斑 ── */
-html[data-style="editorial"]{background:#f3f0e8}
+/* ── 2. 全局基底:纸张、油墨、去玻璃光斑 ── */
+html[data-style="editorial"]{background:var(--paper)}
+html[data-style="editorial"] body{
+  font-family:var(--ed-sans);
+  background:transparent;color:var(--ink);
+}
 html[data-style="editorial"] body::before,
 html[data-style="editorial"] body::after{display:none}
+html[data-style="editorial"] a{color:inherit}
 
-/* ── 3. 衬线标题字体（报刊刊头感）── */
-html[data-style="editorial"] .topnav-title,
-html[data-style="editorial"] .auth-logo,
-html[data-style="editorial"] .detail-name{
-  font-family:Georgia,'Times New Roman','Noto Serif SC','Source Han Serif SC','SimSun',serif;
-  font-weight:900;letter-spacing:-0.04em;
+/* micro 元信息字体规范 */
+html[data-style="editorial"] .ed-micro{
+  font-size:9px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;
 }
-html[data-style="editorial"] .topnav-title::after{content:".";color:var(--red)}
 
-/* ── 4. 顶栏：实底纸张 + 黑色细线 ── */
+/* ── 3. 宽幅版面(1440 / 56px 边距)── */
+html[data-style="editorial"] .desktop-wrap{
+  max-width:1440px;margin:0 auto;
+  padding:0 56px;width:100%;
+}
+html[data-style="editorial"] .layout{max-width:none}
+html[data-style="editorial"] .topnav-inner{
+  max-width:1440px;margin:0 auto;padding:0 56px;
+}
+
+/* ── 4. 顶部细线条 ── */
+html[data-style="editorial"] .ed-strip{
+  height:34px;border-bottom:1px solid var(--ink);
+  display:flex;align-items:center;justify-content:space-between;
+  color:var(--ed-muted);
+  max-width:1440px;margin:0 auto;padding:0 56px;width:100%;
+}
+html[data-style="editorial"] .ed-strip b{color:var(--ed-red)}
+
+/* ── 5. 顶栏:三段式报头 ── */
 html[data-style="editorial"] .topnav{
-  background:#f3f0e8;
+  background:var(--paper);
   backdrop-filter:none;-webkit-backdrop-filter:none;
-  border-bottom:1px solid #171715;
-  box-shadow:none;
+  border-bottom:1px solid var(--ink);box-shadow:none;
 }
 html[data-style="editorial"] .topnav-logo{
-  background:#171715;border-radius:0;
-  box-shadow:none;color:#fffdf7;
-}
-html[data-style="editorial"] .topnav-login{
-  border-radius:0;border:1px solid #171715;
-  background:var(--accent);color:#fffdf7;
-}
-
-/* ── 5. 帖子卡片：白纸卡片 + 黑框直角 ── */
-html[data-style="editorial"] .post{
-  background:var(--card);
-  border:1px solid #171715;border-radius:0;
+  background:transparent;border-radius:0;color:var(--ink);
+  font-family:var(--ed-sans);font-weight:950;
+  font-size:29px;letter-spacing:-.12em;width:auto;height:auto;
   box-shadow:none;
-  transition:border-color 0.2s var(--ease);
 }
-html[data-style="editorial"] .post:hover{border-color:var(--red)}
-html[data-style="editorial"] .post-tag,
-html[data-style="editorial"] .post-ann-badge{border-radius:0}
+html[data-style="editorial"] .topnav-logo::after{content:".";color:var(--ed-red)}
+html[data-style="editorial"] .topnav-title{
+  display:none;
+}
+html[data-style="editorial"] .compose-tool{
+  border-radius:0;background:transparent;border:none;
+}
+html[data-style="editorial"] .compose-tool:hover{background:var(--hover)}
+html[data-style="editorial"] .topnav-login{
+  border-radius:0;background:transparent;color:var(--ink);
+  border-bottom:1px solid var(--ink);padding:5px 2px;font-size:10px;
+  letter-spacing:.12em;text-transform:uppercase;font-weight:700;
+}
+html[data-style="editorial"] .topnav .post-avatar{border-radius:0;border:1px solid var(--ink)}
 
-/* 头像：方形，印刷图版感 */
-html[data-style="editorial"] .post-avatar,
-html[data-style="editorial"] .comment-avatar,
-html[data-style="editorial"] .detail-avatar,
-html[data-style="editorial"] .compose-avatar{
-  border-radius:0;border:1px solid #171715;
+/* ── 6. 侧栏:杂志书脊 ── */
+html[data-style="editorial"] .sidebar{
+  background:transparent;border-right:1px solid var(--rule);
+  backdrop-filter:none;-webkit-backdrop-filter:none;
+}
+html[data-style="editorial"] .sidebar-btn{border-radius:0;color:var(--text-secondary)}
+html[data-style="editorial"] .sidebar-btn.on{
+  color:var(--ed-red);background:transparent;
+  box-shadow:inset 2px 0 0 var(--ed-red);
+}
+html[data-style="editorial"] .sidebar-compose{
+  border-radius:0;border:1px solid var(--ink);
+  background:var(--accent);color:#f4f1e9;
 }
 
-/* 话题 / 提及：红色标记 */
-html[data-style="editorial"] .hashtag,
-html[data-style="editorial"] .mention{color:var(--red)}
-
-/* 引用卡：细线框 */
-html[data-style="editorial"] .quote-card{
-  border:1px solid #c9c5ba;border-left:3px solid var(--red);
-  border-radius:0;background:#faf8f1;
+/* ── 7. HERO:7:5 构图 ── */
+html[data-style="editorial"] .ed-hero{
+  padding:58px 0 50px;border-bottom:1px solid var(--ink);
+  display:grid;grid-template-columns:7fr 5fr;gap:24px;min-height:570px;
+}
+html[data-style="editorial"] .ed-kicker{
+  color:var(--ed-red);display:flex;align-items:center;gap:12px;
+}
+html[data-style="editorial"] .ed-kicker::before{
+  content:"";height:1px;width:28px;background:var(--ed-red);
+}
+html[data-style="editorial"] .ed-title{
+  font-size:clamp(76px,11.5vw,166px);
+  letter-spacing:-.105em;line-height:.77;margin:42px 0 28px;
+  font-weight:950;text-transform:uppercase;color:var(--ink);
+}
+html[data-style="editorial"] .ed-outline{
+  color:transparent;-webkit-text-stroke:1.5px var(--ink);
+}
+html[data-style="editorial"] .ed-italic{
+  font-family:var(--ed-serif);font-style:italic;font-weight:400;
+  letter-spacing:-.11em;text-transform:none;
+}
+html[data-style="editorial"] .ed-hero-foot{
+  display:grid;grid-template-columns:80px minmax(180px,390px);gap:22px;
+  align-items:start;margin-top:35px;
+}
+html[data-style="editorial"] .ed-asterisk{
+  font-size:65px;color:var(--ed-red);line-height:.8;
+}
+html[data-style="editorial"] .ed-hero-foot p{
+  font-family:var(--ed-serif);font-size:18px;line-height:1.55;margin:0;
+}
+html[data-style="editorial"] .ed-hero-right{
+  display:grid;grid-template-rows:auto 1fr auto;gap:15px;padding-top:4px;
+}
+html[data-style="editorial"] .ed-issue-line{
+  display:flex;justify-content:space-between;
+  border-top:1px solid var(--ink);padding-top:9px;color:var(--ink);
+}
+html[data-style="editorial"] .ed-issue-line.bottom{align-self:end}
+html[data-style="editorial"] .ed-cover-art{
+  position:relative;min-height:355px;background:var(--ed-red);overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+}
+html[data-style="editorial"] .ed-cover-big{
+  font-size:clamp(70px,10vw,140px);font-weight:950;letter-spacing:-.13em;
+  color:var(--paper);z-index:2;
+}
+html[data-style="editorial"] .ed-ring{
+  position:absolute;width:76%;aspect-ratio:1;
+  border:1px solid rgba(23,23,21,.75);border-radius:50%;
+  transform:scaleY(.7) rotate(-28deg);
+}
+html[data-style="editorial"] .ed-ring.two{width:54%;transform:scaleY(.7) rotate(30deg)}
+html[data-style="editorial"] .ed-cross{
+  position:absolute;width:150%;height:1px;
+  background:rgba(23,23,21,.65);transform:rotate(-35deg);
+}
+html[data-style="editorial"] .ed-cover-caption{
+  position:absolute;bottom:17px;right:17px;z-index:3;color:var(--paper);
 }
 
-/* ── 6. 信息流标签：报纸分栏下划线式 ── */
+/* ── 8. 栏目引言 + 档案工具条 ── */
+html[data-style="editorial"] .ed-section-intro{
+  display:flex;justify-content:space-between;align-items:flex-end;
+  padding:25px 0 18px;border-bottom:1px solid var(--ink);
+}
+html[data-style="editorial"] .ed-section-intro h2{
+  font-size:11px;letter-spacing:.17em;text-transform:uppercase;margin:0;font-weight:700;
+}
+html[data-style="editorial"] .ed-serif-italic{
+  font-family:var(--ed-serif);font-style:italic;font-size:15px;
+  color:var(--ed-muted);margin:0;
+}
+html[data-style="editorial"] .ed-archive-tools{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:18px 0 28px;
+}
+html[data-style="editorial"] .ed-count{color:var(--ed-muted)}
+
+/* feed-header(默认模式是粘性玻璃条;编辑部改为静态) */
+html[data-style="editorial"] .feed-header{
+  position:static;background:transparent;
+  backdrop-filter:none;-webkit-backdrop-filter:none;border:none;
+}
+html[data-style="editorial"] .feed-tabs.ed-filters{
+  display:flex;gap:7px;background:transparent;padding:0;border:none;
+}
 html[data-style="editorial"] .feed-tab{
-  background:transparent;border-radius:0;
-  border:none;box-shadow:none;
+  border:1px solid var(--rule);background:none;padding:8px 13px;
+  border-radius:0;font-size:9px;letter-spacing:.12em;
+  color:var(--ink);font-weight:700;
 }
-html[data-style="editorial"] .feed-tab.on{
-  color:var(--red);font-weight:700;
-  box-shadow:inset 0 -2px 0 var(--red);
-  background:transparent;
+html[data-style="editorial"] .feed-tab.on,
+html[data-style="editorial"] .feed-tab:hover{
+  background:var(--ink);border-color:var(--ink);color:var(--paper);
 }
 
-/* ── 7. 分段选择器（设置页等）：方形黑框 ── */
-html[data-style="editorial"] .seg-bar{
-  background:transparent;border:1px solid #171715;border-radius:0;
-  padding:0;gap:0;
-}
-html[data-style="editorial"] .seg{
-  border-radius:0;background:transparent;color:var(--text-secondary);
-}
-html[data-style="editorial"] .seg.on{
-  background:#171715;color:#fffdf7;
-}
-html[data-style="editorial"] .theme-color-dot{border-radius:0}
-
-/* ── 8. 输入框 / 文本域：纸面白底 + 细线 ── */
-html[data-style="editorial"] input,
-html[data-style="editorial"] textarea{
-  background:#fffdf7;border:1px solid #c9c5ba;border-radius:0;
-}
-html[data-style="editorial"] input:focus,
-html[data-style="editorial"] textarea:focus{border-color:#171715}
-
-/* ── 9. 发布栏 ── */
+/* ── 9. 发布栏:纸面黑框 ── */
 html[data-style="editorial"] .compose-bar{
-  background:var(--card);border:1px solid #171715;border-radius:0;box-shadow:none;
+  background:var(--card);border:1px solid var(--ink);border-radius:0;
+  box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;
+  margin-bottom:38px;
+}
+html[data-style="editorial"] .compose-input,
+html[data-style="editorial"] .compose-textarea{
+  background:transparent;border:none;
 }
 html[data-style="editorial"] .compose-submit{
-  border-radius:0;border:1px solid #171715;
+  border-radius:0;border:1px solid var(--ink);
+  background:var(--accent);color:#f4f1e9;font-weight:700;
 }
 
-/* ── 10. 弹层：公告 / 登录 / 通用 modal ── */
-html[data-style="editorial"] .ann-card,
-html[data-style="editorial"] .auth-modal,
-html[data-style="editorial"] .post-menu,
-html[data-style="editorial"] .detail-menu,
-html[data-style="editorial"] .dm-context-menu{
-  background:#fffdf7;border:1px solid #171715;border-radius:0;box-shadow:none;
+/* ── 10. 文章网格:12 列非对称 ── */
+html[data-style="editorial"] .ed-grid{
+  display:grid;grid-template-columns:repeat(12,1fr);
+  gap:42px 22px;padding-bottom:0;
 }
-html[data-style="editorial"] .post-menu button:hover,
-html[data-style="editorial"] .detail-menu button:hover{background:rgba(23,23,21,0.05)}
-html[data-style="editorial"] .auth-btn{border-radius:0;border:1px solid #171715}
-html[data-style="editorial"] .auth-input{border-radius:0}
+html[data-style="editorial"] .ed-grid .post{
+  background:transparent;border:none;border-radius:0;
+  backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none;
+  padding:0;margin:0;min-width:0;cursor:pointer;
+  transition:none;transform:none !important;
+}
+/* 五篇一循环:头版 7 列 → 错位 4 列 → 4+4+4 */
+html[data-style="editorial"] .ed-grid .post:nth-child(5n+1){grid-column:1 / span 7}
+html[data-style="editorial"] .ed-grid .post:nth-child(5n+2){grid-column:9 / span 4;margin-top:105px}
+html[data-style="editorial"] .ed-grid .post:nth-child(5n+3){grid-column:1 / span 4;margin-top:0}
+html[data-style="editorial"] .ed-grid .post:nth-child(5n+4){grid-column:5 / span 4;margin-top:58px}
+html[data-style="editorial"] .ed-grid .post:nth-child(5n+5){grid-column:9 / span 4;margin-top:8px}
 
-/* ── 11. 帖子详情页 ── */
+/* ── 11. 抽象排版封面 ── */
+html[data-style="editorial"] .ed-cover{
+  height:250px;position:relative;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  background:#d5d0c4;margin-bottom:0;
+}
+html[data-style="editorial"] .ed-grid .post:nth-child(5n+1) .ed-cover{height:385px;background:#d9d3c7}
+html[data-style="editorial"] .ed-grid .post:nth-child(5n+2) .ed-cover{height:310px;background:#22221f}
+html[data-style="editorial"] .ed-grid .post:nth-child(5n+3) .ed-cover{background:#c9d0c6}
+html[data-style="editorial"] .ed-grid .post:nth-child(5n+4) .ed-cover{background:#e3c5b6}
+html[data-style="editorial"] .ed-grid .post:nth-child(5n+5) .ed-cover{background:#d4cfe0}
+html[data-style="editorial"] .ed-cover-ann{background:var(--ed-red) !important}
+html[data-style="editorial"] .ed-cover::after{
+  content:"";position:absolute;inset:13px;
+  border:1px solid rgba(23,23,21,.48);pointer-events:none;
+}
+html[data-style="editorial"] .ed-grid .post:nth-child(5n+2) .ed-cover::after{border-color:rgba(238,234,224,.4)}
+html[data-style="editorial"] .ed-cover-ann::after{border-color:rgba(238,234,224,.55)}
+html[data-style="editorial"] .ed-fig{position:absolute;top:24px;left:25px;z-index:2;color:var(--ink)}
+html[data-style="editorial"] .ed-cover-ann .ed-fig{color:var(--paper)}
+html[data-style="editorial"] .ed-cover-word{
+  font-family:var(--ed-serif);font-style:italic;
+  font-size:clamp(38px,4.6vw,68px);line-height:.85;letter-spacing:-.06em;
+  text-align:center;z-index:1;color:var(--ink);padding:0 30px;
+}
+html[data-style="editorial"] .ed-grid .post:nth-child(5n+2) .ed-cover-word,
+html[data-style="editorial"] .ed-cover-ann .ed-cover-word{
+  font-family:var(--ed-sans);font-style:normal;font-weight:950;
+  letter-spacing:-.1em;color:var(--paper);
+}
+html[data-style="editorial"] .ed-mark{
+  position:absolute;bottom:22px;right:24px;z-index:2;color:var(--ink);
+}
+html[data-style="editorial"] .ed-grid .post:nth-child(5n+2) .ed-mark,
+html[data-style="editorial"] .ed-cover-ann .ed-mark{color:var(--paper)}
+
+/* ── 12. 卡片内文:meta → 衬线标题 → 摘要 → 箭头 ── */
+html[data-style="editorial"] .ed-grid .post-avatar{display:none}
+html[data-style="editorial"] .ed-grid .post-head{
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  margin:15px 0 10px;color:var(--ed-muted);
+  font-size:9px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;
+}
+html[data-style="editorial"] .ed-grid .post-handle,
+html[data-style="editorial"] .ed-grid .post-dot{display:none}
+html[data-style="editorial"] .ed-grid .post-author{color:var(--ed-muted)}
+html[data-style="editorial"] .ed-grid .post-author:hover{color:var(--ed-red)}
+html[data-style="editorial"] .ed-grid .post-ann-badge{color:var(--ed-red)}
+html[data-style="editorial"] .ed-grid .follow-inline-btn{
+  border:1px solid var(--rule);border-radius:0;background:none;
+  color:var(--ink);font-size:9px;letter-spacing:.12em;padding:3px 8px;
+}
+html[data-style="editorial"] .ed-grid .post-content{
+  font-family:var(--ed-serif);
+  font-size:clamp(21px,2.4vw,30px);
+  line-height:1.22;letter-spacing:-.03em;font-weight:400;color:var(--ink);
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
+  max-width:600px;
+}
+html[data-style="editorial"] .ed-grid .post-content .hashtag,
+html[data-style="editorial"] .ed-grid .post-content .mention{color:var(--ed-red)}
+html[data-style="editorial"] .ed-grid .quote-card{
+  border:1px solid var(--rule);border-left:3px solid var(--ed-red);
+  border-radius:0;background:transparent;
+}
+html[data-style="editorial"] .ed-grid .post-actions{
+  border-top:1px solid var(--rule);margin-top:13px;padding-top:8px;
+}
+html[data-style="editorial"] .ed-grid .post-action{
+  color:var(--ed-muted);border-radius:0;
+}
+html[data-style="editorial"] .ed-grid .post-action:hover{background:var(--hover);color:var(--ink)}
+html[data-style="editorial"] .ed-grid .post-action.liked{color:var(--ed-red)}
+html[data-style="editorial"] .ed-grid .post-menu{
+  background:#f4f1e9;border:1px solid var(--ink);border-radius:0;box-shadow:none;
+}
+html[data-style="editorial"] .ed-grid .post-menu button:hover{background:var(--hover)}
+html[data-style="editorial"] .ed-grid .repost-indicator{
+  color:var(--ed-muted);font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+  border-bottom:1px solid var(--rule);padding-bottom:8px;margin-bottom:10px;
+}
+
+/* 空状态 / 加载更多 */
+html[data-style="editorial"] .empty-state-btn{
+  border:1px solid var(--ink);border-radius:0;background:none;color:var(--ink);
+}
+html[data-style="editorial"] .ed-load-more{
+  text-align:center;padding:28px 0 0;color:var(--ed-muted);
+}
+
+/* ── 13. 宣言(黑色满幅)+ 关于 + 页脚 ── */
+html[data-style="editorial"] .ed-interlude{
+  background:var(--ink);color:var(--paper);
+  padding:58px 0 65px;margin-top:95px;
+}
+html[data-style="editorial"] .ed-interlude-inner{
+  display:grid;grid-template-columns:3fr 9fr;gap:5vw;
+}
+html[data-style="editorial"] .ed-label{color:#ef665c}
+html[data-style="editorial"] .ed-interlude-sub{margin-top:12px;color:var(--paper)}
+html[data-style="editorial"] .ed-quote{
+  font-family:var(--ed-serif);
+  font-size:clamp(30px,4.7vw,64px);line-height:1.17;letter-spacing:-.055em;
+  margin:0;max-width:950px;
+}
+html[data-style="editorial"] .ed-quote em{color:#ef665c}
+html[data-style="editorial"] .ed-about-row{
+  display:grid;grid-template-columns:1fr 2fr;gap:30px;
+  padding:60px 0;border-bottom:1px solid var(--ink);
+}
+html[data-style="editorial"] .ed-about-row h2{margin:0}
+html[data-style="editorial"] .ed-about-row p{
+  font-family:var(--ed-serif);font-size:22px;line-height:1.55;
+  max-width:680px;margin:0;
+}
+html[data-style="editorial"] .ed-footer{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:25px 0 36px;color:var(--ed-muted);
+}
+html[data-style="editorial"] .ed-footer-logo{
+  font-size:24px;font-weight:950;letter-spacing:-.12em;color:var(--ink);
+}
+html[data-style="editorial"] .ed-footer-logo i{font-style:normal;color:var(--ed-red)}
+
+/* ── 14. 文章详情页:阅读视图 ── */
 html[data-style="editorial"] .detail{
-  background:var(--card);border:1px solid #171715;border-radius:0;box-shadow:none;
+  background:transparent;border:none;border-radius:0;box-shadow:none;
+  backdrop-filter:none;-webkit-backdrop-filter:none;
+  max-width:850px;margin:0 auto;width:100%;
+  padding:56px 0 110px;
+}
+html[data-style="editorial"] .detail-top{border-bottom:1px solid var(--ink)}
+html[data-style="editorial"] .detail-back{border-radius:0}
+html[data-style="editorial"] .detail-top-title{
+  font-family:var(--ed-sans);font-size:10px;letter-spacing:.16em;
+  text-transform:uppercase;font-weight:700;color:var(--ed-muted);
 }
 html[data-style="editorial"] .detail-body{
-  font-size:1.07em;line-height:1.85;
+  font-family:var(--ed-serif);
+  font-size:19px;line-height:1.95;max-width:680px;
+  color:var(--ink);
 }
+html[data-style="editorial"] .detail-body .hashtag,
+html[data-style="editorial"] .detail-body .mention{color:var(--ed-red)}
+html[data-style="editorial"] .detail-quote{
+  border:1px solid var(--rule);border-left:3px solid var(--ed-red);
+  border-radius:0;background:transparent;
+}
+html[data-style="editorial"] .detail-actions{border-top:1px solid var(--rule)}
+html[data-style="editorial"] .detail-action{border-radius:0;color:var(--ed-muted)}
+html[data-style="editorial"] .cmt-section{border-top:1px solid var(--ink)}
+html[data-style="editorial"] .cmt-textarea,
+html[data-style="editorial"] .cmt-input-area,
+html[data-style="editorial"] .cmt-send{border-radius:0}
 
-/* ── 12. 私信 / 群聊 ── */
-html[data-style="editorial"] .dm-chat,
-html[data-style="editorial"] .dm-chat-input,
-html[data-style="editorial"] .group-chat,
-html[data-style="editorial"] .group-chat-input{
-  border-radius:0;
+/* ── 15. 弹层通用(登录/公告/菜单)── */
+html[data-style="editorial"] .auth-modal,
+html[data-style="editorial"] .ann-card{
+  background:#f4f1e9;border:1px solid var(--ink);border-radius:0;box-shadow:none;
 }
-html[data-style="editorial"] .dm-chat-top{
-  border-bottom:1px solid #171715;
-  background:#f3f0e8;backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none;
+html[data-style="editorial"] .auth-btn{
+  border-radius:0;border:1px solid var(--ink);
+  background:var(--accent);color:#f4f1e9;font-weight:700;
 }
+html[data-style="editorial"] .auth-input{border-radius:0;background:#fffdf7;border:1px solid var(--rule)}
+html[data-style="editorial"] .auth-logo{color:var(--ink)}
 
-/* ── 13. 底部导航（移动端）：纸面 + 黑色上边线 ── */
+/* ── 16. 移动端底栏 / Toast / 滚动条 ── */
 html[data-style="editorial"] .bnav{
-  background:#f3f0e8;border-top:1px solid #171715;
+  background:var(--paper);border-top:1px solid var(--ink);
   backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none;
 }
+html[data-style="editorial"] .bnav-btn{border-radius:0;color:var(--text-secondary)}
+html[data-style="editorial"] .bnav-btn.on{color:var(--ed-red)}
 html[data-style="editorial"] .bnav-compose{
-  border-radius:0;background:var(--accent);border:1px solid #171715;
+  border-radius:0;background:var(--accent);border:1px solid var(--ink);color:#f4f1e9;
 }
-
-/* ── 14. 侧边栏（桌面端）── */
-html[data-style="editorial"] .sidebar-btn{border-radius:0}
-html[data-style="editorial"] .sidebar-btn.on{box-shadow:inset 2px 0 0 var(--red)}
-html[data-style="editorial"] .sidebar-compose{
-  border-radius:0;border:1px solid #171715;background:var(--accent);color:#fffdf7;
-}
-
-/* ── 15. 设置页 / 通用分区 ── */
-html[data-style="editorial"] .settings-section,
-html[data-style="editorial"] .settings-row{
-  border-radius:0;
-}
-html[data-style="editorial"] .settings-section-title{
-  font-family:Georgia,'Times New Roman','Noto Serif SC','SimSun',serif;
-  font-weight:900;letter-spacing:0.12em;text-transform:uppercase;
-}
-
-/* ── 16. 滚动条与 Toast ── */
-html[data-style="editorial"] ::-webkit-scrollbar-thumb{background:#c9c5ba;border-radius:0}
 html[data-style="editorial"] .app-toast{
-  background:#171715;border:1px solid #171715;border-radius:0;
-  font-family:Inter,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;
-  backdrop-filter:none;-webkit-backdrop-filter:none;
+  background:var(--ink);border:1px solid var(--ink);border-radius:0;
+  font-family:var(--ed-sans);backdrop-filter:none;-webkit-backdrop-filter:none;
+}
+html[data-style="editorial"] ::-webkit-scrollbar-thumb{background:var(--rule);border-radius:0}
+
+/* ── 17. 设置页(编辑部下保持可读)── */
+html[data-style="editorial"] .settings-page{max-width:850px}
+html[data-style="editorial"] .settings-section,
+html[data-style="editorial"] .settings-row{border-radius:0}
+html[data-style="editorial"] .settings-section-title{
+  font-family:var(--ed-sans);font-size:10px;letter-spacing:.16em;
+  text-transform:uppercase;font-weight:700;
+}
+html[data-style="editorial"] .seg-bar{background:transparent;border:1px solid var(--ink);border-radius:0;gap:0;padding:0}
+html[data-style="editorial"] .seg{border-radius:0;background:transparent;color:var(--text-secondary)}
+html[data-style="editorial"] .seg.on{background:var(--ink);color:var(--paper)}
+html[data-style="editorial"] .theme-color-dot{border-radius:0}
+
+/* ── 18. 移动端适配(<761px)── */
+@media(max-width:760px){
+  html[data-style="editorial"] .desktop-wrap,
+  html[data-style="editorial"] .topnav-inner{padding:0 19px}
+  html[data-style="editorial"] .ed-strip{padding:0 19px}
+
+  html[data-style="editorial"] .ed-hero{
+    grid-template-columns:1fr;padding:43px 0 35px;min-height:0;gap:0;
+  }
+  html[data-style="editorial"] .ed-title{font-size:clamp(64px,17vw,120px);margin:34px 0 20px}
+  html[data-style="editorial"] .ed-hero-right{min-height:270px;margin-top:28px}
+  html[data-style="editorial"] .ed-cover-art{min-height:220px}
+  html[data-style="editorial"] .ed-hero-foot{grid-template-columns:48px 1fr;gap:16px}
+  html[data-style="editorial"] .ed-asterisk{font-size:46px}
+  html[data-style="editorial"] .ed-hero-foot p{font-size:16px}
+  html[data-style="editorial"] .ed-serif-italic{display:none}
+
+  html[data-style="editorial"] .ed-archive-tools{
+    flex-direction:column;align-items:flex-start;gap:12px;
+  }
+  html[data-style="editorial"] .ed-grid{display:block;padding-bottom:0}
+  html[data-style="editorial"] .ed-grid .post{
+    margin:0 0 38px !important;display:block;
+  }
+  html[data-style="editorial"] .ed-grid .post .ed-cover,
+  html[data-style="editorial"] .ed-grid .post:nth-child(5n+1) .ed-cover,
+  html[data-style="editorial"] .ed-grid .post:nth-child(5n+2) .ed-cover{height:245px}
+  html[data-style="editorial"] .ed-cover-word{font-size:44px}
+
+  html[data-style="editorial"] .ed-interlude{padding:42px 0;margin-top:56px}
+  html[data-style="editorial"] .ed-interlude-inner{grid-template-columns:1fr;gap:25px}
+  html[data-style="editorial"] .ed-about-row{grid-template-columns:1fr;gap:18px;padding:40px 0}
+  html[data-style="editorial"] .ed-about-row p{font-size:19px}
+  html[data-style="editorial"] .ed-footer{flex-wrap:wrap;gap:15px}
+  html[data-style="editorial"] .ed-footer .ed-micro:last-child{width:100%}
+}
+
+/* 桌面端侧栏隐藏时的中间态(760-1000px):网格降为 6 列节奏 */
+@media(min-width:761px) and (max-width:1080px){
+  html[data-style="editorial"] .ed-grid{gap:32px 16px}
+  html[data-style="editorial"] .ed-grid .post:nth-child(5n+1){grid-column:1 / span 12}
+  html[data-style="editorial"] .ed-grid .post:nth-child(5n+2){grid-column:1 / span 6;margin-top:0}
+  html[data-style="editorial"] .ed-grid .post:nth-child(5n+3){grid-column:7 / span 6;margin-top:58px}
+  html[data-style="editorial"] .ed-grid .post:nth-child(5n+4){grid-column:1 / span 6;margin-top:0}
+  html[data-style="editorial"] .ed-grid .post:nth-child(5n+5){grid-column:7 / span 6;margin-top:58px}
 }
