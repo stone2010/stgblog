@@ -50,6 +50,7 @@ const PostCard = memo(function PostCard({ post, onSelect, onLike, onShare, onRep
           <span className="post-handle">@{displayPost.author}</span>
           <span className="post-dot">·</span>
           <span className="post-time">{formatTimeShort(displayPost.created_at)}</span>
+          {displayPost.is_announcement && <span className="post-ann-badge">📢 公告</span>}
           {displayPost.pinned && <span className="post-pin-icon"><Icons.Pin /></span>}
           {displayPost.edited && <span className="post-edited-tag">已编辑</span>}
           {user && displayPost.author !== user.username && !followingSet.has(displayPost.author) && (

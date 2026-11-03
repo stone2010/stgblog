@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "./supabase";
-import { hasLiked, hasViewed, saveLiked, saveViewed, toggleBookmark, getTheme, setTheme as applyTheme } from "./utils";
+import { hasLiked, hasViewed, saveLiked, saveViewed, toggleBookmark, isAdmin } from "./utils";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { useNotifications } from "./hooks/useNotifications";
 import { useDM } from "./hooks/useDM";
@@ -15,6 +15,7 @@ import DmListPage from "./components/DmListPage";
 import DmChatPage from "./components/DmChatPage";
 import ProfilePage from "./components/ProfilePage";
 import ProfileViewPage from "./components/ProfileViewPage";
+import SettingsPage from "./components/SettingsPage";
 import FollowersPage from "./components/FollowersPage";
 import NewDmModal from "./components/NewDmModal";
 import GroupListPage from "./components/GroupListPage";
@@ -26,9 +27,10 @@ import RepostModal from "./components/RepostModal";
 import EditPostModal from "./components/EditPostModal";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Onboarding from "./components/Onboarding";
+import AnnouncementModal from "./components/AnnouncementModal";
 
 function AppInner() {
-  const { user, followingSet, keyPair, uiTheme, setUiTheme } = useAuth();
+  const { user, followingSet, keyPair, colorMode, setColorMode } = useAuth();
 
   // Posts
   const [posts, setPosts] = useState([]);
@@ -36,6 +38,7 @@ function AppInner() {
   const [tab, setTab] = useState("最新");
   const [searchKey, setSearchKey] = useState("");
   const [composeText, setComposeText] = useState("");
+  const [composeAnnouncement, setComposeAnnouncement] = useState(false);
 
   // Navigation
   const [page, setPage] = useState("home");
@@ -53,52 +56,19 @@ function AppInner() {
     try { return localStorage.getItem("stgblog_onboarding_shown") === "true"; } catch { return false; }
   });
 
-  // UI Theme
+  // UI Theme（由 AuthContext 统一管理颜色模式/玻璃效果/字号；这里只保留旧版 Aurora 兼容）
   useEffect(() => {
-    if (uiTheme === "aurora") {
-      document.documentElement.classList.add("theme-aurora");
-    } else {
-      document.documentElement.classList.remove("theme-aurora");
-    }
-  }, [uiTheme]);
+    try { if (localStorage.getItem("stgblog_theme") === "aurora") document.documentElement.classList.add("theme-aurora"); } catch {}
+  }, []);
 
-  // ─── 键盘快捷键 ───
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      // Ctrl+Enter 发送帖子
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-        e.preventDefault();
-        const textarea = composeRef.current;
-        if (textarea && composeText.trim()) {
-          textarea.focus();
-          handlePublish();
-        }
-      }
-      // Ctrl+K 打开搜索
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
-        e.preventDefault();
-        setPage("search");
-      }
-      // Esc 关闭模态框
-      if (e.key === "Escape") {
-        setAuthOpen(false);
-        setNewDmOpen(false);
-        setRepostModal(null);
-        setEditPostModal(null);
-        setCreateGroupOpen(false);
-        setJoinGroupOpen(false);
-        setGroupSettingsOpen(false);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [composeText, handlePublish]);
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
   const [joinGroupOpen, setJoinGroupOpen] = useState(false);
   const [groupSettingsOpen, setGroupSettingsOpen] = useState(false);
 
-  // Theme
-  const [theme, setThemeState] = useState(getTheme);
+  // Theme（颜色模式来自 AuthContext，全局生效）
+  const toggleTheme = useCallback(() => {
+    setColorMode((c) => (c === "dark" ? "light" : "dark"));
+  }, [setColorMode]);
 
   // PWA
   const [installPrompt, setInstallPrompt] = useState(null);
@@ -113,14 +83,8 @@ function AppInner() {
 
   // Hooks
   const { notifications, unreadCount, markAllRead, markOneRead } = useNotifications(user?.username);
-  const { dmList, dmTarget, dmMessages, dmSending, dmUnreadCount, dmLive, loadDmList, loadMoreDmMessages, sendDm, openDm, closeDm, markAsRead, setDmTarget, togglePin, deleteConversation, setNickname } = useDM(user, keyPair);
+  const { dmList, dmTarget, dmMessages, dmSending, dmUnreadCount, dmLive, loadDmList, loadMoreDmMessages, sendDm, openDm, closeDm, markAsRead, recallDm, setDmTarget, togglePin, deleteConversation, setNickname } = useDM(user, keyPair);
   const { groups, activeGroup, groupMessages, groupMembers, groupSending, loadGroups, createGroup, joinGroup, shareGroupKey, leaveGroup, loadGroupMessages, loadMoreGroupMessages, sendGroupMessage, getGroupMembers, kickMember, deleteGroup, openGroup, closeGroup, updateGroupName, setMemberRole, transferOwnership } = useGroupChat(user, keyPair);
-
-  // ─── Theme ───
-  useEffect(() => { applyTheme(theme); }, [theme]);
-  const toggleTheme = useCallback(() => {
-    setThemeState((t) => { const next = t === "dark" ? "light" : "dark"; applyTheme(next); return next; });
-  }, []);
 
   // ─── Load posts ───
   const PAGE_SIZE = 30;
@@ -239,7 +203,7 @@ function AppInner() {
     if (p === "dm" && user) loadDmList();
     if (p === "groups" && user) loadGroups();
     closeGroup();
-    setMobileTab(p === "home" ? "home" : p === "dm" ? "dm" : p === "groups" ? "groups" : p === "profile" ? "me" : p === "notifications" ? "notif" : "home");
+    setMobileTab(p === "home" ? "home" : p === "dm" ? "dm" : p === "groups" ? "groups" : (p === "profile" || p === "settings") ? "me" : p === "notifications" ? "notif" : "home");
     window.history.pushState({ page: p }, "", `#${p}`);
   }, [user, loadDmList, setDmTarget, loadGroups, closeGroup]);
 
@@ -340,29 +304,59 @@ function AppInner() {
     setPublishing(true);
     try {
       let post = null;
-      try {
-        const { data, error } = await supabase.rpc("create_post", {
-          p_username: user.username,
-          p_content: content,
-          p_category: "动态",
-        });
-        if (error) throw error;
-        if (data) post = Array.isArray(data) ? data[0] : data;
-      } catch (rpcErr) {
-        console.warn("RPC create_post 失败，回退到直接插入:", rpcErr);
-        const { data, error } = await supabase.from("posts").insert([{
-          title: content.slice(0, 60),
-          content,
-          author: user.username,
-          category: "动态",
-          likes: 0, views: 0, reposts: 0, pinned: false, edited: false,
-        }]).select("*").single();
-        if (error) throw error;
-        post = data;
+      const makeAnnouncement = isAdmin(user) && composeAnnouncement;
+      if (makeAnnouncement) {
+        // 公告走直接插入，带上 is_announcement 标记（create_post RPC 不含该字段）
+        try {
+          const { data, error } = await supabase.from("posts").insert([{
+            title: content.slice(0, 60),
+            content,
+            author: user.username,
+            category: "公告",
+            likes: 0, views: 0, reposts: 0, pinned: false, edited: false,
+            is_announcement: true,
+          }]).select("*").single();
+          if (error) throw error;
+          post = data;
+        } catch (annErr) {
+          console.warn("公告插入失败（可能需要运行 migration_v10_announcement.sql），回退普通发帖:", annErr);
+          const columnName = annErr?.message || "";
+          if (/is_announcement/.test(columnName)) alert("公告标记失败：数据库缺少 is_announcement 字段。\n请在 Supabase SQL 编辑器运行仓库里的 migration_v10_announcement.sql 后重试。");
+          // 回退为普通发帖（与普通路径一致）
+          const { data, error } = await supabase.rpc("create_post", {
+            p_username: user.username,
+            p_content: content,
+            p_category: "动态",
+          });
+          if (error) throw annErr;
+          post = Array.isArray(data) ? data[0] : data;
+        }
+      } else {
+        try {
+          const { data, error } = await supabase.rpc("create_post", {
+            p_username: user.username,
+            p_content: content,
+            p_category: "动态",
+          });
+          if (error) throw error;
+          if (data) post = Array.isArray(data) ? data[0] : data;
+        } catch (rpcErr) {
+          console.warn("RPC create_post 失败，回退到直接插入:", rpcErr);
+          const { data, error } = await supabase.from("posts").insert([{
+            title: content.slice(0, 60),
+            content,
+            author: user.username,
+            category: "动态",
+            likes: 0, views: 0, reposts: 0, pinned: false, edited: false,
+          }]).select("*").single();
+          if (error) throw error;
+          post = data;
+        }
       }
       if (post) {
         setPosts((prev) => [post, ...prev]);
         setComposeText("");
+        setComposeAnnouncement(false);
       }
     } catch (e) {
       console.error("发帖失败:", e);
@@ -370,7 +364,40 @@ function AppInner() {
     } finally {
       setPublishing(false);
     }
-  }, [user, composeText, publishing]);
+  }, [user, composeText, publishing, composeAnnouncement]);
+
+  // ─── 键盘快捷键（Ctrl+Enter 发布 · Ctrl+K 搜索 · Esc 关闭弹层）───
+  // 注意：必须定义在 handlePublish 之后，否则依赖数组会在渲染期触发 TDZ 错误
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ctrl+Enter 发送帖子
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        const textarea = composeRef.current;
+        if (textarea && composeText.trim()) {
+          textarea.focus();
+          handlePublish();
+        }
+      }
+      // Ctrl+K 打开搜索
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        setPage("search");
+      }
+      // Esc 关闭模态框
+      if (e.key === "Escape") {
+        setAuthOpen(false);
+        setNewDmOpen(false);
+        setRepostModal(null);
+        setEditPostModal(null);
+        setCreateGroupOpen(false);
+        setJoinGroupOpen(false);
+        setGroupSettingsOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [composeText, handlePublish]);
 
   const handleDeletePost = useCallback(async (post) => {
     if (!post || !user || post.author !== user.username) return;
@@ -527,7 +554,7 @@ function AppInner() {
   }, [installPrompt]);
 
   const topTitle = () => {
-    if (selectedPost) return "帖子";
+    // 详情页顶部保持品牌名，页头"← 帖子"由详情卡片自身呈现，避免两级标题重复
     if (page === "dm-chat") return dmTarget;
     if (page === "group-chat" && activeGroup) return activeGroup.name;
     if (page === "search") return "搜索";
@@ -536,6 +563,7 @@ function AppInner() {
     if (page === "notifications") return "通知";
     if (page === "profile-view") return viewingProfile;
     if (page === "followers") return followersPage?.type === "followers" ? "粉丝" : "关注";
+    if (page === "settings") return "设置";
     if (page === "profile") return "个人";
     return "STGBLOG";
   };
@@ -551,7 +579,7 @@ function AppInner() {
     if (page === "dm-chat" && dmTarget) return (
       <DmChatPage dmTarget={dmTarget} dmMessages={dmMessages} dmSending={dmSending}
         onSend={sendDm} onBack={() => { closeDm(); setPage("dm"); }} onUserClick={openUserClick} onMarkAsRead={markAsRead}
-        onLoadMore={loadMoreDmMessages} dmLive={dmLive} />
+        onLoadMore={loadMoreDmMessages} dmLive={dmLive} onRecall={recallDm} />
     );
     if (page === "notifications") return <NotificationPage notifications={notifications} onNotifClick={handleNotifClick} onBack={() => navigate("home")} />;
     if (page === "search") return <SearchPage searchKey={searchKey} setSearchKey={setSearchKey} posts={posts} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onBack={() => navigate("home")} />;
@@ -566,8 +594,9 @@ function AppInner() {
         onLoadMore={loadMoreGroupMessages} />
     );
     if (page === "profile-view" && viewingProfile) return <ProfileViewPage viewingProfile={viewingProfile} posts={posts} onBack={() => { setViewingProfile(null); setPage("home"); setMobileTab("home"); }} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} />;
-    if (page === "profile") return <ProfilePage posts={posts} onAuthOpen={() => setAuthOpen(true)} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onFollowersPage={(type) => setFollowersPage({ username: user?.username, type })} onOpenUser={openUserClick} />;
-    return <HomeFeed posts={posts} postsLoading={postsLoading} hasMore={hasMore} loadMorePosts={loadMorePosts} tab={tab} setTab={setTab} searchKey={searchKey} composeText={composeText} setComposeText={setComposeText} onPublish={handlePublish} publishing={publishing} composeRef={composeRef} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onHashtag={handleHashtag} onAuthOpen={() => setAuthOpen(true)} />;
+    if (page === "settings") return <SettingsPage onBack={() => { if (user) { navigate("profile"); } else { navigate("home"); } }} />;
+    if (page === "profile") return <ProfilePage posts={posts} onAuthOpen={() => setAuthOpen(true)} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onFollowersPage={(type) => setFollowersPage({ username: user?.username, type })} onOpenUser={openUserClick} onOpenSettings={() => navigate("settings")} />;
+    return <HomeFeed posts={posts} postsLoading={postsLoading} hasMore={hasMore} loadMorePosts={loadMorePosts} tab={tab} setTab={setTab} searchKey={searchKey} composeText={composeText} setComposeText={setComposeText} onPublish={handlePublish} publishing={publishing} composeRef={composeRef} isAnnouncement={composeAnnouncement} onAnnouncementChange={setComposeAnnouncement} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onHashtag={handleHashtag} onAuthOpen={() => setAuthOpen(true)} />;
   };
 
   return (
@@ -579,9 +608,10 @@ function AppInner() {
             <span className="topnav-title">{topTitle()}</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <button className="compose-tool" onClick={toggleTheme} title="切换主题">
-              {theme === "dark" ? <Icons.ThemeLight /> : <Icons.ThemeDark />}
+            <button className="compose-tool" onClick={toggleTheme} title="切换颜色模式">
+              {colorMode === "dark" ? <Icons.ThemeLight /> : <Icons.ThemeDark />}
             </button>
+            <button className="compose-tool" onClick={() => navigate("settings")} title="设置"><Icons.Settings /></button>
             {canInstall && (
               <button className="compose-tool install-btn-nav" onClick={handleInstall} title="安装到桌面"><Icons.Install /></button>
             )}
@@ -631,7 +661,8 @@ function AppInner() {
           {user && <button className="sidebar-btn" onClick={() => navigate("dm")}><span className="sb-icon"><Icons.Msg /></span>私信{dmUnreadCount > 0 && <span className="sidebar-badge">{dmUnreadCount > 9 ? "9+" : dmUnreadCount}</span>}</button>}
           {user && <button className="sidebar-btn" onClick={() => navigate("groups")}><span className="sb-icon"><Icons.Group /></span>群组</button>}
           {user && <button className="sidebar-btn" onClick={() => navigate("profile")}><span className="sb-icon"><Icons.User /></span>个人</button>}
-          <button className="sidebar-btn" onClick={toggleTheme}><span className="sb-icon">{theme === "dark" ? <Icons.ThemeLight /> : <Icons.ThemeDark />}</span>{theme === "dark" ? "亮色模式" : "暗色模式"}</button>
+          <button className="sidebar-btn" onClick={toggleTheme}><span className="sb-icon">{colorMode === "dark" ? <Icons.ThemeLight /> : <Icons.ThemeDark />}</span>{colorMode === "dark" ? "亮色模式" : "暗色模式"}</button>
+          <button className="sidebar-btn" onClick={() => navigate("settings")}><span className="sb-icon"><Icons.Settings /></span>设置</button>
           {user ? (
             <button className="sidebar-compose" onClick={() => { navigate("home"); setMobileTab("home"); setTimeout(() => composeRef.current?.focus(), 100); }}>发帖</button>
           ) : (
@@ -645,7 +676,7 @@ function AppInner() {
         <div className="dm-overlay">
           <DmChatPage dmTarget={dmTarget} dmMessages={dmMessages} dmSending={dmSending}
             onSend={sendDm} onBack={() => { closeDm(); setPage("dm"); }} onUserClick={openUserClick} onMarkAsRead={markAsRead}
-            onLoadMore={loadMoreDmMessages} dmLive={dmLive} />
+            onLoadMore={loadMoreDmMessages} dmLive={dmLive} onRecall={recallDm} />
         </div>
       )}
 
@@ -680,6 +711,7 @@ function AppInner() {
       )}
 
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
+      <AnnouncementModal user={user} />
       {newDmOpen && <NewDmModal onClose={() => setNewDmOpen(false)} onStartDm={(target) => { setNewDmOpen(false); openDm(target); setPage("dm-chat"); }} />}
       {repostModal && <RepostModal post={repostModal} onRepost={doRepost} onQuote={doQuote} onClose={() => setRepostModal(null)} />}
       {editPostModal && <EditPostModal post={editPostModal} onSave={handleEditPost} onClose={() => setEditPostModal(null)} />}

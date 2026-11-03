@@ -136,7 +136,7 @@ const commentTree = useMemo(() => buildTree(comments), [comments]);
           )
         )}
         <div className="post-menu-wrap" style={{ marginLeft: "auto" }}>
-          <button className="detail-action" onClick={() => setShowMenu(!showMenu)}><Icons.MoreHorizontal /></button>
+          <button className="detail-menu" onClick={() => setShowMenu(!showMenu)}><Icons.MoreHorizontal /></button>
           {showMenu && (
             <div className="post-menu" onClick={(e) => e.stopPropagation()}>
               {user && post.author === user.username && (
@@ -166,6 +166,7 @@ const commentTree = useMemo(() => buildTree(comments), [comments]);
         </div>
       )}
       <div className="detail-time-bar">
+        {post.is_announcement && <span className="post-ann-badge">📢 公告</span>}
         <span>{new Intl.DateTimeFormat("zh-CN", { dateStyle: "full", timeStyle: "short" }).format(new Date(post.created_at))}</span>
         {post.edited && <span style={{ color: "var(--dim)", fontSize: 12 }}>· 已编辑</span>}
       </div>
@@ -182,12 +183,10 @@ const commentTree = useMemo(() => buildTree(comments), [comments]);
           {liked ? <Icons.HeartFill /> : <Icons.Heart />} <span className="pa-count">{post.likes || 0}</span>
         </button>
         <button className="detail-action views-action"><Icons.Views /> <span className="pa-count">{post.views || 0}</span></button>
-        <div style={{marginLeft:"auto",display:"flex",gap:4}}>
-          <button className={`detail-action bookmark-action ${bookmarked ? "bookmarked" : ""}`} onClick={() => onBookmark?.(post)}>
-            {bookmarked ? <Icons.BookmarkFill /> : <Icons.Bookmark />}
-          </button>
-          <button className="detail-action" onClick={() => onShare(post)}><Icons.Share /></button>
-        </div>
+        <button className={`detail-action bookmark-action ${bookmarked ? "bookmarked" : ""}`} onClick={() => onBookmark?.(post)}>
+          {bookmarked ? <Icons.BookmarkFill /> : <Icons.Bookmark />}
+        </button>
+        <button className="detail-action" onClick={() => onShare(post)}><Icons.Share /></button>
       </div>
       <div className="cmt-section">
         {user && (

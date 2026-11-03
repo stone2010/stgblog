@@ -1,3 +1,5 @@
+import { supabase } from "./supabase";
+
 // 生成匿名内部ID
 export function generateHash() {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -210,7 +212,13 @@ export function toggleMute(username) {
   } catch { return false; }
 }
 
-// ─── 主题 ───
+// ─── 管理员判定（公告发布等能力）───
+export const ADMIN_USERNAME = "Stone";
+export function isAdmin(user) {
+  return !!user && user.username === ADMIN_USERNAME;
+}
+
+// ─── 主题（颜色模式：dark / light）───
 export function getTheme() {
   return localStorage.getItem("stgblog_theme") || "dark";
 }

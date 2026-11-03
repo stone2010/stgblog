@@ -4,9 +4,36 @@ import { generateHash } from "../utils";
 import {
   getOrCreateKeyPair, generateKeyPair, createKeyBackup, restoreKeyBackup, parsePubkeyRecord,
 } from "../crypto";
-import { withErrorHandler } from "../utils/errorHandler";
 
 const AuthContext = createContext(null);
+
+// ─── 主题色色板（强调色，全局 CSS 变量生效）───
+export const ACCENT_COLORS = {
+  green:  { label: "翠绿", accent: "#10b981", hover: "#059669", active: "#047857", light: "#34d399", dark: "#065f46" },
+  blue:   { label: "远蓝", accent: "#3b82f6", hover: "#2563eb", active: "#1d4ed8", light: "#60a5fa", dark: "#1e40af" },
+  violet: { label: "星紫", accent: "#8b5cf6", hover: "#7c3aed", active: "#6d28d9", light: "#a78bfa", dark: "#5b21b6" },
+  pink:   { label: "樱粉", accent: "#ec4899", hover: "#db2777", active: "#be185d", light: "#f472b6", dark: "#9d174d" },
+  orange: { label: "暖橙", accent: "#f97316", hover: "#ea580c", active: "#c2410c", light: "#fb923c", dark: "#9a3412" },
+  cyan:   { label: "湖青", accent: "#06b6d4", hover: "#0891b2", active: "#0e7490", light: "#22d3ee", dark: "#155e75" },
+};
+
+function applyAccentColors(key) {
+  const c = ACCENT_COLORS[key];
+  const root = document.documentElement.style;
+  if (!c || key === "green") {
+    // 默认色：清除内联覆盖，交还样式表控制
+    ["--accent", "--accent-hover", "--accent-active", "--accent-light", "--accent-dark", "--accent-glow", "--border-focus"]
+      .forEach((v) => root.removeProperty(v));
+    return;
+  }
+  root.setProperty("--accent", c.accent);
+  root.setProperty("--accent-hover", c.hover);
+  root.setProperty("--accent-active", c.active);
+  root.setProperty("--accent-light", c.light);
+  root.setProperty("--accent-dark", c.dark);
+  root.setProperty("--accent-glow", c.accent + "1a");   // 10% 透明光晕
+  root.setProperty("--border-focus", c.accent + "73");  // 45% 聚焦边框
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
@@ -14,28 +41,70 @@ export function AuthProvider({ children }) {
   });
   const [keyPair, setKeyPair] = useState(null);
   const [followingSet, setFollowingSet] = useState(new Set());
-const [dmPrivacy, setDmPrivacy] = useState("open");
-const [dmKey, setDmKey] = useState(null);
-  const [uiTheme, setUiTheme] = useState(() => {
-    try { return localStorage.getItem("stgblog_ui_theme") || "cipher"; } catch { return "cipher"; }
+  const [dmPrivacy, setDmPrivacy] = useState("open");
+  const [dmKey, setDmKey] = useState(null);
+  // ─── 界面偏好 1：颜色模式（dark=暗夜 / light=浅色），旧版"classic"见下方迁移 ───
+  const [colorMode, setColorMode] = useState(() => {
+    try {
+      const v = localStorage.getItem("stgblog_theme");
+      return v === "light" ? "light" : "dark";
+    } catch { return "dark"; }
   });
 
-  // 保存 UI 主题到 localStorage
   useEffect(() => {
-    localStorage.setItem("stgblog_ui_theme", uiTheme);
-    // 应用到 document
-    const auroraLink = document.getElementById("theme-aurora-css");
-    if (auroraLink) {
-      if (uiTheme === "aurora") {
-        auroraLink.disabled = false;
-        document.documentElement.classList.add("theme-aurora");
-      } else {
-        auroraLink.disabled = true;
-        document.documentElement.classList.remove("theme-aurora");
-      }
-    }
-  }, [uiTheme]);
+    try {
+      if (colorMode === "light") document.documentElement.setAttribute("data-theme", "light");
+      else document.documentElement.removeAttribute("data-theme");
+      localStorage.setItem("stgblog_theme", colorMode);
+    } catch {}
+  }, [colorMode]);
 
+  // ─── 界面偏好 2：玻璃效果（glass=液态玻璃 / classic=经典普通），与颜色模式独立 ───
+  const [glassMode, setGlassMode] = useState(() => {
+    try {
+      const stored = localStorage.getItem("stgblog_glass");
+      if (stored) return stored;
+      // 旧数据迁移：三合一的 "classic" 等价于 关闭玻璃 + 深色模式
+      if ((localStorage.getItem("stgblog_theme") || "") === "classic") {
+        localStorage.setItem("stgblog_theme", "dark");
+        return "classic";
+      }
+      return "glass";
+    } catch { return "glass"; }
+  });
+
+  useEffect(() => {
+    try {
+      if (glassMode === "classic") document.documentElement.setAttribute("data-glass", "off");
+      else document.documentElement.removeAttribute("data-glass");
+      localStorage.setItem("stgblog_glass", glassMode);
+    } catch {}
+  }, [glassMode]);
+
+  // ─── 界面偏好 3：字号（sm / md / lg）───
+  const [fontSize, setFontSize] = useState(() => {
+    try { return localStorage.getItem("stgblog_fontsize") || "md"; } catch { return "md"; }
+  });
+
+  useEffect(() => {
+    try {
+      if (fontSize && fontSize !== "md") document.documentElement.setAttribute("data-zoom", fontSize);
+      else document.documentElement.removeAttribute("data-zoom");
+      localStorage.setItem("stgblog_fontsize", fontSize);
+    } catch {}
+  }, [fontSize]);
+
+  // ─── 主题色（强调色自选，即时生效、按设备记忆）───
+  const [accentColor, setAccentColor] = useState(() => {
+    try { return localStorage.getItem("stgblog_accent") || "green"; } catch { return "green"; }
+  });
+
+  useEffect(() => {
+    try {
+      applyAccentColors(accentColor);
+      localStorage.setItem("stgblog_accent", accentColor);
+    } catch {}
+  }, [accentColor]);
 
   // Load key pair when user changes
   useEffect(() => {
@@ -58,14 +127,11 @@ const [dmKey, setDmKey] = useState(null);
   }, [user]);
 
   const login = useCallback(async (name, pass) => {
-    // 使用安全 RPC 函数，密码在服务端用 bcrypt 哈希
-    const { data, error } = await withErrorHandler(async () => {
-      const { data, error } = await supabase.rpc("secure_login", {
-        p_username: name,
-        p_password: pass,
-      });
-      return { data, error };
-    })();
+    // 使用安全 RPC 函数，密码在服务端用 bcrypt 验证
+    const { data, error } = await supabase.rpc("secure_login", {
+      p_username: name,
+      p_password: pass,
+    });
     if (error || !data || data.length === 0) return { error: "用户名或密码错误" };
     const userData = data[0];
 
@@ -113,15 +179,12 @@ const [dmKey, setDmKey] = useState(null);
     const kp = await getOrCreateKeyPair(name);
     const encPriv = await createKeyBackup(name, pass, kp.privateKey);
     // 使用安全 RPC 函数，密码在服务端用 bcrypt 哈希后存储
-    const { data, error } = await withErrorHandler(async () => {
-      const { data, error } = await supabase.rpc("secure_register", {
-        p_username: name,
-        p_password: pass,
-        p_hash_id: hashId,
-        p_pubkey: JSON.stringify({ pub: kp.publicKey, ...(encPriv ? { encPriv } : {}) }),
-      });
-      return { data, error };
-    })();
+    const { data, error } = await supabase.rpc("secure_register", {
+      p_username: name,
+      p_password: pass,
+      p_hash_id: hashId,
+      p_pubkey: JSON.stringify({ pub: kp.publicKey, ...(encPriv ? { encPriv } : {}) }),
+    });
     if (error) return { error: error.message || "注册失败" };
     const userData = data[0];
     const u = { username: userData.username, hash_id: userData.hash_id, bio: userData.bio || "" };
@@ -202,7 +265,7 @@ const [dmKey, setDmKey] = useState(null);
   return (
     <AuthContext.Provider value={{
       user, keyPair, followingSet, dmPrivacy, dmKey,
-      uiTheme, setUiTheme,
+      colorMode, setColorMode, glassMode, setGlassMode, fontSize, setFontSize, accentColor, setAccentColor,
       login, register, logout, updateBio, follow, unfollow,
       updateDmPrivacy, getDmKey,
     }}>

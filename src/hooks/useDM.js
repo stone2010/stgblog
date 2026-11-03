@@ -347,6 +347,25 @@ export function useDM(user, keyPair) {
     } catch {}
   }, [user, checkUnread]);
 
+  // ─── 撤回消息：服务端清空内容，双方同步显示"消息已撤回" ───
+  const recallDm = useCallback(async (msgId) => {
+    if (!user || !msgId) return false;
+    try {
+      const { error } = await supabase.from("dm_messages").update({
+        content: "[消息已撤回]", ciphertext: null, iv: null, encrypted: false,
+      }).eq("id", msgId).eq("sender", user.username);
+      if (error) { console.warn("Recall rejected:", error.message); return false; }
+      setDmMessages((prev) => prev.map((m) => (m.id === msgId
+        ? { ...m, content: "[消息已撤回]", ciphertext: null, iv: null, encrypted: false, decrypted: true }
+        : m)));
+      loadDmList();
+      return true;
+    } catch (e) {
+      console.error("Recall failed:", e);
+      return false;
+    }
+  }, [user, loadDmList]);
+
   // ─── 实时消息：Realtime 订阅 + 轮询兜底 ───
   useEffect(() => {
     if (!user) { setDmLive(false); return; }
@@ -376,12 +395,31 @@ export function useDM(user, keyPair) {
       }
     };
 
+    // 对方撤回 / 消息更新：实时替换本地对应消息
+    const handleUpdated = (msg) => {
+      if (!msg) return;
+      if (msg.sender !== user.username && msg.receiver !== user.username) return;
+      loadDmList();
+      const target = dmTargetRef.current;
+      const inConversation =
+        (msg.sender === target && msg.receiver === user.username) ||
+        (msg.sender === user.username && msg.receiver === target);
+      if (!inConversation) return;
+      const recalled = msg.content === "[消息已撤回]";
+      setDmMessages((prev) => mergeMessages(prev, [{
+        ...msg,
+        ...(recalled ? { decrypted: true } : {}),
+      }]));
+    };
+
     let channel = null;
     try {
       channel = supabase
         .channel("dm_messages_live")
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "dm_messages" },
           (payload) => { handleIncoming(payload.new); })
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "dm_messages" },
+          (payload) => { handleUpdated(payload.new); })
         .subscribe((status) => {
           setDmLive(status === "SUBSCRIBED");
         });
@@ -425,19 +463,28 @@ export function useDM(user, keyPair) {
   }, [user]);
 
   const openDm = useCallback(async (otherUser) => {
-    if (!user) return;
-    // 如果对话已删除，不恢复
-    if (isConversationDeleted(user.username, otherUser)) return;
+    if (!user || !otherUser) return;
+    // 显式打开（列表/新私信/个人页入口）总是恢复会话：
+    // 若曾被"删除"（本地隐藏），这里视为用户主动重新开启，解除隐藏标记。
+    // 被动出现（对方来消息）仍保持隐藏 —— loadDmList 会继续过滤已删除会话。
+    unmarkConversationDeleted(user.username, otherUser);
     setDmTarget(otherUser);
     persistConversation(otherUser);
+    // 确保列表里能看到并去掉旧缓存里的删除痕迹
+    try {
+      const cached = JSON.parse(localStorage.getItem(CACHE_KEY(user.username))) || [];
+      if (!cached.some((c) => c.other === otherUser)) {
+        cached.unshift({ other: otherUser, last: null, pinned: false, nickname: "" });
+        localStorage.setItem(CACHE_KEY(user.username), JSON.stringify(cached));
+      }
+    } catch {}
     setDmList((prev) => {
       if (prev.some((c) => c.other === otherUser)) return prev;
-      const newList = [{ other: otherUser, last: null, pinned: false }, ...prev];
-      saveCachedConversations(user.username, newList);
-      return newList;
+      return [{ other: otherUser, last: null, pinned: false, nickname: "" }, ...prev];
     });
     await loadDmMessages(otherUser);
-  }, [loadDmMessages, persistConversation, user, isConversationDeleted]);
+    loadDmList();
+  }, [loadDmMessages, persistConversation, user, loadDmList]);
 
   const closeDm = useCallback(() => {
     setDmTarget(null);
@@ -502,7 +549,7 @@ export function useDM(user, keyPair) {
   return {
     dmList, dmTarget, dmMessages, dmSending, dmUnreadCount,
     dmHasMore, dmLoadingMore, dmLive,
-    loadDmList, loadDmMessages, loadMoreDmMessages, sendDm, openDm, closeDm, markAsRead,
+    loadDmList, loadDmMessages, loadMoreDmMessages, sendDm, openDm, closeDm, markAsRead, recallDm,
     setDmTarget, togglePin, deleteConversation, setNickname,
   };
 }
