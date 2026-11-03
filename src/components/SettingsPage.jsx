@@ -25,7 +25,7 @@ function SegRow({ label, hint, value, options, onChange }) {
 
 export default function SettingsPage({ onBack }) {
   const { user, colorMode, setColorMode, glassMode, setGlassMode, fontSize, setFontSize, accentColor, setAccentColor,
-    logout, dmPrivacy, dmKey, updateDmPrivacy } = useAuth();
+    styleMode, setStyleMode, logout, dmPrivacy, dmKey, updateDmPrivacy } = useAuth();
 
   // 修改密码（自个人主页迁入）
   const [pwModalOpen, setPwModalOpen] = useState(false);
@@ -87,6 +87,16 @@ export default function SettingsPage({ onBack }) {
       {/* ─── 外观 ─── */}
       <div className="settings-section">
         <div className="settings-section-title">外观</div>
+        <SegRow
+          label="界面风格"
+          hint="液态玻璃默认风 或 编辑部印刷风"
+          value={styleMode}
+          options={[
+            { value: "default", label: "默认", icon: "🫧" },
+            { value: "editorial", label: "编辑部", icon: "📰" },
+          ]}
+          onChange={setStyleMode}
+        />
         <SegRow
           label="颜色模式"
           hint="深色 / 浅色配色"

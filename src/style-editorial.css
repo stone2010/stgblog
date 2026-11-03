@@ -1,0 +1,194 @@
+/* ============================================================
+   STGBLOG — Editorial 编辑部印刷风主题
+   启用方式：html[data-style="editorial"]（设置 → 外观 → 界面风格）
+   视觉语言：米白纸张 · 黑色油墨 · 红色标记 · 细线版式 · 衬线标题
+   与默认液态玻璃主题完全独立，可随时在设置中切换
+   ============================================================ */
+
+/* ── 1. 变量重定义（覆盖深/浅两套默认变量）── */
+html[data-style="editorial"]{
+  --bg:#f3f0e8;--bg2:#efece2;
+  --bg3:rgba(23,23,21,0.05);--bg4:rgba(23,23,21,0.09);--bg5:rgba(23,23,21,0.14);
+  --card:#fffdf7;--card-hover:#fffef9;--card-active:#ffffff;
+  --border:#c9c5ba;--border-light:#171715;--border-focus:rgba(227,59,47,0.55);
+  --text:#171715;--text-secondary:#55534c;--text-muted:#77756e;--text-dim:#a39f95;
+  --accent:#e33b2f;--accent-hover:#c22d22;--accent-active:#a5251b;--accent-glow:rgba(227,59,47,0.12);
+  --accent-light:#f0665c;--accent-dark:#8f1f16;
+  --gemini-gradient:linear-gradient(135deg,#e33b2f,#b3261c);
+  --gemini-gradient-subtle:linear-gradient(135deg,rgba(227,59,47,0.9),rgba(179,38,28,0.45));
+  --red:#e33b2f;--red-hover:#c22d22;--green:#2f7d4f;--green-hover:#256a41;
+  --r:0px;--r2:0px;--r3:0px;--r4:0px;--r5:0px;
+  --glass-bg:rgba(255,253,247,0.96);
+  --glass-border:#171715;
+  --glass-hi:transparent;
+  --glass-blur:0px;
+  --shadow:none;--shadow-lg:none;--shadow-sm:none;
+  --shadow-card:none;--shadow-hover:none;--shadow-elevated:none;
+  --hover:rgba(23,23,21,0.05);--hover-strong:rgba(23,23,21,0.09);
+}
+
+/* ── 2. 纸张底色，去掉玻璃光斑 ── */
+html[data-style="editorial"]{background:#f3f0e8}
+html[data-style="editorial"] body::before,
+html[data-style="editorial"] body::after{display:none}
+
+/* ── 3. 衬线标题字体（报刊刊头感）── */
+html[data-style="editorial"] .topnav-title,
+html[data-style="editorial"] .auth-logo,
+html[data-style="editorial"] .detail-name{
+  font-family:Georgia,'Times New Roman','Noto Serif SC','Source Han Serif SC','SimSun',serif;
+  font-weight:900;letter-spacing:-0.04em;
+}
+html[data-style="editorial"] .topnav-title::after{content:".";color:var(--red)}
+
+/* ── 4. 顶栏：实底纸张 + 黑色细线 ── */
+html[data-style="editorial"] .topnav{
+  background:#f3f0e8;
+  backdrop-filter:none;-webkit-backdrop-filter:none;
+  border-bottom:1px solid #171715;
+  box-shadow:none;
+}
+html[data-style="editorial"] .topnav-logo{
+  background:#171715;border-radius:0;
+  box-shadow:none;color:#fffdf7;
+}
+html[data-style="editorial"] .topnav-login{
+  border-radius:0;border:1px solid #171715;
+  background:var(--accent);color:#fffdf7;
+}
+
+/* ── 5. 帖子卡片：白纸卡片 + 黑框直角 ── */
+html[data-style="editorial"] .post{
+  background:var(--card);
+  border:1px solid #171715;border-radius:0;
+  box-shadow:none;
+  transition:border-color 0.2s var(--ease);
+}
+html[data-style="editorial"] .post:hover{border-color:var(--red)}
+html[data-style="editorial"] .post-tag,
+html[data-style="editorial"] .post-ann-badge{border-radius:0}
+
+/* 头像：方形，印刷图版感 */
+html[data-style="editorial"] .post-avatar,
+html[data-style="editorial"] .comment-avatar,
+html[data-style="editorial"] .detail-avatar,
+html[data-style="editorial"] .compose-avatar{
+  border-radius:0;border:1px solid #171715;
+}
+
+/* 话题 / 提及：红色标记 */
+html[data-style="editorial"] .hashtag,
+html[data-style="editorial"] .mention{color:var(--red)}
+
+/* 引用卡：细线框 */
+html[data-style="editorial"] .quote-card{
+  border:1px solid #c9c5ba;border-left:3px solid var(--red);
+  border-radius:0;background:#faf8f1;
+}
+
+/* ── 6. 信息流标签：报纸分栏下划线式 ── */
+html[data-style="editorial"] .feed-tab{
+  background:transparent;border-radius:0;
+  border:none;box-shadow:none;
+}
+html[data-style="editorial"] .feed-tab.on{
+  color:var(--red);font-weight:700;
+  box-shadow:inset 0 -2px 0 var(--red);
+  background:transparent;
+}
+
+/* ── 7. 分段选择器（设置页等）：方形黑框 ── */
+html[data-style="editorial"] .seg-bar{
+  background:transparent;border:1px solid #171715;border-radius:0;
+  padding:0;gap:0;
+}
+html[data-style="editorial"] .seg{
+  border-radius:0;background:transparent;color:var(--text-secondary);
+}
+html[data-style="editorial"] .seg.on{
+  background:#171715;color:#fffdf7;
+}
+html[data-style="editorial"] .theme-color-dot{border-radius:0}
+
+/* ── 8. 输入框 / 文本域：纸面白底 + 细线 ── */
+html[data-style="editorial"] input,
+html[data-style="editorial"] textarea{
+  background:#fffdf7;border:1px solid #c9c5ba;border-radius:0;
+}
+html[data-style="editorial"] input:focus,
+html[data-style="editorial"] textarea:focus{border-color:#171715}
+
+/* ── 9. 发布栏 ── */
+html[data-style="editorial"] .compose-bar{
+  background:var(--card);border:1px solid #171715;border-radius:0;box-shadow:none;
+}
+html[data-style="editorial"] .compose-submit{
+  border-radius:0;border:1px solid #171715;
+}
+
+/* ── 10. 弹层：公告 / 登录 / 通用 modal ── */
+html[data-style="editorial"] .ann-card,
+html[data-style="editorial"] .auth-modal,
+html[data-style="editorial"] .post-menu,
+html[data-style="editorial"] .detail-menu,
+html[data-style="editorial"] .dm-context-menu{
+  background:#fffdf7;border:1px solid #171715;border-radius:0;box-shadow:none;
+}
+html[data-style="editorial"] .post-menu button:hover,
+html[data-style="editorial"] .detail-menu button:hover{background:rgba(23,23,21,0.05)}
+html[data-style="editorial"] .auth-btn{border-radius:0;border:1px solid #171715}
+html[data-style="editorial"] .auth-input{border-radius:0}
+
+/* ── 11. 帖子详情页 ── */
+html[data-style="editorial"] .detail{
+  background:var(--card);border:1px solid #171715;border-radius:0;box-shadow:none;
+}
+html[data-style="editorial"] .detail-body{
+  font-size:1.07em;line-height:1.85;
+}
+
+/* ── 12. 私信 / 群聊 ── */
+html[data-style="editorial"] .dm-chat,
+html[data-style="editorial"] .dm-chat-input,
+html[data-style="editorial"] .group-chat,
+html[data-style="editorial"] .group-chat-input{
+  border-radius:0;
+}
+html[data-style="editorial"] .dm-chat-top{
+  border-bottom:1px solid #171715;
+  background:#f3f0e8;backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none;
+}
+
+/* ── 13. 底部导航（移动端）：纸面 + 黑色上边线 ── */
+html[data-style="editorial"] .bnav{
+  background:#f3f0e8;border-top:1px solid #171715;
+  backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none;
+}
+html[data-style="editorial"] .bnav-compose{
+  border-radius:0;background:var(--accent);border:1px solid #171715;
+}
+
+/* ── 14. 侧边栏（桌面端）── */
+html[data-style="editorial"] .sidebar-btn{border-radius:0}
+html[data-style="editorial"] .sidebar-btn.on{box-shadow:inset 2px 0 0 var(--red)}
+html[data-style="editorial"] .sidebar-compose{
+  border-radius:0;border:1px solid #171715;background:var(--accent);color:#fffdf7;
+}
+
+/* ── 15. 设置页 / 通用分区 ── */
+html[data-style="editorial"] .settings-section,
+html[data-style="editorial"] .settings-row{
+  border-radius:0;
+}
+html[data-style="editorial"] .settings-section-title{
+  font-family:Georgia,'Times New Roman','Noto Serif SC','SimSun',serif;
+  font-weight:900;letter-spacing:0.12em;text-transform:uppercase;
+}
+
+/* ── 16. 滚动条与 Toast ── */
+html[data-style="editorial"] ::-webkit-scrollbar-thumb{background:#c9c5ba;border-radius:0}
+html[data-style="editorial"] .app-toast{
+  background:#171715;border:1px solid #171715;border-radius:0;
+  font-family:Inter,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;
+  backdrop-filter:none;-webkit-backdrop-filter:none;
+}

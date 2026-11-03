@@ -5,13 +5,13 @@ import { Icons } from "./Icons";
 import CommentNode from "./CommentNode";
 import { hasLiked, hasBookmarked, formatTime, formatTimeShort, formatCount, buildTree, parseContent, incrementViewCount } from "../utils";
 
-function RenderContent({ content }) {
+function RenderContent({ content, onHashtag, onMention }) {
   const parts = parseContent(content);
   return (
     <>
       {parts.map((p, i) => {
-        if (p.type === "hashtag") return <span key={i} className="hashtag">{p.value}</span>;
-        if (p.type === "mention") return <span key={i} className="mention">{p.value}</span>;
+        if (p.type === "hashtag") return <span key={i} className="hashtag" onClick={(e) => { e.stopPropagation(); onHashtag?.(p.value); }}>{p.value}</span>;
+        if (p.type === "mention") return <span key={i} className="mention" onClick={(e) => { e.stopPropagation(); onMention?.(p.value.slice(1)); }}>{p.value}</span>;
         if (p.type === "newline") return <br key={i} />;
         return <span key={i}>{p.value}</span>;
       })}
@@ -19,7 +19,7 @@ function RenderContent({ content }) {
   );
 }
 
-export default function PostDetail({ post, onClose, onLike, onShare, onRepost, onBookmark, onUserClick, onDeletePost, onEditPost }) {
+export default function PostDetail({ post, onClose, onLike, onShare, onRepost, onBookmark, onUserClick, onDeletePost, onEditPost, onHashtag }) {
   const { user, followingSet, follow, unfollow } = useAuth();
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
@@ -155,7 +155,7 @@ const commentTree = useMemo(() => buildTree(comments), [comments]);
           )}
         </div>
       </div>
-      <div className="detail-body"><RenderContent content={post.content} /></div>
+      <div className="detail-body"><RenderContent content={post.content} onHashtag={onHashtag} /></div>
       {post.quote_of && post.quote_data && (
         <div className="quote-card detail-quote" onClick={() => onUserClick(post.quote_data.author)}>
           <div className="quote-head">

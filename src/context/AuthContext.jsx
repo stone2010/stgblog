@@ -86,6 +86,19 @@ export function AuthProvider({ children }) {
     try { return localStorage.getItem("stgblog_fontsize") || "md"; } catch { return "md"; }
   });
 
+  // ─── 界面偏好 4：界面风格（default=液态玻璃默认 / editorial=编辑部印刷风）───
+  const [styleMode, setStyleMode] = useState(() => {
+    try { return localStorage.getItem("stgblog_style") || "default"; } catch { return "default"; }
+  });
+
+  useEffect(() => {
+    try {
+      if (styleMode === "editorial") document.documentElement.setAttribute("data-style", "editorial");
+      else document.documentElement.removeAttribute("data-style");
+      localStorage.setItem("stgblog_style", styleMode);
+    } catch {}
+  }, [styleMode]);
+
   useEffect(() => {
     try {
       if (fontSize && fontSize !== "md") document.documentElement.setAttribute("data-zoom", fontSize);
@@ -266,6 +279,7 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{
       user, keyPair, followingSet, dmPrivacy, dmKey,
       colorMode, setColorMode, glassMode, setGlassMode, fontSize, setFontSize, accentColor, setAccentColor,
+      styleMode, setStyleMode,
       login, register, logout, updateBio, follow, unfollow,
       updateDmPrivacy, getDmKey,
     }}>

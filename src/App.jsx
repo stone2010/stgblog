@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "./supabase";
-import { hasLiked, hasViewed, saveLiked, saveViewed, toggleBookmark, isAdmin } from "./utils";
+import { hasLiked, hasViewed, saveLiked, saveViewed, toggleBookmark, isAdmin, showToast } from "./utils";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { useNotifications } from "./hooks/useNotifications";
 import { useDM } from "./hooks/useDM";
@@ -515,11 +515,25 @@ function AppInner() {
   const handleShare = useCallback(async (post) => {
     if (!post) return;
     const url = new URL(window.location.href); url.searchParams.set("post", String(post.id));
-    const text = `STGBLOG｜${post.title || post.content?.slice(0, 40)}\n${url}`;
+    const link = url.toString();
     try {
-      if (navigator.share) await navigator.share({ title: "STGBLOG", text, url: url.toString() });
-      else if (navigator.clipboard) { await navigator.clipboard.writeText(text); alert("已复制链接"); }
-    } catch {}
+      await navigator.clipboard.writeText(link);
+      showToast("🔗 链接已复制");
+    } catch {
+      // 剪贴板 API 不可用时的降级方案
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = link;
+        ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        ta.remove();
+        showToast("🔗 链接已复制");
+      } catch {
+        showToast("复制失败，请手动复制链接");
+      }
+    }
   }, []);
 
   const handleNotifClick = useCallback(async (notif) => {
@@ -579,7 +593,8 @@ function AppInner() {
     if (selectedPost) return (
       <PostDetail post={selectedPost} onClose={() => setSelectedPost(null)}
         onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark}
-        onUserClick={openUserClick} onDeletePost={handleDeletePost} onEditPost={setEditPostModal} />
+        onUserClick={openUserClick} onDeletePost={handleDeletePost} onEditPost={setEditPostModal}
+        onHashtag={handleHashtag} />
     );
     if (page === "dm-chat" && dmTarget) return (
       <DmChatPage dmTarget={dmTarget} dmMessages={dmMessages} dmSending={dmSending}

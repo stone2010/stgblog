@@ -73,7 +73,7 @@ const PostCard = memo(function PostCard({ post, onSelect, onLike, onShare, onRep
                     <div className="menu-divider" />
                   </>
                 )}
-                <button onClick={(e) => { e.stopPropagation(); setShowMenu(false); }}>
+                <button onClick={() => { onShare?.(displayPost); setShowMenu(false); }}>
                   <Icons.Share /> 分享链接
                 </button>
               </div>

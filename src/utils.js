@@ -218,6 +218,22 @@ export function isAdmin(user) {
   return !!user && user.username === ADMIN_USERNAME;
 }
 
+// ─── 全局轻提示（Toast）：复制成功等场景 ───
+export function showToast(message, duration = 1800) {
+  try {
+    const t = document.createElement("div");
+    t.className = "app-toast";
+    t.textContent = message;
+    document.body.appendChild(t);
+    // 触发入场动画
+    requestAnimationFrame(() => t.classList.add("show"));
+    setTimeout(() => {
+      t.classList.remove("show");
+      setTimeout(() => t.remove(), 300);
+    }, duration);
+  } catch {}
+}
+
 // ─── 主题（颜色模式：dark / light）───
 export function getTheme() {
   return localStorage.getItem("stgblog_theme") || "dark";
@@ -227,10 +243,10 @@ export function setTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
 }
 
-// ─── 内容解析：#hashtag @mention 可点击 ───
+// ─── 内容解析：#hashtag @mention 可点击（支持中英文话题，如 #校园 #生活）───
 export function parseContent(text) {
   if (!text) return [];
-  const regex = /(#\w+)|(@\w+)|(\n)/g;
+  const regex = /(#[\w\u4e00-\u9fff\u3400-\u4dbf]+)|(@[\w\u4e00-\u9fff\u3400-\u4dbf]+)|(\n)/g;
   const parts = [];
   let lastIndex = 0;
   let match;
