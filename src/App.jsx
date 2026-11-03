@@ -84,7 +84,7 @@ function AppInner() {
 
   // Hooks
   const { notifications, unreadCount, markAllRead, markOneRead } = useNotifications(user?.username);
-  const { dmList, dmTarget, dmMessages, dmSending, dmUnreadCount, dmLive, loadDmList, loadMoreDmMessages, sendDm, openDm, closeDm, markAsRead, recallDm, setDmTarget, togglePin, deleteConversation, setNickname } = useDM(user, keyPair);
+  const { dmList, dmTarget, dmMessages, dmSending, dmUnreadCount, dmLive, dmLoadError, loadDmList, loadDmMessages, loadMoreDmMessages, sendDm, openDm, closeDm, markAsRead, recallDm, setDmTarget, togglePin, deleteConversation, setNickname } = useDM(user, keyPair);
   const { groups, activeGroup, groupMessages, groupMembers, groupSending, loadGroups, createGroup, joinGroup, shareGroupKey, leaveGroup, loadGroupMessages, loadMoreGroupMessages, sendGroupMessage, getGroupMembers, kickMember, deleteGroup, openGroup, closeGroup, updateGroupName, setMemberRole, transferOwnership } = useGroupChat(user, keyPair);
 
   // ─── Load posts ───
@@ -266,8 +266,12 @@ function AppInner() {
     const total = (dmUnreadCount || 0) + (unreadCount || 0);
 
     try {
-      if (total > 0) navigator.setAppBadge?.(total);
-      else navigator.clearAppBadge?.();
+      // headless 浏览器(自动化测试环境)的 BadgeService 未实现,调用会导致渲染进程被杀
+      const isHeadless = /Headless/i.test(navigator.userAgent);
+      if (!isHeadless) {
+        if (total > 0) navigator.setAppBadge?.(total);
+        else navigator.clearAppBadge?.();
+      }
     } catch {}
     try {
       navigator.serviceWorker?.controller?.postMessage({ type: "BADGE_UPDATE", count: total });
@@ -600,11 +604,12 @@ function AppInner() {
     if (page === "dm-chat" && dmTarget) return (
       <DmChatPage dmTarget={dmTarget} dmMessages={dmMessages} dmSending={dmSending}
         onSend={sendDm} onBack={() => { closeDm(); setPage("dm"); }} onUserClick={openUserClick} onMarkAsRead={markAsRead}
-        onLoadMore={loadMoreDmMessages} dmLive={dmLive} onRecall={recallDm} />
+        onLoadMore={loadMoreDmMessages} dmLive={dmLive} onRecall={recallDm}
+        dmLoadError={dmLoadError} onReloadDm={() => loadDmMessages(dmTarget)} />
     );
     if (page === "notifications") return <NotificationPage notifications={notifications} onNotifClick={handleNotifClick} onBack={() => navigate("home")} />;
     if (page === "search") return <SearchPage searchKey={searchKey} setSearchKey={setSearchKey} posts={posts} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onBack={() => navigate("home")} />;
-    if (page === "dm") return <DmListPage dmList={dmList} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} onNewDm={() => setNewDmOpen(true)} onTogglePin={togglePin} onDeleteConversation={deleteConversation} onSetNickname={setNickname} />;
+    if (page === "dm") return <DmListPage dmList={dmList} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} onNewDm={() => setNewDmOpen(true)} onTogglePin={togglePin} onDeleteConversation={deleteConversation} onSetNickname={setNickname} onOpenGroups={() => { setPage("groups"); setMobileTab("groups"); }} />;
     if (page === "groups") return <GroupListPage groups={groups} onOpenGroup={(g) => { openGroup(g); setPage("group-chat"); }} onCreateGroup={() => setCreateGroupOpen(true)} onJoinGroup={() => setJoinGroupOpen(true)} />;
     if (page === "group-chat" && activeGroup) return (
       <GroupChatPage group={activeGroup} messages={groupMessages} members={groupMembers} sending={groupSending}
@@ -698,7 +703,8 @@ function AppInner() {
         <div className="dm-overlay">
           <DmChatPage dmTarget={dmTarget} dmMessages={dmMessages} dmSending={dmSending}
             onSend={sendDm} onBack={() => { closeDm(); setPage("dm"); }} onUserClick={openUserClick} onMarkAsRead={markAsRead}
-            onLoadMore={loadMoreDmMessages} dmLive={dmLive} onRecall={recallDm} />
+            onLoadMore={loadMoreDmMessages} dmLive={dmLive} onRecall={recallDm}
+            dmLoadError={dmLoadError} onReloadDm={() => loadDmMessages(dmTarget)} />
         </div>
       )}
 
@@ -717,18 +723,15 @@ function AppInner() {
         <nav className="bnav">
           <button className={`bnav-btn ${mobileTab === "home" ? "on" : ""}`} onClick={() => navigate("home")}><span className="bnav-icon"><Icons.Home /></span></button>
           <button className={`bnav-btn ${mobileTab === "search" ? "on" : ""}`} onClick={() => navigate("search")}><span className="bnav-icon"><Icons.Search /></span></button>
-          <button className="bnav-compose" onClick={() => { if (user) { navigate("home"); setMobileTab("home"); setTimeout(() => composeRef.current?.focus(), 100); } else setAuthOpen(true); }}>✎</button>
           <button className={`bnav-btn ${mobileTab === "dm" ? "on" : ""}`} onClick={() => { if (user) navigate("dm"); else setAuthOpen(true); }} style={{ position: "relative" }}>
             <span className="bnav-icon"><Icons.Msg /></span>
             {dmUnreadCount > 0 && <span className="bnav-dot" />}
-          </button>
-          <button className={`bnav-btn ${mobileTab === "groups" ? "on" : ""}`} onClick={() => { if (user) navigate("groups"); else setAuthOpen(true); }}>
-            <span className="bnav-icon"><Icons.Group /></span>
           </button>
           <button className={`bnav-btn ${mobileTab === "me" ? "on" : ""}`} onClick={() => navigate("profile")} style={{ position: "relative" }}>
             <span className="bnav-icon"><Icons.User /></span>
             {unreadCount > 0 && <span className="bnav-dot" />}
           </button>
+          <button className="bnav-compose" onClick={() => { if (user) { navigate("home"); setMobileTab("home"); setTimeout(() => composeRef.current?.focus(), 100); } else setAuthOpen(true); }}>✎</button>
         </nav>
       )}
 

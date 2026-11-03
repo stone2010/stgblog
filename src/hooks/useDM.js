@@ -103,6 +103,7 @@ export function useDM(user, keyPair) {
   const [dmHasMore, setDmHasMore] = useState(true);
   const [dmLoadingMore, setDmLoadingMore] = useState(false);
   const [dmLive, setDmLive] = useState(false);
+  const [dmLoadError, setDmLoadError] = useState(false);
   const dmListRef = useRef(dmList);
   dmListRef.current = dmList;
   const dmMessagesRef = useRef(dmMessages);
@@ -237,17 +238,19 @@ export function useDM(user, keyPair) {
     if (!user || !otherUser) return;
     setDmHasMore(true);
     setDmMessages([]);
+    setDmLoadError(false);
 
     const { data, error } = await supabase.from("dm_messages").select("*")
       .or(`and(sender.eq.${user.username},receiver.eq.${otherUser}),and(sender.eq.${otherUser},receiver.eq.${user.username})`)
       .order("created_at", { ascending: false })
       .limit(DM_PAGE_SIZE);
-    if (error || !data) { setDmMessages([]); setDmHasMore(false); return; }
+    if (error || !data) { setDmMessages([]); setDmHasMore(false); setDmLoadError(true); return; }
 
     setDmHasMore(data.length >= DM_PAGE_SIZE);
 
     const reversed = [...data].reverse();
-    const decrypted = await decryptMessages(reversed, otherUser);
+    // 打开会话时强制刷新对方公钥缓存,避免过期公钥导致解密失败
+    const decrypted = await decryptMessages(reversed, otherUser, { forceRefreshKeys: true });
     setDmMessages(decrypted);
 
     try {
@@ -548,7 +551,7 @@ export function useDM(user, keyPair) {
 
   return {
     dmList, dmTarget, dmMessages, dmSending, dmUnreadCount,
-    dmHasMore, dmLoadingMore, dmLive,
+    dmHasMore, dmLoadingMore, dmLive, dmLoadError,
     loadDmList, loadDmMessages, loadMoreDmMessages, sendDm, openDm, closeDm, markAsRead, recallDm,
     setDmTarget, togglePin, deleteConversation, setNickname,
   };

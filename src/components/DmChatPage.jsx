@@ -17,7 +17,7 @@ const CheckDouble = () => (
   </svg>
 );
 
-export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, onBack, onUserClick, onMarkAsRead, onLoadMore, dmLive }) {
+export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, onBack, onUserClick, onMarkAsRead, onLoadMore, dmLive, dmLoadError, onReloadDm }) {
   const { user, keyPair } = useAuth();
   const [input, setInput] = useState("");
   const [showVerify, setShowVerify] = useState(false);
@@ -33,6 +33,7 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
   const lastLoadMoreRef = useRef(0);
   const nearBottomRef = useRef(true);
   const messagesEndRef = useRef(null);
+  const forceScrollRef = useRef(true);
 
   // 公钥指纹
   useEffect(() => {
@@ -98,12 +99,20 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
     return () => clearTimeout(t);
   }, [warning]);
 
-  // 自动滚动到底部
+  // 自动滚动:打开会话/自己发送时强制到底部;收到新消息时若本就在底部附近也跟随
+  useEffect(() => { forceScrollRef.current = true; }, [dmTarget]);
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
-    container.scrollTop = container.scrollHeight;
-  }, [dmMessages]);
+    const last = dmMessages[dmMessages.length - 1];
+    const mine = last && last.sender === user?.username;
+    if (!forceScrollRef.current && !mine && !nearBottomRef.current) return;
+    forceScrollRef.current = false;
+    // 双 rAF 确保布局完成后滚动
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      container.scrollTop = container.scrollHeight;
+    }));
+  }, [dmMessages, dmTarget, user]);
 
   // 进入会话后标记已读
   useEffect(() => {
@@ -203,6 +212,15 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
         </button>
       </div>
       {showVerify && renderVerify()}
+      {dmLoadError && (
+        <div className="dm-chat-warning" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <span>⚠️ 消息加载失败,请检查网络</span>
+          {onReloadDm && <button className="dm-chat-back" style={{ border: "1px solid currentColor", borderRadius: 6, padding: "4px 10px", color: "inherit", background: "none" }} onClick={onReloadDm}>重试</button>}
+        </div>
+      )}
+      {!dmLoadError && messages.some((m) => m && m.decryptError && m.sender !== user?.username) && (
+        <div className="dm-chat-warning">🔐 部分消息无法解密:你的加密密钥可能与云端不一致。请退出登录后重新登录(输入密码即可自动恢复密钥)。</div>
+      )}
       <div className="dm-chat-messages" ref={messagesContainerRef} onScroll={handleScroll}>
         {messages.length === 0 && (
           <div className="dm-empty">

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { supabase } from "../supabase";
-import { generateHash } from "../utils";
+import { generateHash, showToast } from "../utils";
 import {
   getOrCreateKeyPair, generateKeyPair, createKeyBackup, restoreKeyBackup, parsePubkeyRecord,
 } from "../crypto";
@@ -124,7 +124,39 @@ export function AuthProvider({ children }) {
     if (!user) { setKeyPair(null); setFollowingSet(new Set()); return; }
     (async () => {
       try {
+        // ─── 与服务端权威密钥对账:绝不静默生成错位私钥(否则对方发来的消息将无法解密)───
+        const { data } = await supabase.from("users").select("pubkey").eq("username", user.username).maybeSingle();
+        const rec = parsePubkeyRecord(data?.pubkey);
+        let local = null;
+        try { local = JSON.parse(localStorage.getItem(`stgblog_keys_${user.username}`)); } catch {}
+        const sameJwk = (a, b) => a && b && a.kty === b.kty && a.crv === b.crv && a.x === b.x && a.y === b.y;
+
+        if (local?.publicKey && rec?.pub) {
+          if (sameJwk(local.publicKey, rec.pub)) { setKeyPair(local); return; }
+          // 本地私钥与服务端公钥错位 → 丢弃本地,要求重新登录以恢复权威密钥
+          localStorage.removeItem(`stgblog_keys_${user.username}`);
+          localStorage.removeItem("stgblog_user");
+          setUser(null);
+          showToast("🔐 检测到加密密钥不同步,请重新登录以恢复(输入密码即可)");
+          return;
+        }
+        if (rec?.encPriv) {
+          // 服务端有加密备份,但本设备没有本地私钥 → 无密码无法恢复,必须重新登录
+          if (user) localStorage.removeItem("stgblog_user");
+          setUser(null);
+          showToast("🔐 加密密钥尚未同步到本设备,请重新登录以恢复");
+          return;
+        }
+        if (rec?.pub) {
+          // 服务端有公钥但无备份(老账户)且本地无私钥:重新登录后登录流程会用密码补建备份
+          localStorage.removeItem("stgblog_user");
+          setUser(null);
+          showToast("🔐 加密密钥需要重新登录同步,请输入密码登录");
+          return;
+        }
+        // 服务端无任何公钥记录(异常/极老账户):沿用本地密钥并上传公钥
         const kp = await getOrCreateKeyPair(user.username);
+        await supabase.from("users").update({ pubkey: JSON.stringify({ pub: kp.publicKey }) }).eq("username", user.username);
         setKeyPair(kp);
       } catch (e) { console.warn("Key pair error:", e); }
     })();

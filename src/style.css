@@ -283,16 +283,19 @@ a{color:var(--accent);text-decoration:none}
   background:var(--accent);border-radius:50%;border:2px solid var(--bg2);
 }
 .bnav-compose{
+  /* 悬浮居中于底栏正中 */
+  position:absolute;left:50%;transform:translateX(-50%);
+  bottom:calc(env(safe-area-inset-bottom, 0px) + 9px);
   width:48px;height:48px;
   background:var(--accent);border-radius:50%;
   display:flex;align-items:center;justify-content:center;
   font-size:24px;color:#fff;font-weight:300;
   transition:all 0.2s var(--ease);
   box-shadow:0 2px 8px rgba(99,102,241,0.4);
-  margin-top:-20px;
+  flex:none;
 }
 .bnav-compose:hover{background:var(--accent-hover);box-shadow:0 4px 14px rgba(99,102,241,0.5)}
-.bnav-compose:active{transform:scale(0.9)}
+.bnav-compose:active{transform:translateX(-50%) scale(0.9)}
 
 /* ===== Feed / Timeline ===== */
 .feed{padding-bottom:80px}
@@ -736,9 +739,11 @@ a{color:var(--accent);text-decoration:none}
 }
 @media(min-width:901px){
   .dm-chat{
-    min-height:calc(100vh - var(--nav-h));
+    /* 固定视口高度:消息区内部滚动,打开/发送后才能稳定停在最新消息 */
+    height:calc(100vh - var(--nav-h));
+    min-height:0;
+    overflow:hidden;
     border-left:1px solid var(--border);border-right:1px solid var(--border);
-    height:auto;
   }
 }
 .dm-chat-top{
@@ -961,6 +966,9 @@ a{color:var(--accent);text-decoration:none}
   .layout{border:none}
   .sidebar{display:none}
   .desktop-wrap{display:block}
+  /* 顶栏固定不随内容滚动 */
+  .topnav{position:fixed;top:0;left:0;right:0}
+  .desktop-wrap{padding-top:var(--nav-h)}
   .compose-bar{
     position:sticky;bottom:0;z-index:101;
     background:var(--bg);border-top:1px solid var(--border);
@@ -976,7 +984,7 @@ a{color:var(--accent);text-decoration:none}
   .feed{padding-bottom:calc(var(--bottom-h) + 80px + env(safe-area-inset-bottom, 0px))}
   .post-action{padding:8px 12px}
   .post-action .pa-icon{font-size:18px}
-  .bnav-compose{width:50px;height:50px;font-size:22px}
+  .bnav-compose{width:50px;height:50px;font-size:22px;bottom:calc(env(safe-area-inset-bottom, 0px) + 8px)}
   .bnav-btn{padding:6px 10px}
   .dm-chat-messages{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
   .dm-chat-input{padding:10px 16px;padding-bottom:max(10px,env(safe-area-inset-bottom));background:var(--bg);border-top:1px solid var(--border);flex-shrink:0}

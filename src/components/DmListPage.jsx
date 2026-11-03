@@ -14,7 +14,7 @@ const CheckDouble = () => (
   </svg>
 );
 
-export default function DmListPage({ dmList, onOpenDm, onNewDm, onTogglePin, onDeleteConversation, onSetNickname }) {
+export default function DmListPage({ dmList, onOpenDm, onNewDm, onTogglePin, onDeleteConversation, onSetNickname, onOpenGroups }) {
   const { user } = useAuth();
   const [error, setError] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
@@ -72,7 +72,10 @@ export default function DmListPage({ dmList, onOpenDm, onNewDm, onTogglePin, onD
     <div className="dm-list" onClick={closeContextMenu}>
       <div className="dm-header">
         <h3>私信</h3>
-        <button className="dm-new-btn" onClick={onNewDm}>✏️</button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {onOpenGroups && <button className="dm-new-btn" onClick={onOpenGroups} title="群组" style={{ fontSize: 16 }}>👥</button>}
+          <button className="dm-new-btn" onClick={onNewDm}>✏️</button>
+        </div>
       </div>
       {!user ? (
         <div className="empty-state"><div className="icon">🔒</div><h3>登录后查看私信</h3><p>端到端加密保护你的隐私</p></div>
