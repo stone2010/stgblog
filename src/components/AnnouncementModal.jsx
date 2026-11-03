@@ -20,6 +20,8 @@ export default function AnnouncementModal({ user }) {
   const [fading, setFading] = useState(false);
 
   useEffect(() => {
+    if (!user) return; // 未登录不显示公告
+
     let active = true;
     (async () => {
       // 延迟让首屏内容和 Onboarding 先渲染，不抢焦点
@@ -30,7 +32,7 @@ export default function AnnouncementModal({ user }) {
         .order("created_at", { ascending: false })
         .limit(10);
       if (error || !active || !Array.isArray(data)) return; // 列不存在（未跑迁移）→ 静默
-      const seen = loadSeen(user?.username);
+      const seen = loadSeen(user.username);
       const unseen = data.filter((p) => !seen.includes(p.id));
       if (unseen.length > 0) {
         setQueue(unseen);
