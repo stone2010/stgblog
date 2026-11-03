@@ -197,15 +197,20 @@ function AppInner() {
   const navigate = useCallback((p) => {
     setPage(p);
     setSelectedPost(null);
-    setDmTarget(null);
     setViewingProfile(null);
     setFollowersPage(null);
-    if (p === "dm" && user) loadDmList();
+    if (p === "dm" && user) {
+      loadDmList();
+      // 如果有未读消息，自动打开第一个未读对话
+      const unread = dmList.find(m => !m.read && m.sender !== user.username);
+      if (unread) setDmTarget(unread.sender);
+      else if (dmList.length > 0) setDmTarget(dmList[0].username);
+    }
     if (p === "groups" && user) loadGroups();
     closeGroup();
     setMobileTab(p === "home" ? "home" : p === "dm" ? "dm" : p === "groups" ? "groups" : (p === "profile" || p === "settings") ? "me" : p === "notifications" ? "notif" : "home");
     window.history.pushState({ page: p }, "", `#${p}`);
-  }, [user, loadDmList, setDmTarget, loadGroups, closeGroup]);
+  }, [user, loadDmList, dmList, setDmTarget, loadGroups, closeGroup]);
 
   useEffect(() => {
     const handlePopState = (e) => {
