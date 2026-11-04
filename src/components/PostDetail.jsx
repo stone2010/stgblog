@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { Icons } from "./Icons";
 import CommentNode from "./CommentNode";
 import { hasLiked, hasBookmarked, formatTime, formatTimeShort, formatCount, buildTree, parseContent, incrementViewCount } from "../utils";
+import { renderMarkdown } from "../md";
 
 function RenderContent({ content, onHashtag, onMention }) {
   const parts = parseContent(content);
@@ -28,6 +29,9 @@ export default function PostDetail({ post, onClose, onLike, onShare, onRepost, o
   const [replyText, setReplyText] = useState("");
   const [replySubmitting, setReplySubmitting] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const isQuestion = post?.category === "提问";
+  const isLongform = (post?.category || "").startsWith("长文");
+  const isMd = post?.category === "长文MD";
 
   useEffect(() => {
     if (!post) return;
@@ -106,7 +110,7 @@ const commentTree = useMemo(() => buildTree(comments), [comments]);
     <div className="detail">
       <div className="detail-top">
         <button className="detail-back" onClick={onClose}><Icons.Back /></button>
-        <span className="detail-top-title">帖子</span>
+        <span className="detail-top-title">{isQuestion ? "提问站" : isLongform ? "长文站" : "帖子"}</span>
       </div>
       <div className="detail-author">
         <div className="detail-avatar" style={{ cursor: "pointer" }} onClick={() => onUserClick(post.author)}>{post.author[0]}</div>
@@ -141,7 +145,14 @@ const commentTree = useMemo(() => buildTree(comments), [comments]);
           )}
         </div>
       </div>
-      <div className="detail-body"><RenderContent content={post.content} onHashtag={onHashtag} /></div>
+      {isMd ? (
+        <div className="detail-body md-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(post.content) }} />
+      ) : (
+        <div className="detail-body">
+          {isQuestion && post.title && <h3 className="q-detail-title">{post.title}</h3>}
+          <RenderContent content={post.content} onHashtag={onHashtag} />
+        </div>
+      )}
       {post.quote_of && post.quote_data && (
         <div className="quote-card detail-quote" onClick={() => onUserClick(post.quote_data.author)}>
           <div className="quote-head">
@@ -160,7 +171,7 @@ const commentTree = useMemo(() => buildTree(comments), [comments]);
         <span><b>{formatCount(post.views || 0)}</b> 浏览</span>
         <span><b>{formatCount(post.reposts || 0)}</b> 转发</span>
         <span><b>{formatCount(post.likes || 0)}</b> 赞</span>
-        <span><b>{comments.length}</b> 评论</span>
+        <span><b>{comments.length}</b> {isQuestion ? "回答" : "评论"}</span>
       </div>
       <div className="detail-actions">
         <button className="detail-action">💬 <span className="pa-count">{comments.length}</span></button>
@@ -178,11 +189,11 @@ const commentTree = useMemo(() => buildTree(comments), [comments]);
         {user && (
           <div className="cmt-input-area">
             <div className="comment-avatar">{user.username[0]}</div>
-            <textarea className="cmt-textarea" value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="发表评论..." rows={1} maxLength={500} />
+            <textarea className="cmt-textarea" value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder={isQuestion ? "写下你的回答..." : "发表评论..."} rows={1} maxLength={500} />
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 11, color: commentText.length > 450 ? "var(--red)" : "var(--muted)" }}>{commentText.length}/500</span>
               <button className="cmt-send" onClick={handleComment} disabled={commentLoading || !commentText.trim()}>
-                {commentLoading ? "..." : "回复"}
+                {commentLoading ? "..." : isQuestion ? "回答" : "回复"}
               </button>
             </div>
           </div>
@@ -193,7 +204,7 @@ const commentTree = useMemo(() => buildTree(comments), [comments]);
             replyText={replyText} setReplyText={setReplyText}
             submitting={replySubmitting} onSubmitReply={handleReply} onUserClick={onUserClick} />
         ))}
-        {!user && <p style={{ textAlign: "center", padding: 20, color: "var(--muted)", fontSize: 13 }}>登录后评论</p>}
+        {!user && <p style={{ textAlign: "center", padding: 20, color: "var(--muted)", fontSize: 13 }}>登录后{isQuestion ? "回答" : "评论"}</p>}
       </div>
     </div>
   );

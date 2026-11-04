@@ -1,6 +1,7 @@
 import React, { memo, useCallback, useState } from "react";
 import { Icons } from "./Icons";
 import { hasLiked, hasBookmarked, formatTimeShort, formatCount, parseContent, getBlockedSet, getMutedSet } from "../utils";
+import { mdToPlain } from "../md";
 import { useAuth } from "../context/AuthContext";
 
 function RenderContent({ content, onHashtag, onMention }) {
@@ -26,6 +27,7 @@ const PostCard = memo(function PostCard({ post, index = 0, editorial = false, on
   const isRepost = !!post.repost_of;
   const displayPost = isRepost ? (post.repost_data || post) : post;
   const repostAuthor = isRepost ? post.author : null;
+  const isLongCard = (displayPost.category || "").startsWith("长文");
 
   // 编辑部封面文案:取正文首行,去掉 #/@ 符号,截取前 12 字
   const edCoverWord = React.useMemo(() => {
@@ -94,7 +96,15 @@ const PostCard = memo(function PostCard({ post, index = 0, editorial = false, on
             )}
           </div>
         </div>
-        <RenderContent content={displayPost.content} onHashtag={onHashtag} onMention={handleMention} />
+        {isLongCard ? (
+          <div className="post-content">
+            <b>{displayPost.title}</b>
+            <br />
+            <span style={{ color: "var(--text-secondary)", fontSize: 13 }}>{mdToPlain(displayPost.content, 90)}</span>
+          </div>
+        ) : (
+          <RenderContent content={displayPost.content} onHashtag={onHashtag} onMention={handleMention} />
+        )}
         {displayPost.quote_of && displayPost.quote_data && (
           <div className="quote-card" onClick={(e) => { e.stopPropagation(); onSelect(displayPost.quote_data); }}>
             <div className="quote-head">

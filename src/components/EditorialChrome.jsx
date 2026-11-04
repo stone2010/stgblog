@@ -1,7 +1,12 @@
 import React from "react";
+import { HERO_COPY } from "../heroCopy";
 
 /* 编辑部印刷风专属版块 —— 仅在 设置→界面风格=编辑部 时渲染
    视觉基准:stgblog-editorial-reference-v2.html */
+
+export function pickCopy() {
+  return HERO_COPY[Math.floor(Math.random() * HERO_COPY.length)] || HERO_COPY[0];
+}
 
 export function EditorialTopStrip() {
   return (
@@ -17,6 +22,7 @@ export function EditorialHero() {
   const pad = (n) => String(n).padStart(2, "0");
   const dateStr = `${now.getFullYear()}.${pad(now.getMonth() + 1)}.${pad(now.getDate())}`;
   const weekStr = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][now.getDay()];
+  const [copy] = React.useState(pickCopy); // 每次挂载随机取一条,刷新即换
   return (
     <section className="ed-hero">
       <div className="ed-hero-left">
@@ -28,7 +34,7 @@ export function EditorialHero() {
         </h1>
         <div className="ed-hero-foot">
           <div className="ed-asterisk">✳</div>
-          <p>一个持续更新的个人空间。记录想法，拆解问题，在阅读、创造与日常观察中建立自己的理解。</p>
+          <p>{copy}</p>
         </div>
       </div>
       <div className="ed-hero-right">

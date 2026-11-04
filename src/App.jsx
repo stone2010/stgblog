@@ -36,7 +36,7 @@ function AppInner() {
   // Posts
   const [posts, setPosts] = useState([]);
   const [postsLoading, setPostsLoading] = useState(false);
-  const [tab, setTab] = useState("最新");
+  const [tab, setTab] = useState("帖子");
   const [searchKey, setSearchKey] = useState("");
   const [composeText, setComposeText] = useState("");
   const [composeAnnouncement, setComposeAnnouncement] = useState(false);
@@ -376,6 +376,40 @@ function AppInner() {
     }
   }, [user, composeText, publishing, composeAnnouncement]);
 
+  // ─── 提问站:发布问题 ───
+  const handleAsk = useCallback(async (question) => {
+    const q = String(question || "").trim();
+    if (!q) return;
+    if (!user) { setAuthOpen(true); return; }
+    const { data, error } = await supabase.from("posts").insert([{
+      title: q.slice(0, 100), content: q, author: user.username, category: "提问",
+      likes: 0, views: 0, reposts: 0, pinned: false,
+    }]).select("*").single();
+    if (!error && data) {
+      setPosts((prev) => [data, ...prev]);
+      showToast("✅ 提问成功，等待大家回答");
+    } else {
+      showToast("提问失败：" + (error?.message || "未知错误"), 3000);
+    }
+  }, [user]);
+
+  // ─── 长文站:发布长文(Markdown 或普通文本)───
+  const handlePublishLongForm = useCallback(async ({ title, content, isMd }) => {
+    if (!user) { setAuthOpen(true); return; }
+    const t = String(title || "").trim(), c = String(content || "").trim();
+    if (!t || !c) { showToast("标题和正文都不能为空", 3000); return; }
+    const { data, error } = await supabase.from("posts").insert([{
+      title: t.slice(0, 120), content: c, author: user.username, category: isMd ? "长文MD" : "长文",
+      likes: 0, views: 0, reposts: 0, pinned: false,
+    }]).select("*").single();
+    if (!error && data) {
+      setPosts((prev) => [data, ...prev]);
+      showToast("✅ 长文已发布");
+    } else {
+      showToast("发布失败：" + (error?.message || "未知错误"), 3000);
+    }
+  }, [user]);
+
   // ─── 键盘快捷键（Ctrl+Enter 发布 · Ctrl+K 搜索 · Esc 关闭弹层）───
   // 注意：必须定义在 handlePublish 之后，否则依赖数组会在渲染期触发 TDZ 错误
   useEffect(() => {
@@ -600,7 +634,7 @@ function AppInner() {
     if (page === "profile-view" && viewingProfile) return <ProfileViewPage viewingProfile={viewingProfile} posts={posts} onBack={() => { setViewingProfile(null); setPage("home"); setMobileTab("home"); }} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} />;
     if (page === "settings") return <SettingsPage onBack={() => { if (user) { navigate("profile"); } else { navigate("home"); } }} />;
     if (page === "profile") return <ProfilePage posts={posts} onAuthOpen={() => setAuthOpen(true)} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onFollowersPage={(type) => setFollowersPage({ username: user?.username, type })} onOpenUser={openUserClick} onOpenSettings={() => navigate("settings")} />;
-    return <HomeFeed posts={posts} postsLoading={postsLoading} hasMore={hasMore} loadMorePosts={loadMorePosts} tab={tab} setTab={setTab} searchKey={searchKey} composeText={composeText} setComposeText={setComposeText} onPublish={handlePublish} publishing={publishing} composeRef={composeRef} isAnnouncement={composeAnnouncement} onAnnouncementChange={setComposeAnnouncement} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onHashtag={handleHashtag} onAuthOpen={() => setAuthOpen(true)} />;
+    return <HomeFeed posts={posts} postsLoading={postsLoading} hasMore={hasMore} loadMorePosts={loadMorePosts} tab={tab} setTab={setTab} searchKey={searchKey} composeText={composeText} setComposeText={setComposeText} onPublish={handlePublish} publishing={publishing} composeRef={composeRef} isAnnouncement={composeAnnouncement} onAnnouncementChange={setComposeAnnouncement} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onHashtag={handleHashtag} onAuthOpen={() => setAuthOpen(true)} onAsk={handleAsk} onPublishLongForm={handlePublishLongForm} />;
   };
 
   return (
