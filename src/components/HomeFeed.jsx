@@ -56,7 +56,7 @@ export default function HomeFeed({
   }, [hasMore, postsLoading, loadMorePosts]);
 
   const cards = displayedPosts.map((post, i) => (
-    <PostCard key={post.id} post={post} index={i} editorial={editorial} onSelect={onSelectPost} onLike={onLike} onShare={onShare} onRepost={onRepost} onBookmark={onBookmark} onHashtag={onHashtag} />
+    <PostCard key={post.id} post={post} index={i} onSelect={onSelectPost} onLike={onLike} onShare={onShare} onRepost={onRepost} onBookmark={onBookmark} onHashtag={onHashtag} />
   ));
 
   if (editorial) {
@@ -94,16 +94,16 @@ export default function HomeFeed({
               )}
             </div>
           )}
-          <div className="ed-grid">{cards}</div>
-          <EditorialInterlude />
-          <EditorialAbout />
-          <EditorialFooter />
+          {cards}
           {/* Infinite scroll sentinel */}
           <div ref={sentinelRef} style={{ height: 1 }} />
           {hasMore && !postsLoading && displayedPosts.length > 0 && (
             <div className="ed-load-more ed-micro">Loading more entries ↓</div>
           )}
         </div>
+        <EditorialInterlude />
+        <EditorialAbout />
+        <EditorialFooter />
       </>
     );
   }

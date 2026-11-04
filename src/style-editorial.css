@@ -50,6 +50,8 @@ html[data-style="editorial"] .desktop-wrap{
   padding:0 56px;width:100%;
 }
 html[data-style="editorial"] .layout{max-width:none}
+/* 帖子列表/详情与经典版同构:仅约束为经典阅读宽度居中 */
+html[data-style="editorial"] .feed{max-width:600px;margin:0 auto;width:100%}
 html[data-style="editorial"] .topnav-inner{
   max-width:1440px;margin:0 auto;padding:0 56px;
 }
@@ -361,36 +363,8 @@ html[data-style="editorial"] .ed-footer-logo{
 }
 html[data-style="editorial"] .ed-footer-logo i{font-style:normal;color:var(--ed-red)}
 
-/* ── 14. 文章详情页:阅读视图 ── */
-html[data-style="editorial"] .detail{
-  background:transparent;border:none;border-radius:0;box-shadow:none;
-  backdrop-filter:none;-webkit-backdrop-filter:none;
-  max-width:850px;margin:0 auto;width:100%;
-  padding:56px 0 110px;
-}
-html[data-style="editorial"] .detail-top{border-bottom:1px solid var(--ink)}
-html[data-style="editorial"] .detail-back{border-radius:0}
-html[data-style="editorial"] .detail-top-title{
-  font-family:var(--ed-sans);font-size:10px;letter-spacing:.16em;
-  text-transform:uppercase;font-weight:700;color:var(--ed-muted);
-}
-html[data-style="editorial"] .detail-body{
-  font-family:var(--ed-serif);
-  font-size:19px;line-height:1.95;max-width:680px;
-  color:var(--ink);
-}
-html[data-style="editorial"] .detail-body .hashtag,
-html[data-style="editorial"] .detail-body .mention{color:var(--ed-red)}
-html[data-style="editorial"] .detail-quote{
-  border:1px solid var(--rule);border-left:3px solid var(--ed-red);
-  border-radius:0;background:transparent;
-}
-html[data-style="editorial"] .detail-actions{border-top:1px solid var(--rule)}
-html[data-style="editorial"] .detail-action{border-radius:0;color:var(--ed-muted)}
-html[data-style="editorial"] .cmt-section{border-top:1px solid var(--ink)}
-html[data-style="editorial"] .cmt-textarea,
-html[data-style="editorial"] .cmt-input-area,
-html[data-style="editorial"] .cmt-send{border-radius:0}
+/* ── 14. 文章详情页:使用经典版结构(仅继承纸张配色变量),不再覆盖 ── */
+html[data-style="editorial"] .detail{max-width:600px;margin:10px auto 12px;width:calc(100% - 24px)}
 
 /* ── 15. 弹层通用(登录/公告/菜单)── */
 html[data-style="editorial"] .auth-modal,
