@@ -89,11 +89,11 @@ export default function SettingsPage({ onBack }) {
         <div className="settings-section-title">外观</div>
         <SegRow
           label="界面风格"
-          hint="液态玻璃默认风 或 编辑部印刷风"
+          hint="经典版实用易读；编辑部版偏艺术排版，作为新版本保留，可随时切回"
           value={styleMode}
           options={[
-            { value: "default", label: "默认", icon: "🫧" },
-            { value: "editorial", label: "编辑部", icon: "📰" },
+            { value: "default", label: "经典版", icon: "🫧" },
+            { value: "editorial", label: "编辑部版", icon: "📰" },
           ]}
           onChange={setStyleMode}
         />
