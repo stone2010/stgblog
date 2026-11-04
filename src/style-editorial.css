@@ -153,8 +153,8 @@ html[data-style="editorial"] .ed-cover-art{
   display:flex;align-items:center;justify-content:center;
 }
 html[data-style="editorial"] .ed-cover-big{
-  font-size:clamp(70px,10vw,140px);font-weight:950;letter-spacing:-.13em;
-  color:var(--paper);z-index:2;
+  font-size:clamp(34px,5vw,68px);font-weight:950;letter-spacing:-.04em;
+  color:var(--paper);z-index:2;white-space:nowrap;
 }
 html[data-style="editorial"] .ed-ring{
   position:absolute;width:76%;aspect-ratio:1;

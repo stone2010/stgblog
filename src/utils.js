@@ -158,11 +158,20 @@ export function saveViewed(postId) {
   } catch {}
 }
 
+// ─── 数据库计数器原子化更新(读取最新值→+delta→写回,避免 rpc 缺失导致统计失效)───
+export async function bumpPostCounter(postId, field, delta = 1) {
+  try {
+    const { data, error } = await supabase.from("posts").select(field).eq("id", postId).single();
+    if (error || !data) return null;
+    const next = (Number(data[field]) || 0) + delta;
+    const { error: upErr } = await supabase.from("posts").update({ [field]: next }).eq("id", postId);
+    return upErr ? null : next;
+  } catch { return null; }
+}
+
 // ─── 直接增加浏览量（不受30分钟缓存限制，用于帖子详情页打开时计数）───
 export function incrementViewCount(postId) {
-  try {
-    supabase.rpc('increment_views', { p_post_id: postId });
-  } catch {}
+  bumpPostCounter(postId, "views", 1);
 }
 
 export function getViewedSet() {

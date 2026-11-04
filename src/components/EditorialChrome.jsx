@@ -13,6 +13,10 @@ export function EditorialTopStrip() {
 }
 
 export function EditorialHero() {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  const dateStr = `${now.getFullYear()}.${pad(now.getMonth() + 1)}.${pad(now.getDate())}`;
+  const weekStr = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][now.getDay()];
   return (
     <section className="ed-hero">
       <div className="ed-hero-left">
@@ -28,13 +32,13 @@ export function EditorialHero() {
         </div>
       </div>
       <div className="ed-hero-right">
-        <div className="ed-issue-line ed-micro"><span>Selected thoughts</span><span>01—05</span></div>
+        <div className="ed-issue-line ed-micro"><span>Selected thoughts</span><span>{dateStr}</span></div>
         <div className="ed-cover-art">
           <span className="ed-ring" />
           <span className="ed-ring two" />
           <span className="ed-cross" />
-          <span className="ed-cover-big">STG/01</span>
-          <span className="ed-cover-caption ed-micro">A PLACE FOR IDEAS — 2026</span>
+          <span className="ed-cover-big">{dateStr}</span>
+          <span className="ed-cover-caption ed-micro">A PLACE FOR IDEAS — {weekStr}</span>
         </div>
         <div className="ed-issue-line bottom ed-micro"><span>Scroll to explore</span><span>↓</span></div>
       </div>

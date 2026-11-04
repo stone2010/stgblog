@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "./supabase";
-import { hasLiked, hasViewed, saveLiked, saveViewed, toggleBookmark, isAdmin, showToast } from "./utils";
+import { hasLiked, hasViewed, saveLiked, saveViewed, toggleBookmark, isAdmin, showToast, bumpPostCounter } from "./utils";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { useNotifications } from "./hooks/useNotifications";
 import { useDM } from "./hooks/useDM";
@@ -182,7 +182,7 @@ function AppInner() {
       return updated;
     });
     batch.forEach(({ id }) => {
-      try { supabase.rpc("increment_views", { p_post_id: id }); } catch {}
+      bumpPostCounter(id, "views", 1);
     });
   }, []);
 
@@ -412,22 +412,16 @@ function AppInner() {
   const handleDeletePost = useCallback(async (post) => {
     if (!post || !user || post.author !== user.username) return;
     if (!window.confirm("确定删除？")) return;
-    try {
-      await supabase.rpc("delete_post", { p_username: user.username, p_post_id: post.id });
-    } catch {
-      await supabase.from("posts").delete().eq("id", post.id);
-    }
+    const { error } = await supabase.from("posts").delete().eq("id", post.id).eq("author", user.username);
+    if (error) { showToast("删除失败：" + error.message, 3000); return; }
     setPosts((prev) => prev.filter((p) => p.id !== post.id));
     setSelectedPost(null);
   }, [user]);
 
   const handleEditPost = useCallback(async (postId, newContent) => {
     if (!user) return;
-    try {
-      await supabase.rpc("edit_post", { p_username: user.username, p_post_id: postId, p_content: newContent });
-    } catch {
-      await supabase.from("posts").update({ content: newContent, title: newContent.slice(0, 60), edited: true }).eq("id", postId);
-    }
+    const { error } = await supabase.from("posts").update({ content: newContent, title: newContent.slice(0, 60), edited: true }).eq("id", postId).eq("author", user.username);
+    if (error) { showToast("编辑失败：" + error.message, 3000); return; }
     setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, content: newContent, title: newContent.slice(0, 60), edited: true } : p));
     if (selectedPost?.id === postId) setSelectedPost((s) => s ? { ...s, content: newContent, title: newContent.slice(0, 60), edited: true } : s);
     setEditPostModal(null);
@@ -439,19 +433,15 @@ function AppInner() {
     setPosts((prev) => prev.map((i) => i.id === post.id ? { ...i, likes: next } : i));
     if (selectedPost?.id === post.id) setSelectedPost((s) => s ? { ...s, likes: next } : s);
     saveLiked(post.id);
-    try {
-      await supabase.rpc("increment_likes", { p_post_id: post.id });
-    } catch {
-      await supabase.from("posts").update({ likes: next }).eq("id", post.id);
+    const serverNext = await bumpPostCounter(post.id, "likes", 1);
+    if (serverNext != null && serverNext !== next) {
+      setPosts((prev) => prev.map((i) => i.id === post.id ? { ...i, likes: serverNext } : i));
+      if (selectedPost?.id === post.id) setSelectedPost((s) => s ? { ...s, likes: serverNext } : s);
     }
     if (user && post.author !== user.username) {
-      try {
-        await supabase.rpc("send_notification", {
-          p_user_to: post.author, p_user_from: user.username, p_type: "like", p_post_id: post.id,
-        });
-      } catch {
-        await supabase.from("notifications").insert([{ user_to: post.author, user_from: user.username, type: "like", post_id: post.id }]);
-      }
+      await supabase.from("notifications").insert([{
+        user_to: post.author, user_from: user.username, type: "like", post_id: post.id,
+      }]);
     }
   }, [user, selectedPost]);
 
@@ -473,17 +463,11 @@ function AppInner() {
     if (!error) {
       data.repost_data = post;
       setPosts((prev) => [data, ...prev]);
-      try { await supabase.rpc("increment_reposts", { p_post_id: post.id }); } catch {}
+      bumpPostCounter(post.id, "reposts", 1);
       const next = (post.reposts || 0) + 1;
       setPosts((prev) => prev.map((p) => p.id === post.id ? { ...p, reposts: next } : p));
       if (user.username !== post.author) {
-        try {
-          await supabase.rpc("send_notification", {
-            p_user_to: post.author, p_user_from: user.username, p_type: "repost", p_post_id: post.id,
-          });
-        } catch {
-          await supabase.from("notifications").insert([{ user_to: post.author, user_from: user.username, type: "repost", post_id: post.id }]);
-        }
+        await supabase.from("notifications").insert([{ user_to: post.author, user_from: user.username, type: "repost", post_id: post.id }]);
       }
     }
   }, [user, posts]);
@@ -500,13 +484,7 @@ function AppInner() {
       data.quote_data = post;
       setPosts((prev) => [data, ...prev]);
       if (user.username !== post.author) {
-        try {
-          await supabase.rpc("send_notification", {
-            p_user_to: post.author, p_user_from: user.username, p_type: "quote", p_post_id: post.id,
-          });
-        } catch {
-          await supabase.from("notifications").insert([{ user_to: post.author, user_from: user.username, type: "quote", post_id: post.id }]);
-        }
+        await supabase.from("notifications").insert([{ user_to: post.author, user_from: user.username, type: "quote", post_id: post.id }]);
       }
     }
   }, [user]);
