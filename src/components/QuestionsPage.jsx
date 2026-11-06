@@ -8,18 +8,15 @@ import { supabase } from "../supabase";
 
 function isQuestion(p) { return p.category === "提问"; }
 
-function QuestionCard({ post, answerCount, topAnswer, onSelect, onUserClick }) {
+function QuestionCard({ post, index, answerCount, topAnswer, onSelect, onUserClick }) {
   return (
-    <article className="card q2-card" onClick={() => onSelect(post)}>
-      <div className="meta">
-        <span className="author" onClick={(e) => { e.stopPropagation(); onUserClick(post.author); }}>{post.author}</span>
-        <i className="dot" />
-        <span>{formatTimeShort(post.created_at)}</span>
-        <span className="pill">提问</span>
+    <article className="q2-card" onClick={() => onSelect(post)}>
+      <div className="q2-head">
+        <span className="q2-badge">Q</span>
+        <h2 className="q2-title">{post.title || post.content}</h2>
       </div>
-      <h2 className="posttitle">{post.title || post.content}</h2>
       {post.content && post.title && post.content !== post.title && (
-        <p className="excerpt">{post.content.slice(0, 140)}{post.content.length > 140 ? "…" : ""}</p>
+        <p className="q2-desc">{post.content.slice(0, 140)}{post.content.length > 140 ? "…" : ""}</p>
       )}
       {topAnswer && (
         <div className="answerpreview">
@@ -28,9 +25,14 @@ function QuestionCard({ post, answerCount, topAnswer, onSelect, onUserClick }) {
           {String(topAnswer.content || "").slice(0, 90)}{(topAnswer.content || "").length > 90 ? "…" : ""}
         </div>
       )}
-      <div className="actions">
-        <span>◯ {formatCount(answerCount || 0)} 个回答</span>
-        <span className="readmore">查看讨论 →</span>
+      <div className="q2-foot">
+        <div className="q2-meta">
+          <span className="author" onClick={(e) => { e.stopPropagation(); onUserClick(post.author); }}>{post.author}</span>
+          <i className="dot" />
+          <span>{formatTimeShort(post.created_at)}</span>
+          <span className="pill">提问</span>
+        </div>
+        <span className="q2-count">{formatCount(answerCount || 0)} 个回答</span>
       </div>
     </article>
   );
@@ -105,10 +107,11 @@ export default function QuestionsPage({ posts, postsLoading, onAsk, onSelectPost
         </div>
       )}
       <div className="q2-list">
-        {questions.map((p) => (
+        {questions.map((p, i) => (
           <QuestionCard
             key={p.id}
             post={p}
+            index={i}
             answerCount={info[p.id]?.count}
             topAnswer={info[p.id]?.top}
             onSelect={onSelectPost}

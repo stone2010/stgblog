@@ -4,7 +4,7 @@ import { getBlockedSet, getMutedSet } from "../utils";
 import { pickCopy } from "./EditorialChrome";
 import PostCard from "./PostCard";
 import ComposeBar from "./ComposeBar";
-import { EditorialHero, EditorialInterlude, EditorialAbout, EditorialFooter } from "./EditorialChrome";
+import { EditorialInterlude, EditorialAbout, EditorialFooter } from "./EditorialChrome";
 
 /* 主页 —— 短帖子信息流(独立一级入口)
    提问 → QuestionsPage,长文 → BlogPage(2026-11 三模块重构) */
@@ -74,15 +74,10 @@ export default function HomeFeed({
     <ComposeBar value={composeText} onChange={setComposeText} onPublish={onPublish} publishing={publishing} composeRef={composeRef} isAnnouncement={isAnnouncement} onAnnouncementChange={onAnnouncementChange} />
   );
 
-  // ── 编辑部模式:艺术外框 + 帖子流 ──
+  // ── 编辑部模式:与经典版同结构(顶部艺术块已按反馈移除),仅保留纸感配色与底部落款 ──
   if (editorial) {
     return (
       <>
-        <EditorialHero />
-        <div className="ed-section-intro">
-          <h2 className="ed-micro">01 / Short posts</h2>
-          <p className="ed-serif-italic">Notes from the desk</p>
-        </div>
         <div className="feed ed-feed">
           {composer}
           {listBlock}

@@ -9,14 +9,15 @@ import { mdToPlain } from "../md";
 
 function isLongform(p) { return (p.category || "").startsWith("长文"); }
 
-// 文章封面缩略图:装饰圆环 + 斜体衬线字,三种底色循环(纯 CSS,随主题变色)
-const COVER_TITLES = ["Notes & thoughts", "A slower web", "Reading notes", "Fragments", "Long form", "Essays"];
+// 文章封面:现代感几何色块 + 标题首字,三种配色循环
+const COVER_TINTS = ["a", "b", "c"];
 
 function BlogCard({ post, index, onSelect, onUserClick }) {
   const isMd = post.category === "长文MD";
   const excerpt = mdToPlain(post.content || post.title || "", 96);
   const readMin = Math.max(1, Math.round((post.content || "").length / 400));
-  const cover = COVER_TITLES[index % COVER_TITLES.length];
+  const tint = COVER_TINTS[index % COVER_TINTS.length];
+  const firstChar = (post.title || "文").trim().charAt(0).toUpperCase();
   return (
     <article className="bl-card" onClick={() => onSelect(post)}>
       <div className="bl-main">
@@ -24,14 +25,14 @@ function BlogCard({ post, index, onSelect, onUserClick }) {
           <span className="author" onClick={(e) => { e.stopPropagation(); onUserClick(post.author); }}>{post.author}</span>
           <i className="dot" />
           <span>{formatTimeShort(post.created_at)}</span>
-          <span className="pill">{isMd ? "Markdown" : "文章"}</span>
+          <span className={`bl-tag ${isMd ? "md" : ""}`}>{isMd ? "Markdown" : "文章"}</span>
           <span>阅读约 {readMin} 分钟</span>
         </div>
         <h2 className="bl-title">{post.title}</h2>
         <p className="bl-excerpt">{excerpt}</p>
         <span className="readmore">阅读全文 →</span>
       </div>
-      <div className="coverthumb"><span>{cover}</span></div>
+      <div className={`coverthumb tint-${tint}`} aria-hidden="true"><span>{firstChar}</span></div>
     </article>
   );
 }
