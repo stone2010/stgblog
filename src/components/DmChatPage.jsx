@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { Icons } from "./Icons";
 import { useAuth } from "../context/AuthContext";
-import { formatTime } from "../utils";
+import { formatTime, avatarColor } from "../utils";
 import { supabase } from "../supabase";
 import { pubkeyFingerprint } from "../crypto";
 
@@ -198,7 +198,7 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
     <div className="dm-chat">
       <div className="dm-chat-top">
         <button className="dm-chat-back" onClick={onBack} aria-label="返回"><Icons.Back /></button>
-        <div className="dm-avatar dm-avatar-clickable" onClick={() => onUserClick?.(dmTarget)}>
+        <div className="dm-avatar dm-avatar-clickable" style={{ background: avatarColor(dmTarget) }} onClick={() => onUserClick?.(dmTarget)}>
           {dmTarget?.[0] || '?'}
         </div>
         <div className="dm-chat-title" onClick={() => onUserClick?.(dmTarget)}>

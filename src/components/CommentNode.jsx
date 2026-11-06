@@ -1,10 +1,10 @@
 import React, { memo } from "react";
-import { formatTimeShort } from "../utils";
+import { formatTimeShort, avatarColor } from "../utils";
 
 const CommentNode = memo(function CommentNode({ node, user, onDelete, replyTarget, setReplyTarget, replyText, setReplyText, submitting, onSubmitReply, onUserClick }) {
   return (
     <div className="comment">
-      <div className="comment-avatar" style={{ cursor: "pointer" }} onClick={() => onUserClick?.(node.author)}>{node.author[0]}</div>
+      <div className="comment-avatar" style={{ cursor: "pointer", background: avatarColor(node.author) }} onClick={() => onUserClick?.(node.author)}>{node.author[0]}</div>
       <div className="comment-body">
         <div className="comment-head">
           <b style={{ cursor: "pointer" }} onClick={() => onUserClick?.(node.author)}>{node.author}</b>

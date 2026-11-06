@@ -223,6 +223,13 @@ export function toggleMute(username) {
 
 // ─── 管理员判定（公告发布等能力）───
 export const ADMIN_USERNAME = "Stone";
+// ─── 确定性彩色头像:同一用户名永远同色,不同用户一眼区分 ───
+export function avatarColor(name = "") {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
+  return `hsl(${h}, 60%, 42%)`;
+}
+
 export function isAdmin(user) {
   return !!user && user.username === ADMIN_USERNAME;
 }

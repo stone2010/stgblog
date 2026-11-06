@@ -124,12 +124,11 @@ export function AuthProvider({ children }) {
     try { return localStorage.getItem("stgblog_accent") || "green"; } catch { return "green"; }
   });
 
+  // 主题色自选功能已移除(与配色主题系统冲突且无法全局生效):
+  // 仅清除历史遗留的内联覆盖,强调色统一由配色主题的样式表控制
   useEffect(() => {
-    try {
-      applyAccentColors(accentColor);
-      localStorage.setItem("stgblog_accent", accentColor);
-    } catch {}
-  }, [accentColor]);
+    try { applyAccentColors("green"); } catch {}
+  }, []);
 
   // Load key pair when user changes
   useEffect(() => {

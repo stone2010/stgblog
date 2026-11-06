@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "./supabase";
-import { hasLiked, hasViewed, saveLiked, saveViewed, toggleBookmark, isAdmin, showToast, bumpPostCounter } from "./utils";
+import { hasLiked, hasViewed, saveLiked, saveViewed, toggleBookmark, isAdmin, showToast, bumpPostCounter, avatarColor } from "./utils";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { useNotifications } from "./hooks/useNotifications";
 import { useDM } from "./hooks/useDM";
@@ -689,7 +689,7 @@ function AppInner() {
             )}
             {user ? (
               <button className="compose-tool" onClick={() => navigate("profile")} title="个人">
-                <div className="post-avatar" style={{ width: 28, height: 28, fontSize: 12 }}>{user.username[0]}</div>
+                <div className="post-avatar" style={{ width: 28, height: 28, fontSize: 12, background: avatarColor(user.username) }}>{user.username[0]}</div>
               </button>
             ) : (
               <button className="topnav-login" onClick={() => setAuthOpen(true)}>登录</button>

@@ -1,6 +1,6 @@
 import React, { memo, useCallback, useState } from "react";
 import { Icons } from "./Icons";
-import { hasLiked, hasBookmarked, formatTimeShort, formatCount, parseContent, getBlockedSet, getMutedSet } from "../utils";
+import { hasLiked, hasBookmarked, formatTimeShort, formatCount, parseContent, getBlockedSet, getMutedSet, avatarColor } from "../utils";
 import { mdToPlain } from "../md";
 import { useAuth } from "../context/AuthContext";
 
@@ -59,7 +59,7 @@ const PostCard = memo(function PostCard({ post, index = 0, editorial = false, on
           <Icons.RT /> <span>{repostAuthor} 转发了</span>
         </div>
       )}
-      <div className="post-avatar" style={{ cursor: "pointer" }} onClick={handleAuthorClick}>{displayPost.author[0]}</div>
+      <div className="post-avatar" style={{ cursor: "pointer", background: avatarColor(displayPost.author) }} onClick={handleAuthorClick}>{displayPost.author[0]}</div>
       <div className="post-body">
         <div className="post-head">
           <span className="post-author" onClick={handleAuthorClick} style={{ cursor: "pointer" }}>{displayPost.author}</span>

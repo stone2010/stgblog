@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { getBlockedSet, getMutedSet } from "../utils";
 import { pickCopy } from "./EditorialChrome";
@@ -6,8 +6,10 @@ import PostCard from "./PostCard";
 import ComposeBar from "./ComposeBar";
 import { EditorialInterlude, EditorialAbout, EditorialFooter } from "./EditorialChrome";
 
-/* 主页 —— 短帖子信息流(独立一级入口)
+/* 主页 —— 短帖子信息流(独立一级入口,分页浏览)
    提问 → QuestionsPage,长文 → BlogPage(2026-11 三模块重构) */
+
+const PAGE_SIZE = 10;
 
 function isQuestion(p) { return p.category === "提问"; }
 function isLongform(p) { return (p.category || "").startsWith("长文"); }
@@ -19,9 +21,9 @@ export default function HomeFeed({
   onSelectPost, onLike, onShare, onRepost, onBookmark, onHashtag, onAuthOpen,
 }) {
   const { styleMode } = useAuth();
-  const sentinelRef = useRef(null);
   const editorial = styleMode === "editorial";
   const [tagline] = useState(pickCopy); // 轮换文案,每次刷新换一条
+  const [pageIndex, setPageIndex] = useState(0);
 
   const displayedPosts = useMemo(() => {
     const kw = searchKey.trim().toLowerCase();
@@ -36,24 +38,28 @@ export default function HomeFeed({
     }).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }, [posts, searchKey]);
 
-  // Infinite scroll: observe sentinel at bottom
-  React.useEffect(() => {
-    if (!sentinelRef.current) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !postsLoading) {
-          loadMorePosts();
-        }
-      },
-      { rootMargin: "200px" }
-    );
-    observer.observe(sentinelRef.current);
-    return () => observer.disconnect();
-  }, [hasMore, postsLoading, loadMorePosts]);
+  const totalPages = Math.max(1, Math.ceil(displayedPosts.length / PAGE_SIZE));
+  const safeIndex = Math.min(pageIndex, totalPages - 1);
+  const pagePosts = displayedPosts.slice(safeIndex * PAGE_SIZE, safeIndex * PAGE_SIZE + PAGE_SIZE);
+
+  // 搜索词变化时回到第一页
+  useEffect(() => { setPageIndex(0); }, [searchKey]);
+
+  // 翻到已加载数据的末页且数据库还有更多时,预取下一批
+  useEffect(() => {
+    if (hasMore && !postsLoading && (safeIndex + 1) * PAGE_SIZE >= displayedPosts.length) {
+      loadMorePosts();
+    }
+  }, [safeIndex, hasMore, postsLoading, displayedPosts.length, loadMorePosts]);
+
+  const gotoPage = (i) => {
+    setPageIndex(Math.min(Math.max(0, i), totalPages - 1));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const listBlock = (
     <>
-      {postsLoading && <div className="loader" />}
+      {postsLoading && displayedPosts.length === 0 && <div className="loader" />}
       {!postsLoading && displayedPosts.length === 0 && (
         <div className="empty-state">
           <div className="icon">📝</div>
@@ -64,9 +70,16 @@ export default function HomeFeed({
           </button>
         </div>
       )}
-      {displayedPosts.map((post) => (
+      {pagePosts.map((post) => (
         <PostCard key={post.id} post={post} onSelect={onSelectPost} onLike={onLike} onShare={onShare} onRepost={onRepost} onBookmark={onBookmark} onHashtag={onHashtag} />
       ))}
+      {displayedPosts.length > PAGE_SIZE && (
+        <div className="pg-bar">
+          <button className="pg-btn" disabled={safeIndex === 0} onClick={() => gotoPage(safeIndex - 1)}>← 上一页</button>
+          <span className="pg-info">第 {safeIndex + 1} / {totalPages} 页</span>
+          <button className="pg-btn" disabled={safeIndex >= totalPages - 1 && !hasMore} onClick={() => gotoPage(safeIndex + 1)}>下一页 →</button>
+        </div>
+      )}
     </>
   );
 
@@ -74,22 +87,18 @@ export default function HomeFeed({
     <ComposeBar value={composeText} onChange={setComposeText} onPublish={onPublish} publishing={publishing} composeRef={composeRef} isAnnouncement={isAnnouncement} onAnnouncementChange={onAnnouncementChange} />
   );
 
-  // ── 编辑部模式:与经典版同结构(顶部艺术块已按反馈移除),仅保留纸感配色与底部落款 ──
+  // ── 编辑部模式:与经典版同结构(顶部艺术块已按反馈移除),分页后接底部落款 ──
   if (editorial) {
     return (
-      <>
+      <div className="pageblock">
         <div className="feed ed-feed">
           {composer}
           {listBlock}
-          <div ref={sentinelRef} style={{ height: 1 }} />
-          {hasMore && !postsLoading && displayedPosts.length > 0 && (
-            <div className="ed-load-more ed-micro">Loading more entries ↓</div>
-          )}
         </div>
         <EditorialInterlude />
         <EditorialAbout />
         <EditorialFooter />
-      </>
+      </div>
     );
   }
 
@@ -106,11 +115,6 @@ export default function HomeFeed({
         <div className="feed-tagline" title="每次刷新都会换一条">{tagline}</div>
         {composer}
         {listBlock}
-        {/* Infinite scroll sentinel */}
-        <div ref={sentinelRef} style={{ height: 1 }} />
-        {hasMore && !postsLoading && displayedPosts.length > 0 && (
-          <div style={{ textAlign: "center", padding: 16, color: "var(--text-muted)", fontSize: 13 }}>加载更多...</div>
-        )}
       </div>
     </div>
   );

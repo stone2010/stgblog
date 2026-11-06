@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useCallback, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
-import { formatTimeShort } from "../utils";
+import { formatTimeShort, avatarColor } from "../utils";
 
 const CheckSingle = () => (
   <svg viewBox="0 0 16 11" width="14" height="10" fill="none" style={{ display: "inline-block", verticalAlign: "middle" }}>
@@ -94,7 +94,7 @@ export default function DmListPage({ dmList, onOpenDm, onNewDm, onTogglePin, onD
             setContextMenu({ x: e.clientX, y: e.clientY, other });
           }}
         >
-          <div className="dm-avatar">{other?.[0] || '?'}</div>
+          <div className="dm-avatar" style={{ background: avatarColor(other) }}>{other?.[0] || '?'}</div>
           <div className="dm-info">
             <div className="dm-name">
               {nickname || other}

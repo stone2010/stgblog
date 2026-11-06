@@ -33,6 +33,9 @@ export default function PostDetail({ post, onClose, onLike, onShare, onRepost, o
   const isLongform = (post?.category || "").startsWith("长文");
   const isMd = post?.category === "长文MD";
 
+  // 打开详情页时回到顶部(否则停留在列表的滚动位置)
+  useEffect(() => { window.scrollTo({ top: 0, behavior: "instant" }); }, []);
+
   useEffect(() => {
     if (!post) return;
     (async () => {

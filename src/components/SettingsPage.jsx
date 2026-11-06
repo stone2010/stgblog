@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from "react";
 import { supabase } from "../supabase";
-import { useAuth, ACCENT_COLORS } from "../context/AuthContext";
+import { useAuth } from "../context/AuthContext";
 import { Icons } from "./Icons";
 
 // ─── 分段选择器行 ───
@@ -24,7 +24,7 @@ function SegRow({ label, hint, value, options, onChange }) {
 }
 
 export default function SettingsPage({ onBack }) {
-  const { user, colorMode, setColorMode, glassMode, setGlassMode, fontSize, setFontSize, accentColor, setAccentColor,
+  const { user, colorMode, setColorMode, glassMode, setGlassMode, fontSize, setFontSize,
     styleMode, setStyleMode, paletteMode, setPaletteMode, logout, dmPrivacy, dmKey, updateDmPrivacy } = useAuth();
 
   // 修改密码（自个人主页迁入）
@@ -97,36 +97,47 @@ export default function SettingsPage({ onBack }) {
           ]}
           onChange={setStyleMode}
         />
-        <SegRow
-          label="配色主题"
-          hint="复古暖调(纸质编辑部) / 现代蓝绿(清爽数字风),首次访问默认复古暖调"
-          value={paletteMode}
-          options={[
-            { value: "vintage", label: "复古暖调", icon: "📜" },
-            { value: "modern", label: "现代蓝绿", icon: "💧" },
-          ]}
-          onChange={(v) => { setPaletteMode(v); if (colorMode !== "light") setColorMode("light"); if (accentColor !== "green") setAccentColor("green"); }}
-        />
-        <SegRow
-          label="颜色模式"
-          hint="深色 / 浅色配色"
-          value={colorMode}
-          options={[
-            { value: "dark", label: "深色", icon: "🌙" },
-            { value: "light", label: "浅色", icon: "☀️" },
-          ]}
-          onChange={setColorMode}
-        />
-        <SegRow
-          label="玻璃效果"
-          hint="液态玻璃材质 或 经典实底"
-          value={glassMode}
-          options={[
-            { value: "glass", label: "液态玻璃", icon: "🫧" },
-            { value: "classic", label: "经典普通", icon: "◆" },
-          ]}
-          onChange={setGlassMode}
-        />
+        {styleMode === "editorial" ? (
+          <div className="settings-row">
+            <div className="settings-row-label">
+              <span className="settings-row-name">外观提示</span>
+              <span className="settings-row-hint">编辑部风格使用固定纸感配色，颜色模式 / 玻璃效果 / 配色主题仅在经典版下生效——切换到「经典版」后可调整</span>
+            </div>
+          </div>
+        ) : (
+          <>
+            <SegRow
+              label="配色主题"
+              hint="复古暖调(纸质编辑部) / 现代蓝绿(清爽数字风),首次访问默认复古暖调"
+              value={paletteMode}
+              options={[
+                { value: "vintage", label: "复古暖调", icon: "📜" },
+                { value: "modern", label: "现代蓝绿", icon: "💧" },
+              ]}
+              onChange={(v) => { setPaletteMode(v); if (colorMode !== "light") setColorMode("light"); }}
+            />
+            <SegRow
+              label="颜色模式"
+              hint="深色 / 浅色配色"
+              value={colorMode}
+              options={[
+                { value: "dark", label: "深色", icon: "🌙" },
+                { value: "light", label: "浅色", icon: "☀️" },
+              ]}
+              onChange={setColorMode}
+            />
+            <SegRow
+              label="玻璃效果"
+              hint="液态玻璃材质 或 经典实底"
+              value={glassMode}
+              options={[
+                { value: "glass", label: "液态玻璃", icon: "🫧" },
+                { value: "classic", label: "经典普通", icon: "◆" },
+              ]}
+              onChange={setGlassMode}
+            />
+          </>
+        )}
         <SegRow
           label="字号"
           hint="全局界面文字大小"
@@ -138,24 +149,6 @@ export default function SettingsPage({ onBack }) {
           ]}
           onChange={setFontSize}
         />
-        <div className="settings-row">
-          <div className="settings-row-label">
-            <span className="settings-row-name">主题色</span>
-            <span className="settings-row-hint">按钮、链接、高亮将跟随所选强调色</span>
-          </div>
-          <div className="theme-color-row">
-            {Object.entries(ACCENT_COLORS).map(([key, c]) => (
-              <button
-                key={key}
-                className={`theme-color-dot ${accentColor === key ? "on" : ""}`}
-                style={{ background: c.accent }}
-                onClick={() => setAccentColor(key)}
-                title={c.label}
-                aria-label={`主题色：${c.label}`}
-              />
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* ─── 私信 ─── */}
