@@ -2081,3 +2081,12 @@ html[data-zoom="lg"]{zoom:1.12}
   .lf-modal{padding:14px;max-height:92vh}
   .ask-btn{padding:0 14px}
 }
+
+/* ═══ 移动端防横向溢出:长内容强制断行(长URL/连续字符) ═══ */
+.post,.post-text,.post-title,.q2-card,.bl-card,.bl-excerpt,.detail-body,.cmt-body,.md-body{
+  overflow-wrap:anywhere;word-break:break-word;min-width:0;max-width:100%;
+}
+.layout,.feed,.pageblock,.bloglist,.q2-list{min-width:0;max-width:100%}
+.layout img,.post img,.md-body img{max-width:100%;height:auto}
+.post-actions{flex-wrap:wrap;row-gap:4px;min-width:0}
+.post-body{min-width:0;max-width:100%}

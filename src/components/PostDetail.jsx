@@ -110,7 +110,7 @@ const commentTree = useMemo(() => buildTree(comments), [comments]);
     <div className="detail">
       <div className="detail-top">
         <button className="detail-back" onClick={onClose}><Icons.Back /></button>
-        <span className="detail-top-title">{isQuestion ? "提问站" : isLongform ? "长文站" : "帖子"}</span>
+        <span className="detail-top-title">{isQuestion ? "提问 · 讨论区" : isLongform ? "博客 · 文章" : "主页 · 帖子"}</span>
       </div>
       <div className="detail-author">
         <div className="detail-avatar" style={{ cursor: "pointer" }} onClick={() => onUserClick(post.author)}>{post.author[0]}</div>

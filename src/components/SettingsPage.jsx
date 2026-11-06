@@ -25,7 +25,7 @@ function SegRow({ label, hint, value, options, onChange }) {
 
 export default function SettingsPage({ onBack }) {
   const { user, colorMode, setColorMode, glassMode, setGlassMode, fontSize, setFontSize, accentColor, setAccentColor,
-    styleMode, setStyleMode, logout, dmPrivacy, dmKey, updateDmPrivacy } = useAuth();
+    styleMode, setStyleMode, paletteMode, setPaletteMode, logout, dmPrivacy, dmKey, updateDmPrivacy } = useAuth();
 
   // 修改密码（自个人主页迁入）
   const [pwModalOpen, setPwModalOpen] = useState(false);
@@ -96,6 +96,16 @@ export default function SettingsPage({ onBack }) {
             { value: "editorial", label: "编辑部版", icon: "📰" },
           ]}
           onChange={setStyleMode}
+        />
+        <SegRow
+          label="配色主题"
+          hint="复古暖调(纸质编辑部) / 现代蓝绿(清爽数字风),首次访问默认复古暖调"
+          value={paletteMode}
+          options={[
+            { value: "vintage", label: "复古暖调", icon: "📜" },
+            { value: "modern", label: "现代蓝绿", icon: "💧" },
+          ]}
+          onChange={(v) => { setPaletteMode(v); if (colorMode !== "light") setColorMode("light"); if (accentColor !== "green") setAccentColor("green"); }}
         />
         <SegRow
           label="颜色模式"

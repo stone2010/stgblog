@@ -9,6 +9,9 @@ import { Icons } from "./components/Icons";
 import AuthModal from "./components/AuthModal";
 import NotificationPage from "./components/NotificationPage";
 import HomeFeed from "./components/HomeFeed";
+import QuestionsPage from "./components/QuestionsPage";
+import BlogPage from "./components/BlogPage";
+import SectionNav from "./components/SectionNav";
 import SearchPage from "./components/SearchPage";
 import PostDetail from "./components/PostDetail";
 import { EditorialTopStrip } from "./components/EditorialChrome";
@@ -36,7 +39,6 @@ function AppInner() {
   // Posts
   const [posts, setPosts] = useState([]);
   const [postsLoading, setPostsLoading] = useState(false);
-  const [tab, setTab] = useState("帖子");
   const [searchKey, setSearchKey] = useState("");
   const [composeText, setComposeText] = useState("");
   const [composeAnnouncement, setComposeAnnouncement] = useState(false);
@@ -594,6 +596,8 @@ function AppInner() {
     if (page === "dm-chat") return dmTarget;
     if (page === "group-chat" && activeGroup) return activeGroup.name;
     if (page === "search") return "搜索";
+    if (page === "questions") return "提问";
+    if (page === "blog") return "博客";
     if (page === "dm") return "私信";
     if (page === "groups") return "群组";
     if (page === "notifications") return "通知";
@@ -634,7 +638,9 @@ function AppInner() {
     if (page === "profile-view" && viewingProfile) return <ProfileViewPage viewingProfile={viewingProfile} posts={posts} onBack={() => { setViewingProfile(null); setPage("home"); setMobileTab("home"); }} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} />;
     if (page === "settings") return <SettingsPage onBack={() => { if (user) { navigate("profile"); } else { navigate("home"); } }} />;
     if (page === "profile") return <ProfilePage posts={posts} onAuthOpen={() => setAuthOpen(true)} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onFollowersPage={(type) => setFollowersPage({ username: user?.username, type })} onOpenUser={openUserClick} onOpenSettings={() => navigate("settings")} />;
-    return <HomeFeed posts={posts} postsLoading={postsLoading} hasMore={hasMore} loadMorePosts={loadMorePosts} tab={tab} setTab={setTab} searchKey={searchKey} composeText={composeText} setComposeText={setComposeText} onPublish={handlePublish} publishing={publishing} composeRef={composeRef} isAnnouncement={composeAnnouncement} onAnnouncementChange={setComposeAnnouncement} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onHashtag={handleHashtag} onAuthOpen={() => setAuthOpen(true)} onAsk={handleAsk} onPublishLongForm={handlePublishLongForm} />;
+    if (page === "questions") return <QuestionsPage posts={posts} postsLoading={postsLoading} onAsk={handleAsk} onSelectPost={(p) => setSelectedPost(p)} onAuthOpen={() => setAuthOpen(true)} onUserClick={openUserClick} />;
+    if (page === "blog") return <BlogPage posts={posts} postsLoading={postsLoading} publishing={publishing} onPublishLongForm={handlePublishLongForm} onSelectPost={(p) => setSelectedPost(p)} onAuthOpen={() => setAuthOpen(true)} onUserClick={openUserClick} />;
+    return <HomeFeed posts={posts} postsLoading={postsLoading} hasMore={hasMore} loadMorePosts={loadMorePosts} searchKey={searchKey} composeText={composeText} setComposeText={setComposeText} onPublish={handlePublish} publishing={publishing} composeRef={composeRef} isAnnouncement={composeAnnouncement} onAnnouncementChange={setComposeAnnouncement} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onHashtag={handleHashtag} onAuthOpen={() => setAuthOpen(true)} />;
   };
 
   return (
@@ -692,9 +698,13 @@ function AppInner() {
         </div>
       </nav>
 
+      <SectionNav page={page} onNavigate={navigate} />
+
       <div className="desktop-wrap">
         <aside className="sidebar">
-          <button className="sidebar-btn" onClick={() => navigate("home")}><span className="sb-icon"><Icons.Home /></span>首页</button>
+          <button className="sidebar-btn" onClick={() => navigate("home")}><span className="sb-icon"><Icons.Home /></span>主页</button>
+          <button className={`sidebar-btn ${page === "questions" ? "sb-on" : ""}`} onClick={() => navigate("questions")}><span className="sb-icon">❓</span>提问</button>
+          <button className={`sidebar-btn ${page === "blog" ? "sb-on" : ""}`} onClick={() => navigate("blog")}><span className="sb-icon">📄</span>博客</button>
           <button className="sidebar-btn" onClick={() => navigate("search")}><span className="sb-icon"><Icons.Search /></span>搜索</button>
           {user && <button className="sidebar-btn" onClick={() => navigate("notifications")}><span className="sb-icon"><Icons.Bell /></span>通知{unreadCount > 0 && <span className="sidebar-badge">{unreadCount > 9 ? "9+" : unreadCount}</span>}</button>}
           {user && <button className="sidebar-btn" onClick={() => navigate("dm")}><span className="sb-icon"><Icons.Msg /></span>私信{dmUnreadCount > 0 && <span className="sidebar-badge">{dmUnreadCount > 9 ? "9+" : dmUnreadCount}</span>}</button>}

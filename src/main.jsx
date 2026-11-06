@@ -2,7 +2,18 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./style.css";
+import "./style-palettes.css";
 import "./style-editorial.css";
+
+// 配色主题在 React 挂载前先落地,避免首帧闪错色(默认复古暖调)
+try {
+  document.documentElement.setAttribute(
+    "data-palette",
+    localStorage.getItem("stgblog_palette") === "modern" ? "modern" : "vintage"
+  );
+} catch {
+  document.documentElement.setAttribute("data-palette", "vintage");
+}
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {

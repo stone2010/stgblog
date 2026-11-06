@@ -99,6 +99,18 @@ export function AuthProvider({ children }) {
     } catch {}
   }, [styleMode]);
 
+  // ─── 界面偏好 5：配色主题（vintage=复古暖调 / modern=现代蓝绿），首次访问默认复古暖调 ───
+  const [paletteMode, setPaletteMode] = useState(() => {
+    try { return localStorage.getItem("stgblog_palette") === "modern" ? "modern" : "vintage"; } catch { return "vintage"; }
+  });
+
+  useEffect(() => {
+    try {
+      document.documentElement.setAttribute("data-palette", paletteMode);
+      localStorage.setItem("stgblog_palette", paletteMode);
+    } catch {}
+  }, [paletteMode]);
+
   useEffect(() => {
     try {
       if (fontSize && fontSize !== "md") document.documentElement.setAttribute("data-zoom", fontSize);
@@ -303,6 +315,7 @@ export function AuthProvider({ children }) {
       user, keyPair, followingSet, dmPrivacy, dmKey,
       colorMode, setColorMode, glassMode, setGlassMode, fontSize, setFontSize, accentColor, setAccentColor,
       styleMode, setStyleMode,
+      paletteMode, setPaletteMode,
       login, register, logout, updateBio, follow, unfollow,
       updateDmPrivacy, getDmKey,
     }}>
