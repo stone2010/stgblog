@@ -242,6 +242,9 @@ export function AuthProvider({ children }) {
         const restoredPriv = await restoreKeyBackup(name, pass, dbRecord.encPriv);
         if (!restoredPriv) {
           // 恢复失败绝不能为新设备生成新密钥（否则与现有设备永久错位、互相解不开）
+          // 同时回滚本轮已写入的会话令牌：否则会留下「有 token、无密钥、界面未登录」
+          // 的半登录态，用户看到报错弹窗却已在本地存了有效令牌，刷新后状态错乱。
+          setSessionToken(null);
           return { error: "无法用当前密码恢复端到端加密密钥，请确认密码正确后再登录" };
         }
         finalKeys = { publicKey: dbRecord.pub, privateKey: restoredPriv };
@@ -258,7 +261,8 @@ export function AuthProvider({ children }) {
       localStorage.setItem(`stgblog_keys_${name}`, JSON.stringify(finalKeys));
     } catch (e) {
       console.warn("Key sync on login failed:", e);
-      // 出错时不要静默用本地密钥，避免两端私钥不一致
+      // 出错时不要静默用本地密钥，避免两端私钥不一致；同样回滚会话令牌
+      setSessionToken(null);
       return { error: "密钥同步失败，请重试" };
     }
 
