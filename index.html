@@ -9,6 +9,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="STGBLOG" />
   <meta name="description" content="STGBLOG — 匿名加密校园社交论坛 · 端到端加密私信 · 安全畅聊" />
+  <!-- T4.4 纵深防御：内容安全策略。style-src 需保留 unsafe-inline（React 组件大量使用内联 style 属性） -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; connect-src 'self' https://dbtdguasdbmlzpodfeht.supabase.co wss://dbtdguasdbmlzpodfeht.supabase.co https://*.supabase.co; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
   <!-- Open Graph: 分享到微信/Twitter 等平台时显示预览卡片 -->
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="STGBLOG" />

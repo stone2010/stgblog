@@ -248,7 +248,7 @@ const PAGE_SIZE = 30;
     const pid = params.get("post");
     if (pid) {
       const found = posts.find((p) => String(p.id) === String(pid));
-      if (found) setSelectedPost(found);
+      if (found) openPostDetail(found);
     }
     const pageParam = params.get("page");
     if (pageParam && user) {
@@ -259,16 +259,26 @@ const PAGE_SIZE = 30;
     deepLinkDone.current = true;
   }, [posts, user, navigate]);
 
-  // ─── 详情页滚动位置记忆：关闭详情后回到点开前的位置 ───
-  // （打开时记录列表滚动位置；详情页自身挂载时会 scrollTo(0)）
+  // ─── 详情页滚动位置记忆（U-5）───────────────────────────────────────
+  // 旧实现用 effect 在 selectedPost 变化后记录 scrollY，但详情页挂载时的
+  // scrollTo(0) 会先把 0 记成"进入前位置"。改为在点击处同步快照。
   const feedScrollRef = useRef(0);
+  const openPostDetail = useCallback((post) => {
+    if (!post) return;
+    feedScrollRef.current = window.scrollY || window.pageYOffset || 0;
+    setSelectedPost(post);
+  }, []);
   useEffect(() => {
-    if (selectedPost) {
-      feedScrollRef.current = window.scrollY;
-    } else {
-      const y = feedScrollRef.current;
-      if (y > 0) requestAnimationFrame(() => window.scrollTo(0, y));
-    }
+    if (selectedPost) return;
+    const y = feedScrollRef.current;
+    if (y <= 0) return;
+    // 列表重新渲染完成后再还原，双 rAF + 一次兜底，避免内容未布局时被重置
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      window.scrollTo(0, y);
+      setTimeout(() => {
+        if (Math.abs((window.scrollY || 0) - y) > 2) window.scrollTo(0, y);
+      }, 150);
+    }));
   }, [selectedPost]);
 
   // ─── PWA Notification Permission ───
@@ -375,7 +385,12 @@ const PAGE_SIZE = 30;
           if (error) throw error;
           if (data) post = Array.isArray(data) ? data[0] : data;
         } catch (rpcErr) {
-          console.warn("RPC create_post 失败，回退到直接插入:", rpcErr);
+          // T2.5：安全 RPC 尚未上线时允许回退，但必须做等价校验，绝不"静默绕过校验"。
+          // 待 v11 迁移上线、create_post 可用后，这段回退自然不再触发。
+          if (!user?.username || !content.trim() || content.length > 5000) {
+            throw new Error("发帖校验未通过（内容为空、超长或未登录）");
+          }
+          console.warn("RPC create_post 不可用，已执行等价本地校验后直写:", rpcErr);
           const { data, error } = await supabase.from("posts").insert([{
             title: content.slice(0, 60),
             content,
@@ -582,7 +597,7 @@ const PAGE_SIZE = 30;
     if (!notif.read) markOneRead(notif.id);
     if (notif.post_id) {
       const found = posts.find((p) => p.id === notif.post_id);
-      if (found) { setSelectedPost(found); setPage("home"); return; }
+      if (found) { openPostDetail(found); setPage("home"); return; }
     }
     if (notif.type === "follow") {
       setViewingProfile(notif.user_from);
@@ -646,7 +661,7 @@ const PAGE_SIZE = 30;
         dmLoadError={dmLoadError} onReloadDm={() => loadDmMessages(dmTarget)} />
     );
     if (page === "notifications") return <NotificationPage notifications={notifications} onNotifClick={handleNotifClick} onBack={() => navigate("home")} />;
-    if (page === "search") return <SearchPage searchKey={searchKey} setSearchKey={setSearchKey} posts={posts} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onBack={() => navigate("home")} />;
+    if (page === "search") return <SearchPage searchKey={searchKey} setSearchKey={setSearchKey} posts={posts} onSelectPost={openPostDetail} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onBack={() => navigate("home")} />;
     if (page === "dm") return <DmListPage dmList={dmList} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} onNewDm={() => setNewDmOpen(true)} onTogglePin={togglePin} onDeleteConversation={deleteConversation} onSetNickname={setNickname} onOpenGroups={() => { setPage("groups"); setMobileTab("groups"); }} />;
     if (page === "groups") return <GroupListPage groups={groups} onOpenGroup={(g) => { openGroup(g); setPage("group-chat"); }} onCreateGroup={() => setCreateGroupOpen(true)} onJoinGroup={() => setJoinGroupOpen(true)} />;
     if (page === "group-chat" && activeGroup) return (
@@ -657,12 +672,12 @@ const PAGE_SIZE = 30;
         onOpenSettings={() => setGroupSettingsOpen(true)} onShareKey={shareGroupKey}
         onLoadMore={loadMoreGroupMessages} />
     );
-    if (page === "profile-view" && viewingProfile) return <ProfileViewPage viewingProfile={viewingProfile} posts={posts} onBack={() => { setViewingProfile(null); setPage("home"); setMobileTab("home"); }} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} />;
+    if (page === "profile-view" && viewingProfile) return <ProfileViewPage viewingProfile={viewingProfile} posts={posts} onBack={() => { setViewingProfile(null); setPage("home"); setMobileTab("home"); }} onSelectPost={openPostDetail} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} />;
     if (page === "settings") return <SettingsPage onBack={() => { if (user) { navigate("profile"); } else { navigate("home"); } }} />;
-    if (page === "profile") return <ProfilePage posts={posts} onAuthOpen={() => setAuthOpen(true)} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onFollowersPage={(type) => setFollowersPage({ username: user?.username, type })} onOpenUser={openUserClick} onOpenSettings={() => navigate("settings")} />;
-    if (page === "questions") return <QuestionsPage posts={posts} postsLoading={postsLoading} onAsk={handleAsk} onSelectPost={(p) => setSelectedPost(p)} onAuthOpen={() => setAuthOpen(true)} onUserClick={openUserClick} />;
-    if (page === "blog") return <BlogPage posts={posts} postsLoading={postsLoading} publishing={publishing} onPublishLongForm={handlePublishLongForm} onSelectPost={(p) => setSelectedPost(p)} onAuthOpen={() => setAuthOpen(true)} onUserClick={openUserClick} />;
-    return <HomeFeed posts={posts} postsLoading={postsLoading} hasMore={hasMore} loadMorePosts={loadMorePosts} searchKey={searchKey} composeText={composeText} setComposeText={setComposeText} onPublish={handlePublish} publishing={publishing} composeRef={composeRef} isAnnouncement={composeAnnouncement} onAnnouncementChange={setComposeAnnouncement} onSelectPost={(p) => setSelectedPost(p)} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onHashtag={handleHashtag} onAuthOpen={() => setAuthOpen(true)} />;
+    if (page === "profile") return <ProfilePage posts={posts} onAuthOpen={() => setAuthOpen(true)} onSelectPost={openPostDetail} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onFollowersPage={(type) => setFollowersPage({ username: user?.username, type })} onOpenUser={openUserClick} onOpenSettings={() => navigate("settings")} />;
+    if (page === "questions") return <QuestionsPage posts={posts} postsLoading={postsLoading} onAsk={handleAsk} onSelectPost={openPostDetail} onAuthOpen={() => setAuthOpen(true)} onUserClick={openUserClick} />;
+    if (page === "blog") return <BlogPage posts={posts} postsLoading={postsLoading} publishing={publishing} onPublishLongForm={handlePublishLongForm} onSelectPost={openPostDetail} onAuthOpen={() => setAuthOpen(true)} onUserClick={openUserClick} />;
+    return <HomeFeed posts={posts} postsLoading={postsLoading} hasMore={hasMore} loadMorePosts={loadMorePosts} searchKey={searchKey} composeText={composeText} setComposeText={setComposeText} onPublish={handlePublish} publishing={publishing} composeRef={composeRef} isAnnouncement={composeAnnouncement} onAnnouncementChange={setComposeAnnouncement} onSelectPost={openPostDetail} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onHashtag={handleHashtag} onAuthOpen={() => setAuthOpen(true)} />;
   };
 
   return (
@@ -743,25 +758,10 @@ const PAGE_SIZE = 30;
         <div className="layout"><ErrorBoundary>{renderPage()}</ErrorBoundary></div>
       </div>
 
-      {page === "dm-chat" && dmTarget && (
-        <div className="dm-overlay">
-          <DmChatPage dmTarget={dmTarget} dmMessages={dmMessages} dmSending={dmSending}
-            onSend={sendDm} onBack={() => { closeDm(); setPage("dm"); }} onUserClick={openUserClick} onMarkAsRead={markAsRead}
-            onLoadMore={loadMoreDmMessages} dmLive={dmLive} onRecall={recallDm}
-            dmLoadError={dmLoadError} onReloadDm={() => loadDmMessages(dmTarget)} />
-        </div>
-      )}
-
-      {page === "group-chat" && activeGroup && (
-        <div className="dm-overlay">
-          <GroupChatPage group={activeGroup} messages={groupMessages} members={groupMembers} sending={groupSending}
-            onSend={sendGroupMessage} onBack={() => { closeGroup(); setPage("groups"); }}
-            onUserClick={openUserClick} onKickMember={kickMember} onDeleteGroup={(id) => { deleteGroup(id); setPage("groups"); }}
-            onLeaveGroup={(id) => { leaveGroup(id); setPage("groups"); }} onGetMembers={getGroupMembers}
-            onOpenSettings={() => setGroupSettingsOpen(true)} onShareKey={shareGroupKey}
-            onLoadMore={loadMoreGroupMessages} />
-        </div>
-      )}
+      {/* U-7：聊天/群聊页只保留 renderPage() 中 ErrorBoundary 内的那一份渲染。
+          之前这里还有第二份 .dm-overlay，导致 .dm-input/.dm-chat-lock/.dm-chat-messages
+          各出现 2 次、Realtime 重复订阅，且第二份不在 ErrorBoundary 内（私聊黑屏成因之一）。
+          移动端全屏表现由 style.css 中 .layout > .dm-chat 的媒体查询承接。 */}
 
       {page !== "dm-chat" && page !== "group-chat" && (
         <nav className="bnav">

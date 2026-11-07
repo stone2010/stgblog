@@ -2,10 +2,13 @@ import { supabase } from "./supabase";
 
 // 生成匿名内部ID
 export function generateHash() {
+  // S-11：用户标识不再用可预测的 Math.random()
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const buf = new Uint8Array(10);
+  crypto.getRandomValues(buf);
   let result = "STG-";
   for (let i = 0; i < 10; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+    result += chars.charAt(buf[i] % chars.length);
   }
   return result;
 }
@@ -158,8 +161,19 @@ export function saveViewed(postId) {
   } catch {}
 }
 
-// ─── 数据库计数器原子化更新(读取最新值→+delta→写回,避免 rpc 缺失导致统计失效)───
+// ─── 数据库计数器更新 ───────────────────────────────────────────────────
+// T4.3：优先调用数据库原子 RPC（v11 迁移上线后自动生效），避免客户端
+// "读-改-写" 丢计数、也避免客户端直接改他人帖子的计数器。
+// RPC 不存在/不可用时回退到原有逻辑，保证旧库下功能不退化。
+const COUNTER_RPC = { likes: "increment_likes", views: "increment_views", reposts: "increment_reposts" };
 export async function bumpPostCounter(postId, field, delta = 1) {
+  const rpcName = COUNTER_RPC[field];
+  if (rpcName && delta === 1) {
+    try {
+      const { error } = await supabase.rpc(rpcName, { p_post_id: postId });
+      if (!error) return null; // 服务端已原子 +1
+    } catch { /* RPC 尚未上线，走下方回退 */ }
+  }
   try {
     const { data, error } = await supabase.from("posts").select(field).eq("id", postId).single();
     if (error || !data) return null;

@@ -1,4 +1,5 @@
-const CACHE_NAME = "stgblog-v7";
+// T3.7：构建时由 deploy.yml 自动替换为 stgblog-<git short sha>，避免"推送成功但没变化"
+const CACHE_NAME = "stgblog-v8";
 const STATIC_ASSETS = ["./", "./index.html", "./icon-192.png", "./icon-512.png", "./icon.svg"];
 
 self.addEventListener("install", (event) => {

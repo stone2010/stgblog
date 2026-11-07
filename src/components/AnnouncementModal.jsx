@@ -14,6 +14,9 @@ function saveSeen(uid, seen) {
   try { localStorage.setItem(SEEN_KEY(uid), JSON.stringify(seen.slice(-50))); } catch {}
 }
 
+// U-1：公告改为"非阻断顶部横幅"。旧实现是全屏 .ann-overlay（z-index 1000），
+// 不点"知道了"就无法发帖/切页/进设置，多条未读还会连续排队锁死操作。
+// 现在容器 pointer-events:none，只有卡片本身可交互，页面其余部分完全可用。
 export default function AnnouncementModal({ user }) {
   const [queue, setQueue] = useState([]);   // 未读公告（最新的先弹）
   const [current, setCurrent] = useState(null);
@@ -61,11 +64,18 @@ export default function AnnouncementModal({ user }) {
     }, 180);
   }, [current, queue, user?.username]);
 
+  const markAllRead = useCallback(() => {
+    const uid = user?.username;
+    saveSeen(uid, [...new Set([...loadSeen(uid), ...queue.map((p) => p.id)])]);
+    setQueue([]);
+    setCurrent(null);
+  }, [queue, user?.username]);
+
   if (!current) return null;
 
   return (
-    <div className={`ann-overlay ${fading ? "fade" : ""}`} onClick={dismiss}>
-      <div className="ann-card" onClick={(e) => e.stopPropagation()}>
+    <div className={`ann-banner-layer ${fading ? "fade" : ""}`}>
+      <div className="ann-banner" role="status" aria-live="polite">
         <div className="ann-head">
           <span className="ann-icon">📢</span>
           <span className="ann-title">公告</span>
@@ -77,7 +87,12 @@ export default function AnnouncementModal({ user }) {
           <span className="ann-time">{formatTimeShort(current.created_at)}</span>
         </div>
         <div className="ann-content">{current.content}</div>
-        <button className="ann-ok" onClick={dismiss}>知道了</button>
+        <div className="ann-actions">
+          {queue.length > 1 && (
+            <button className="ann-all" onClick={markAllRead}>全部已读（{queue.length}）</button>
+          )}
+          <button className="ann-ok" onClick={dismiss}>知道了</button>
+        </div>
       </div>
     </div>
   );

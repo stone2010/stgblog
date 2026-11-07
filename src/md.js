@@ -6,7 +6,11 @@ function esc(s) {
 
 function safeUrl(u) {
   const t = String(u || "").trim();
-  return /^(https?:\/\/|\/)/i.test(t) ? esc(t) : "";
+  // 只放行 http(s) 绝对地址与站内相对路径；拒绝 //host 协议相对外链（钓鱼面，S-11）
+  if (/^https?:\/\//i.test(t)) return esc(t);
+  if (/^\/(?!\/)/.test(t) && !/[\x00-\x1f]/.test(t)) return esc(t);
+  if (/^mailto:[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(t)) return esc(t);
+  return "";
 }
 
 // 行内语法(输入为原文,内部先转义)

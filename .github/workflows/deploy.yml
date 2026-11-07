@@ -6,6 +6,11 @@ on:
       - main
   workflow_dispatch:
 
+# T3.7：避免并发构建互相覆盖 gh-pages 产物（此前多次出现"推送成功但没变化"）
+concurrency:
+  group: pages-deploy
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
@@ -25,6 +30,12 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      - name: Bump service worker cache version
+        run: |
+          V="stgblog-${GITHUB_SHA::7}"
+          sed -i "s|^const CACHE_NAME = .*|const CACHE_NAME = \"$V\";|" public/sw.js
+          grep 'const CACHE_NAME' public/sw.js
 
       - name: Build
         run: npm run build

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { Icons } from "./Icons";
 import { useAuth } from "../context/AuthContext";
-import { formatTime, avatarColor } from "../utils";
+import { formatTime, avatarColor, showToast } from "../utils";
 import { supabase } from "../supabase";
 import { pubkeyFingerprint } from "../crypto";
 
@@ -17,7 +17,7 @@ const CheckDouble = () => (
   </svg>
 );
 
-export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, onBack, onUserClick, onMarkAsRead, onLoadMore, dmLive, dmLoadError, onReloadDm }) {
+export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, onBack, onUserClick, onMarkAsRead, onLoadMore, dmLive, dmLoadError, onReloadDm, onRecall }) {
   const { user, keyPair } = useAuth();
   const [input, setInput] = useState("");
   const [showVerify, setShowVerify] = useState(false);
@@ -28,6 +28,7 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
   const [warning, setWarning] = useState(null);
   const [revokeConfirm, setRevokeConfirm] = useState(null);
   const [deleteRequestConfirm, setDeleteRequestConfirm] = useState(null);
+  const [keyChanged, setKeyChanged] = useState(false); // 对方公钥是否与上次核对时不同
   const messagesContainerRef = useRef(null);
   const inputRef = useRef(null);
   const lastLoadMoreRef = useRef(0);
@@ -127,25 +128,66 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
     setCopied(true);
   }, [localFP, remoteFP, dmTarget]);
 
-  const fingerprintsMatch = localFP && remoteFP && localFP === remoteFP;
+  // ─── T3.3 / S-5：真实的端到端加密指纹校验面板 ──────────────────────
+  // 旧实现误用了 emoji-picker 结构，只显示两个 😊，导致防中间人校验入口失效。
+  // 双方各自的 localFP / remoteFP 是互换的，排序后拼接可得到双方一致的会话安全码。
+  const safetyNumber = useMemo(() => {
+    if (!localFP || !remoteFP) return null;
+    const merged = [localFP, remoteFP]
+      .map((s) => String(s).replace(/[^0-9A-F]/gi, ""))
+      .sort().join("");
+    return (merged.slice(0, 24).match(/.{1,4}/g) || []).join(" ");
+  }, [localFP, remoteFP]);
+
+  useEffect(() => {
+    if (!dmTarget || !remoteFP) return;
+    try {
+      const prev = localStorage.getItem(`stgblog_verified_fp_${dmTarget}`);
+      setKeyChanged(!!prev && prev !== remoteFP);
+      if (prev && prev !== remoteFP) showToast("⚠️ 对方公钥已变更，请重新核对指纹");
+    } catch {}
+  }, [dmTarget, remoteFP]);
+
+  const markVerified = useCallback(() => {
+    if (!remoteFP || !dmTarget) return;
+    try { localStorage.setItem(`stgblog_verified_fp_${dmTarget}`, remoteFP); } catch {}
+    setKeyChanged(false);
+    showToast("✅ 已记住对方公钥指纹");
+  }, [remoteFP, dmTarget]);
 
   const renderVerify = () => (
-    <div className="emoji-picker">
-      <div className="emoji-categories">
-        <div className="emoji-item">😊</div>
+    <div className="dm-verify">
+      <div className="dm-verify-head">
+        <span className="dm-verify-title">🔐 端到端加密校验</span>
+        <button className="dm-verify-close" onClick={() => setShowVerify(false)} aria-label="关闭">✕</button>
       </div>
-      <div className="emoji-grid">
-        <div className="emoji-item">😊</div>
+      {keyChanged && (
+        <div className="dm-verify-alert">⚠️ 对方公钥与上次核对时不同，可能存在中间人。请通过站外渠道重新确认。</div>
+      )}
+      <div className="dm-verify-row"><span>我的公钥指纹</span><code>{localFP || "—"}</code></div>
+      <div className="dm-verify-row"><span>{dmTarget} 的公钥指纹</span><code>{remoteFP || "尚未上传公钥"}</code></div>
+      {safetyNumber && (
+        <div className="dm-verify-safety">
+          <div className="dm-verify-safety-label">会话安全码（双方看到的值应一致）</div>
+          <div className="dm-verify-safety-num">{safetyNumber}</div>
+        </div>
+      )}
+      <p className="dm-verify-hint">请通过当面、电话等站外渠道与对方核对这串安全码；一致才能确认没有中间人。</p>
+      <div className="dm-verify-actions">
+        <button type="button" onClick={copyBoth}>{copied ? "已复制" : "复制双方指纹"}</button>
+        <button type="button" onClick={markVerified} disabled={!remoteFP}>标记为已核对</button>
       </div>
     </div>
   );
 
   const handleRevoke = async (msgId) => {
-    if (!user) return;
+    if (!user || !msgId) return;
     setRevokeConfirm(null);
     try {
-      await supabase.from("dm_messages").update({ content: "[消息已撤回]", encrypted: false, ciphertext: null, iv: null, revoked: true })
-        .eq("id", msgId);
+      // U-2：统一走 useDM.recallDm（只写线上真实存在的列）。旧的本地实现
+      // 写不存在的 revoked 列，且没有检查 error，所以"确认后毫无变化"。
+      const ok = onRecall ? await onRecall(msgId) : false;
+      if (!ok) setWarning("撤回失败，请检查网络后重试");
     } catch (e) {
       console.error("Revoke failed:", e);
       setWarning("撤回失败，请检查网络后重试");
@@ -153,23 +195,24 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
   };
 
   const handleDeleteRequest = async (msgId) => {
-    if (!user) return;
+    if (!user || !msgId) return;
     setDeleteRequestConfirm(null);
     try {
-      await supabase.from("dm_messages").insert([{
+      // 线上没有 delete_request / delete_request_target 列，改用明文标记消息，
+      // 保证功能在旧库下真正可用；v11 迁移上线后可切回专用列。
+      const { error } = await supabase.from("dm_messages").insert([{
         sender: user.username,
         receiver: dmTarget,
-        content: "[删除请求]",
+        content: `[删除请求] 请求删除消息 ${msgId}`,
         ciphertext: null,
         iv: null,
         encrypted: false,
-        delete_request: true,
-        delete_request_target: msgId,
       }]);
+      if (error) throw error;
       setWarning("删除请求已发送，等待对方确认");
     } catch (e) {
       console.error("Delete request failed:", e);
-      setWarning("发送删除请求失败");
+      setWarning("发送删除请求失败，请检查网络后重试");
     }
   };
 
@@ -235,12 +278,13 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
             <span>端到端加密 · 仅您与 {dmTarget} 可见</span>
           </div>
         )}
-        {messages.map((msg) => {
+        {messages.map((msg, idx) => {
           if (!msg) return null;
           const isMine = msg.sender === user?.username;
           const isEncrypted = !!msg.encrypted || msg.content === "[加密消息]";
           const isRevoked = msg.revoked || msg.content === "[消息已撤回]";
-          const isDeleteRequest = msg.delete_request;
+          const isDeleteRequest = !!msg.delete_request ||
+            (typeof msg.content === "string" && msg.content.startsWith("[删除请求]"));
           const decryptionFailed = !msg.content && !isMine && (msg.encrypted || isEncrypted);
           let body = null;
           if (isRevoked) body = "💬 消息已撤回";
@@ -250,7 +294,7 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
           else if (isEncrypted) body = "🔒 加密消息";
           else body = "";
           return (
-            <div key={msg.id || `i${Math.random()}`} className={`dm-msg ${isMine ? "sent" : "received"} ${msg.decryptError ? "decrypt-fail" : ""} ${isRevoked ? "revoked" : ""} ${isDeleteRequest ? "delete-request" : ""}`}>
+            <div key={msg.id || `i${idx}`} className={`dm-msg ${isMine ? "sent" : "received"} ${msg.decryptError ? "decrypt-fail" : ""} ${isRevoked ? "revoked" : ""} ${isDeleteRequest ? "delete-request" : ""}`}>
               <div className="dm-msg-bubble">{body}</div>
               <div className="dm-msg-meta">
                 <span className="dm-msg-time">{formatTime(msg.created_at)}</span>
@@ -286,7 +330,7 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
             <p>确定要撤回这条消息吗？撤回后双方都将无法查看。</p>
             <div className="dm-confirm-actions">
               <button className="dm-confirm-cancel" onClick={() => setRevokeConfirm(null)}>取消</button>
-              <button className="dm-confirm-ok" onClick={() => handleRevoke(revokeConfirm.id)}>确认撤回</button>
+              <button className="dm-confirm-ok" onClick={() => handleRevoke(revokeConfirm)}>确认撤回</button>
             </div>
           </div>
         </div>
@@ -298,7 +342,7 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
             <p>确定要向对方发送删除请求吗？对方同意后此消息将被删除。</p>
             <div className="dm-confirm-actions">
               <button className="dm-confirm-cancel" onClick={() => setDeleteRequestConfirm(null)}>取消</button>
-              <button className="dm-confirm-ok" onClick={() => handleDeleteRequest(deleteRequestConfirm.id)}>发送请求</button>
+              <button className="dm-confirm-ok" onClick={() => handleDeleteRequest(deleteRequestConfirm)}>发送请求</button>
             </div>
           </div>
         </div>

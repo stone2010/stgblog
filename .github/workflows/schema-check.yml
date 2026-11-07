@@ -1,0 +1,98 @@
+name: Schema & RLS Self-Check
+
+# T2.2：CI 中对线上数据库做只读自检，防止再次出现 schema 漂移 / RLS 未启用。
+# 默认只出报告不阻断部署（STRICT=0）；在 Supabase 控制台执行
+# migrations/v11_security.sql 后，把仓库变量 SCHEMA_CHECK_STRICT 设为 1
+# 即可让缺失项直接让构建失败。
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'migrations/**'
+      - '.github/workflows/schema-check.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * *'
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Probe live schema (read-only)
+        env:
+          SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL || 'https://dbtdguasdbmlzpodfeht.supabase.co' }}
+          SUPABASE_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_skyyIapm1MfIpT5R5NcleQ_-reVf604' }}
+          STRICT: ${{ vars.SCHEMA_CHECK_STRICT || '0' }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import os, json, urllib.request, urllib.error, sys
+          BASE = os.environ['SUPABASE_URL'].rstrip('/')
+          KEY = os.environ['SUPABASE_KEY']
+          STRICT = os.environ.get('STRICT', '0') == '1'
+          H = {'apikey': KEY, 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json'}
+
+          def req(method, path, body=None):
+              r = urllib.request.Request(BASE + path, method=method, headers=H,
+                                        data=json.dumps(body).encode() if body is not None else None)
+              try:
+                  with urllib.request.urlopen(r, timeout=20) as resp:
+                      raw = resp.read().decode()
+                      return resp.status, (json.loads(raw) if raw else None)
+              except urllib.error.HTTPError as e:
+                  raw = e.read().decode()
+                  try: return e.code, json.loads(raw)
+                  except Exception: return e.code, raw
+
+          TABLES = ['users','posts','comments','dm_messages','follows','notifications',
+                    'group_chats','group_members','group_messages','dm_pins','keepalive']
+          COLUMNS = {
+              'users': ['dm_privacy','dm_key','is_admin'],
+              'posts': ['views','is_announcement','quote_of','repost_of'],
+              'dm_messages': ['revoked','delete_request','encrypted'],
+              'group_chats': ['updated_at'],
+          }
+          RPCS = ['secure_login','secure_register','logout','change_password',
+                  'create_post','delete_post','edit_post','increment_views']
+
+          rows, failed = [], 0
+          def add(kind, name, ok, detail):
+              global failed
+              if not ok: failed += 1
+              rows.append((kind, name, 'PASS' if ok else 'FAIL', detail))
+
+          for t in TABLES:
+              code, data = req('GET', f'/rest/v1/{t}?select=*&limit=1')
+              add('表', t, code == 200 and isinstance(data, list), f'HTTP {code}')
+
+          for t, cols in COLUMNS.items():
+              for c in cols:
+                  code, data = req('GET', f'/rest/v1/{t}?select={c}&limit=1')
+                  add('列', f'{t}.{c}', code == 200, f'HTTP {code}')
+
+          for fn in RPCS:
+              code, data = req('POST', f'/rest/v1/rpc/{fn}', {})
+              msg = str(data.get('code','')) if isinstance(data, dict) else ''
+              add('RPC', fn, msg != 'PGRST202' and code != 404, f'HTTP {code} {msg}')
+
+          # 安全断言（只读，不修改任何数据）
+          code, data = req('GET', '/rest/v1/users?select=password_hash&limit=1')
+          add('安全', 'anon 不可读 password_hash', code >= 400, f'HTTP {code}')
+          code, data = req('GET', '/rest/v1/sessions?select=*&limit=1')
+          add('安全', 'anon 不可读 sessions', code >= 400, f'HTTP {code}')
+          code, data = req('GET', '/rest/v1/dm_messages?select=*&limit=1')
+          dm_hidden = code >= 400 or (isinstance(data, list) and len(data) == 0)
+          add('安全', 'anon 读不到私信内容', dm_hidden, f'HTTP {code}')
+
+          print('## STGBLOG schema / RLS 自检\n')
+          print('| 类别 | 对象 | 结果 | 说明 |')
+          print('|---|---|---|---|')
+          for k, n, r, d in rows:
+              print(f'| {k} | `{n}` | {r} | {d} |')
+          print(f'\n合计 {len(rows)} 项，失败 {failed} 项。STRICT={STRICT}')
+          if failed:
+              print('\n> 提示：执行 `migrations/v11_security.sql` 后重新运行本检查。')
+          if STRICT and failed:
+              sys.exit(1)
+          PY

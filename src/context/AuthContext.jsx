@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
-import { supabase } from "../supabase";
+import { supabase, setSessionToken } from "../supabase";
 import { generateHash, showToast } from "../utils";
 import {
   getOrCreateKeyPair, generateKeyPair, createKeyBackup, restoreKeyBackup, parsePubkeyRecord,
@@ -190,6 +190,9 @@ export function AuthProvider({ children }) {
     });
     if (error || !data || data.length === 0) return { error: "用户名或密码错误" };
     const userData = data[0];
+    // T1.1：必须在后续任何写库操作之前保存会话令牌
+    // （老账户首次登录会在密钥同步阶段写 users.pubkey 补建备份）
+    setSessionToken(userData.session_token || null);
 
     // ─── 密钥同步（服务端权威：所有设备共用同一把备份密钥，保证跨设备互通）───
     let finalKeys;
@@ -244,19 +247,24 @@ export function AuthProvider({ children }) {
     if (error) return { error: error.message || "注册失败" };
     const userData = data[0];
     const u = { username: userData.username, hash_id: userData.hash_id, bio: userData.bio || "" };
+    setSessionToken(userData.session_token || null);
     localStorage.setItem("stgblog_user", JSON.stringify(u));
     setUser(u);
     return { ok: true };
   }, []);
 
   const logout = useCallback(() => {
+    try { supabase.rpc("logout").catch(() => {}); } catch {}
+    setSessionToken(null);
     setUser(null);
     localStorage.removeItem("stgblog_user");
   }, []);
 
   const updateBio = useCallback(async (bio) => {
     if (!user) return;
-    await supabase.from("users").update({ bio }).eq("username", user.username);
+    // U-12：写操作统一检查 error，失败不再静默假装成功
+    const { error } = await supabase.from("users").update({ bio }).eq("username", user.username);
+    if (error) { showToast("资料保存失败：" + (error.message || "网络错误")); return; }
     const u = { ...user, bio };
     localStorage.setItem("stgblog_user", JSON.stringify(u));
     setUser(u);
@@ -264,19 +272,29 @@ export function AuthProvider({ children }) {
 
   const follow = useCallback(async (targetUser) => {
     if (!user || targetUser === user.username) return;
+    const prevSet = followingSet;
     setFollowingSet((prev) => new Set([...prev, targetUser]));
     const { error } = await supabase.from("follows").insert([{ follower: user.username, following: targetUser }]);
-    if (error) console.warn("follow insert failed:", error.message);
+    if (error) {
+      setFollowingSet(prevSet); // 回滚乐观更新
+      showToast("关注失败：" + (error.message || "网络错误"));
+      return;
+    }
     await supabase.from("notifications").insert([{
       user_to: targetUser, user_from: user.username, type: "follow",
     }]);
-  }, [user]);
+  }, [user, followingSet]);
 
   const unfollow = useCallback(async (targetUser) => {
     if (!user || targetUser === user.username) return;
+    const prevSet = followingSet;
     setFollowingSet((prev) => { const s = new Set(prev); s.delete(targetUser); return s; });
-    await supabase.from("follows").delete().eq("follower", user.username).eq("following", targetUser);
-  }, [user]);
+    const { error } = await supabase.from("follows").delete().eq("follower", user.username).eq("following", targetUser);
+    if (error) {
+      setFollowingSet(prevSet);
+      showToast("取消关注失败：" + (error.message || "网络错误"));
+    }
+  }, [user, followingSet]);
 
   // Load DM privacy settings
   useEffect(() => {
@@ -295,15 +313,23 @@ export function AuthProvider({ children }) {
 
   const updateDmPrivacy = useCallback(async (privacy) => {
     if (!user) return;
+    const payload = { dm_privacy: privacy };
     let key = dmKey;
     if (privacy === "key_required" && !key) {
-      // Auto-generate DM key
-      key = "DMK-" + Math.random().toString(36).slice(2, 12).toUpperCase();
-      await supabase.from("users").update({ dm_privacy: privacy, dm_key: key }).eq("username", user.username);
-      setDmKey(key);
-    } else {
-      await supabase.from("users").update({ dm_privacy: privacy }).eq("username", user.username);
+      // T1.5：改用 WebCrypto 强随机，不再用可预测的 Math.random()
+      const bytes = new Uint8Array(9);
+      crypto.getRandomValues(bytes);
+      key = "DMK-" + Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("").toUpperCase().slice(0, 12);
+      payload.dm_key = key;
     }
+    // U-4：必须检查 error。旧实现在 PATCH 返回 400（dm_privacy/dm_key 列不存在）
+    // 时界面仍立刻显示密钥，属于"假成功"，用户误以为已受保护。
+    const { error } = await supabase.from("users").update(payload).eq("username", user.username);
+    if (error) {
+      showToast("私信隐私设置保存失败：" + (error.message || "服务端不支持该项"));
+      return;
+    }
+    if (payload.dm_key) setDmKey(key);
     setDmPrivacy(privacy);
   }, [user, dmKey]);
 

@@ -12,7 +12,7 @@ export default function Onboarding({ onComplete }) {
     },
     {
       title: "发布帖子",
-      desc: "点击右下角 ➕ 按钮，即可发布匿名帖子，与同学互动。",
+      desc: "点击底部中间的 ✎ 按钮，即可发布匿名帖子，与同学互动。",
       feature: "自由表达，无需实名"
     },
     {
@@ -22,7 +22,7 @@ export default function Onboarding({ onComplete }) {
     },
     {
       title: "开始使用",
-      desc: "点击右下角的 ➕ 按钮，发布你的第一条动态吧！",
+      desc: "点击底部中间的 ✎ 按钮，发布你的第一条动态吧！",
       feature: "开始探索"
     }
   ];
@@ -30,7 +30,7 @@ export default function Onboarding({ onComplete }) {
   const stepData = steps[step];
 
   return (
-    <div className="onboarding-overlay" onClick={(e) => e.stopPropagation()}>
+    <div className="onboarding-overlay" role="dialog" aria-modal="true" aria-label="新用户引导" onClick={(e) => e.stopPropagation()}>
       <div className="onboarding-card">
         <div className="onboarding-header">
           <span className="step-badge">{step + 1} / {steps.length}</span>

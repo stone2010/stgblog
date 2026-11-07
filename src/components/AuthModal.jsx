@@ -1,9 +1,14 @@
 import React, { useState, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 
+// S-8/S-11：前端验证码只是人机交互门槛，不作为安全边界（真正的注册/登录
+// 频率限制在 v11 的 check_rate_limit，按 IP + 用户名分桶）。
+// 这里把 Math.random 换成 WebCrypto，避免可预测随机数。
 function createCaptcha() {
-  const a = Math.floor(Math.random() * 10);
-  const b = Math.floor(Math.random() * 10);
+  const buf = new Uint8Array(2);
+  crypto.getRandomValues(buf);
+  const a = buf[0] % 10;
+  const b = buf[1] % 10;
   return { a, b, answer: a + b };
 }
 

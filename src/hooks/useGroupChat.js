@@ -146,7 +146,10 @@ export function useGroupChat(user, keyPair) {
 
   const createGroup = useCallback(async (name) => {
     if (!user || !keyPair) return { error: "Not logged in" };
-    const inviteCode = "GRP-" + Math.random().toString(36).slice(2, 10).toUpperCase();
+    // S-11：邀请码是真正的凭据，必须用密码学安全随机数
+    const codeBytes = new Uint8Array(6);
+    crypto.getRandomValues(codeBytes);
+    const inviteCode = "GRP-" + Array.from(codeBytes, (b) => b.toString(16).padStart(2, "0")).join("").toUpperCase();
     const { data: chat, error: chatErr } = await supabase.from("group_chats")
       .insert([{ name, creator: user.username, invite_code: inviteCode }])
       .select("*")

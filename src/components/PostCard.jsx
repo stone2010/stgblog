@@ -46,7 +46,9 @@ const PostCard = memo(function PostCard({ post, index = 0, editorial = false, on
   }, [onSelect]);
 
   return (
-    <article className="post" onClick={() => onSelect(displayPost)}>
+    <article className="post" onClick={() => onSelect(displayPost)}
+      role="button" tabIndex={0} aria-label="查看帖子详情"
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(displayPost); } }}>
       {editorial && (
         <div className={`ed-cover${displayPost.is_announcement ? " ed-cover-ann" : ""}`}>
           <span className="ed-fig ed-micro">FIG. {String(index + 1).padStart(2, "0")}</span>

@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from "react";
 import { supabase } from "../supabase";
 import { useAuth } from "../context/AuthContext";
+import { createKeyBackup } from "../crypto";
 import { Icons } from "./Icons";
 
 // ─── 分段选择器行 ───
@@ -25,7 +26,7 @@ function SegRow({ label, hint, value, options, onChange }) {
 
 export default function SettingsPage({ onBack }) {
   const { user, colorMode, setColorMode, glassMode, setGlassMode, fontSize, setFontSize,
-    styleMode, setStyleMode, paletteMode, setPaletteMode, logout, dmPrivacy, dmKey, updateDmPrivacy } = useAuth();
+    styleMode, setStyleMode, paletteMode, setPaletteMode, logout, dmPrivacy, dmKey, updateDmPrivacy, keyPair } = useAuth();
 
   // 修改密码（自个人主页迁入）
   const [pwModalOpen, setPwModalOpen] = useState(false);
@@ -45,29 +46,39 @@ export default function SettingsPage({ onBack }) {
     if (!newPw || newPw.length < 6) { setPwError("新密码至少6位"); return; }
     if (newPw !== confirmPw) { setPwError("两次输入的新密码不一致"); return; }
     setPwLoading(true);
-    const { data, error } = await supabase.from("users")
-      .select("username")
-      .eq("username", user.username)
-      .eq("password", oldPw)
-      .maybeSingle();
-    if (error || !data) {
-      setPwError("旧密码错误");
-      setPwLoading(false);
-      return;
-    }
-    const { error: updateErr } = await supabase.from("users")
-      .update({ password: newPw })
-      .eq("username", user.username)
-      .eq("password", oldPw);
-    if (updateErr) {
-      setPwError("修改失败，请重试");
-    } else {
+    try {
+      // T2.3：改密码必须走服务端 RPC（校验旧 bcrypt 哈希 + cost12 重算 +
+      // 用新密码重新包裹 encPriv）。旧实现读写已删除的 users.password 明文列，
+      // 必然失败，且提示误导性的"旧密码错误"；即便改了哈希，不重包备份也会
+      // 导致跨设备登录后无法解密历史私信。
+      const newEncPriv = keyPair?.privateKey
+        ? await createKeyBackup(user.username, newPw, keyPair.privateKey)
+        : null;
+      const { error } = await supabase.rpc("change_password", {
+        p_old_password: oldPw,
+        p_new_password: newPw,
+        p_new_enc_priv: newEncPriv,
+      });
+      if (error) {
+        const msg = String(error.message || "");
+        if (/function|schema cache|PGRST202|does not exist|Could not find/i.test(msg)) {
+          setPwError("服务端安全功能尚未启用：请在 Supabase 控制台执行 migrations/v11_security.sql 后重试");
+        } else if (/old|密码|password|invalid|不匹配/i.test(msg)) {
+          setPwError("旧密码不正确");
+        } else {
+          setPwError("修改失败：" + (msg || "请稍后重试"));
+        }
+        setPwLoading(false);
+        return;
+      }
       setPwSuccess("密码修改成功");
       setOldPw(""); setNewPw(""); setConfirmPw("");
       setTimeout(() => { setPwModalOpen(false); setPwSuccess(""); }, 1500);
+    } catch (e) {
+      setPwError("修改失败：" + (e?.message || "网络错误"));
     }
     setPwLoading(false);
-  }, [user, oldPw, newPw, confirmPw]);
+  }, [user, oldPw, newPw, confirmPw, keyPair]);
 
   const handleCopyDmKey = useCallback(() => {
     if (dmKey) {

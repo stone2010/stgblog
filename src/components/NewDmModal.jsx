@@ -11,6 +11,10 @@ export default function NewDmModal({ onClose, onStartDm }) {
   const [candidates, setCandidates] = useState([]); // 用户列表
   const [listLoading, setListLoading] = useState(true);
   const [error, setError] = useState("");
+  // U-11：默认列表不再只显示前 30 个用户，支持"加载更多"翻页
+  const [pageNo, setPageNo] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const PAGE_SIZE = 30;
   const [starting, setStarting] = useState(false); // 防重复提交
   const [needKey, setNeedKey] = useState(false);
   const [targetDmKey, setTargetDmKey] = useState("");
@@ -19,22 +23,27 @@ export default function NewDmModal({ onClose, onStartDm }) {
   const [keyError, setKeyError] = useState("");
   const searchSeq = useRef(0);
 
-  // 加载候选用户：有关键词时服务端模糊搜索，否则拉最近用户
+  // 加载候选用户：有关键词时服务端模糊搜索，否则拉最近用户；支持翻页（U-11）
   useEffect(() => {
     let alive = true;
     const seq = ++searchSeq.current;
     const t = setTimeout(async () => {
       setListLoading(true);
       const q = query.trim();
-      let req = supabase.from("users").select("username, bio").neq("username", user?.username || "").order("username").limit(30);
+      const to = (pageNo + 1) * PAGE_SIZE - 1;
+      let req = supabase.from("users").select("username, bio")
+        .neq("username", user?.username || "")
+        .order("username")
+        .range(0, to);
       if (q) req = req.ilike("username", `%${q}%`);
       const { data } = await req;
       if (!alive || seq !== searchSeq.current) return;
       setCandidates(data || []);
+      setHasMore((data || []).length === to + 1);
       setListLoading(false);
     }, 220); // 输入防抖
     return () => { alive = false; clearTimeout(t); };
-  }, [query, user]);
+  }, [query, user, pageNo]);
 
   const handleStart = useCallback(async (rawTarget) => {
     setError("");
@@ -95,7 +104,7 @@ export default function NewDmModal({ onClose, onStartDm }) {
             </>
           ) : (
             <>
-              <input className="auth-input" type="text" value={query} onChange={(e) => setQuery(e.target.value)}
+              <input className="auth-input" type="text" value={query} onChange={(e) => { setQuery(e.target.value); setPageNo(0); }}
                 placeholder="搜索用户名，或输入完整用户名后回车…" autoFocus
                 onKeyDown={(e) => { if (e.key === "Enter") handleStart(); }} />
               {error && <div className="auth-err">{error}</div>}
@@ -115,6 +124,11 @@ export default function NewDmModal({ onClose, onStartDm }) {
                   </button>
                 ))}
               </div>
+              {!listLoading && hasMore && (
+                <button type="button" className="ndm-more" onClick={() => setPageNo((p) => p + 1)}>
+                  加载更多用户 ↓
+                </button>
+              )}
               <button className="auth-btn" onClick={() => handleStart()} disabled={!query.trim() || starting}>
                 {starting ? "检查中…" : "开始对话"}
               </button>
