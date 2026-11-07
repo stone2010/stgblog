@@ -249,6 +249,18 @@ function AppInner() {
     deepLinkDone.current = true;
   }, [posts, user, navigate]);
 
+  // ─── 详情页滚动位置记忆：关闭详情后回到点开前的位置 ───
+  // （打开时记录列表滚动位置；详情页自身挂载时会 scrollTo(0)）
+  const feedScrollRef = useRef(0);
+  useEffect(() => {
+    if (selectedPost) {
+      feedScrollRef.current = window.scrollY;
+    } else {
+      const y = feedScrollRef.current;
+      if (y > 0) requestAnimationFrame(() => window.scrollTo(0, y));
+    }
+  }, [selectedPost]);
+
   // ─── PWA Notification Permission ───
   useEffect(() => {
     if (!user) return;
