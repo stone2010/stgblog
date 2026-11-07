@@ -2090,3 +2090,59 @@ html[data-zoom="lg"]{zoom:1.12}
 .layout img,.post img,.md-body img{max-width:100%;height:auto}
 .post-actions{flex-wrap:wrap;row-gap:4px;min-width:0}
 .post-body{min-width:0;max-width:100%}
+
+/* ═════════ 2026-11-07 反馈修复 ═════════ */
+
+/* ── 1) 表情面板：浮层优先级高于顶栏 + 弹出方向可控 ── */
+/* 关键：compose-bar 的 backdrop-filter 形成独立堆叠上下文(z=0)，
+   面板自身 z 再高也压不过顶栏(100)，必须提升整个发帖条的层级。
+   桌面端补定位；移动端保持 sticky 仅提高 z-index */
+@media(min-width:769px){.compose-bar{position:relative;z-index:105}}
+@media(max-width:768px){.compose-bar{z-index:105}}
+.emoji-picker{z-index:320}
+.emoji-picker.emoji-down{bottom:auto;top:100%;margin-top:8px;margin-bottom:0}
+@media(max-width:768px){
+  .emoji-picker{width:min(320px,calc(100vw - 32px))}
+}
+
+/* ── 2) 发帖工具栏：窄屏不挤压换行 ── */
+@media(max-width:768px){
+  .compose-bottom{gap:8px}
+  .compose-tools{flex-wrap:wrap;row-gap:6px;min-width:0}
+  .compose-submit{white-space:nowrap;flex-shrink:0;padding:9px 18px}
+  .compose-ann-check{white-space:nowrap;flex-shrink:0}
+  .compose-tool{width:36px;height:36px;font-size:18px}
+}
+
+/* ── 3) 详情页页头吸顶（overflow 用 clip，不破坏 sticky）── */
+/* 注意：secnav(三模块导航，高50px)桌面端 sticky / 移动端 fixed 都停在 topnav 下方，
+   因此详情页头必须吸在 nav-h+50px 处，z-index 低于 secnav(90/99) */
+.detail{overflow:clip}
+.detail-top{
+  position:sticky;top:calc(var(--nav-h) + 50px);z-index:89;
+  background:var(--card);
+  backdrop-filter:blur(24px) saturate(1.7);
+  -webkit-backdrop-filter:blur(24px) saturate(1.7);
+}
+[data-glass="off"] .detail-top{background:var(--bg2);backdrop-filter:none;-webkit-backdrop-filter:none}
+
+/* ── 4) 长文弹窗：编辑/预览切换 ── */
+.lf-mode-seg{display:flex;gap:4px;margin-left:auto;margin-right:10px;background:var(--bg3);border-radius:999px;padding:3px}
+.lf-mode-btn{padding:5px 14px;border-radius:999px;font-size:12px;color:var(--text-secondary);background:none;border:none;cursor:pointer;transition:all .15s var(--ease)}
+.lf-mode-btn.on{background:var(--card-hover);color:var(--text);box-shadow:var(--shadow-sm)}
+.lf-preview{overflow-y:auto;min-height:280px;white-space:normal;cursor:default}
+.lf-preview-plain{white-space:pre-wrap;color:var(--text);font-size:14px;line-height:1.7}
+
+/* ── 5) 新建私信：用户列表 ── */
+.ndm-modal{max-width:380px;width:calc(100vw - 32px)}
+.ndm-list{max-height:300px;overflow-y:auto;margin:10px 0 12px;border:1px solid var(--border);border-radius:12px}
+.ndm-item{display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;background:none;border:none;border-bottom:1px solid var(--border);cursor:pointer;text-align:left;color:var(--text);font-size:14px}
+.ndm-item:last-child{border-bottom:none}
+.ndm-item:active{background:var(--hover)}
+@media(hover:hover){.ndm-item:hover{background:var(--hover)}}
+.ndm-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;flex-shrink:0;font-size:15px}
+.ndm-info{display:flex;flex-direction:column;min-width:0;flex:1}
+.ndm-name{font-size:14px;font-weight:600}
+.ndm-bio{font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ndm-arrow{color:var(--text-muted);font-size:18px}
+.ndm-hint{padding:16px;text-align:center;font-size:12px;color:var(--text-muted)}
