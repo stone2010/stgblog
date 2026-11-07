@@ -409,7 +409,10 @@ html[data-style="editorial"] .theme-color-dot{border-radius:0}
 
 /* ── 18. 移动端适配(<761px)── */
 @media(max-width:760px){
-  html[data-style="editorial"] .desktop-wrap,
+  /* 移动端 secnav(三模块导航)为 fixed 不占文档流，内容区必须保留
+     nav-h+50px 的顶部留白，否则页面内容会钻到固定导航下面，
+     发帖卡片(不透明背景)会把"主页/提问/博客"整条盖住 */
+  html[data-style="editorial"] .desktop-wrap{padding:calc(var(--nav-h) + 50px) 19px 0}
   html[data-style="editorial"] .topnav-inner{padding:0 19px}
   html[data-style="editorial"] .ed-strip{padding:0 19px}
 
