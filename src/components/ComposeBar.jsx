@@ -5,8 +5,26 @@ import { isAdmin } from "../utils";
 export default function ComposeBar({ value, onChange, onPublish, publishing, composeRef, isAnnouncement, onAnnouncementChange }) {
   const { user } = useAuth();
   const textareaRef = useRef(null);
+  const emojiTriggerRef = useRef(null);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [emojiDir, setEmojiDir] = useState("up"); // "up"=向上弹(默认) "down"=向下弹
   const [activeCategory, setActiveCategory] = useState("smileys");
+
+  // 打开表情面板前测量触发按钮下方空间：够高(>460px)就向下弹，
+  // 避免面板顶到页面顶部导航被遮挡（手机/电脑端均会出现）
+  const toggleEmoji = useCallback(() => {
+    setShowEmoji((v) => {
+      const next = !v;
+      if (next) {
+        try {
+          const rect = emojiTriggerRef.current?.getBoundingClientRect();
+          const spaceBelow = window.innerHeight - (rect?.bottom ?? 0);
+          setEmojiDir(spaceBelow > 460 ? "down" : "up");
+        } catch { setEmojiDir("up"); }
+      }
+      return next;
+    });
+  }, []);
 
   const handlePublish = useCallback(() => {
     onPublish();
@@ -123,17 +141,18 @@ export default function ComposeBar({ value, onChange, onPublish, publishing, com
         <div className="compose-bottom">
           <div className="compose-tools">
             <button className="compose-tool">📷</button>
-            
+
             <div className="emoji-trigger-wrapper">
-              <button 
-                className={`compose-tool emoji-trigger ${showEmoji ? 'active' : ''}`} 
-                type="button" 
-                onClick={() => setShowEmoji(v => !v)}
+              <button
+                className={`compose-tool emoji-trigger ${showEmoji ? 'active' : ''}`}
+                type="button"
+                ref={emojiTriggerRef}
+                onClick={toggleEmoji}
               >
                 😊
               </button>
               {showEmoji && (
-                <div className="emoji-picker">
+                <div className={`emoji-picker emoji-${emojiDir}`}>
                   <div className="emoji-categories">
                     {Object.entries(emojiCategories).map(([key, category]) => (
                       <button
