@@ -1,11 +1,18 @@
 import React from "react";
 import { HERO_COPY } from "../heroCopy";
+import { pickManifesto } from "../manifestoCopy";
 
 /* 编辑部印刷风专属版块 —— 仅在 设置→界面风格=编辑部 时渲染
    视觉基准:stgblog-editorial-reference-v2.html */
 
+// 经典版「每次刷新随机一条」的取词器：池子 1000 条，并避开上一次，避免连刷重复
+let _lastCopy = -1;
 export function pickCopy() {
-  return HERO_COPY[Math.floor(Math.random() * HERO_COPY.length)] || HERO_COPY[0];
+  const n = HERO_COPY.length;
+  let i = Math.floor(Math.random() * n);
+  if (n > 1 && i === _lastCopy) i = (i + 1) % n;
+  _lastCopy = i;
+  return HERO_COPY[i] || HERO_COPY[0];
 }
 
 export function EditorialTopStrip() {
@@ -52,7 +59,27 @@ export function EditorialHero() {
   );
 }
 
+/* 编辑部版「主页栏目文案区」——把经典版页首那套文案(SHORT POSTS / 主页 /
+   简短记录副标题 + 随机一句)移植进编辑部版,用报头式衬线排版呈现。
+   与底部宣言、About、Footer 共用 01/02/03 编号体系。 */
+export function EditorialPageIntro({ tagline }) {
+  return (
+    <section className="ed-pageintro">
+      <div className="ed-pageintro-head">
+        <div className="ed-label ed-micro">01 / Short posts — 主页</div>
+        <h2 className="ed-pageintro-title">简短记录、<em>随手想法</em>与日常更新。</h2>
+      </div>
+      <div className="ed-pageintro-side">
+        <span className="ed-micro">Selected notes</span>
+        <p className="ed-pageintro-tagline" title="每次刷新都会换一条">{tagline}</p>
+      </div>
+    </section>
+  );
+}
+
 export function EditorialInterlude() {
+  // 每次挂载随机取一条宣言(避开上一次),lead 正常色 + punch 红色斜体强调
+  const [m] = React.useState(pickManifesto);
   return (
     <section className="ed-interlude">
       <div className="ed-interlude-inner">
@@ -61,7 +88,7 @@ export function EditorialInterlude() {
           <div className="ed-micro ed-interlude-sub">Why this space exists</div>
         </div>
         <blockquote className="ed-quote">
-          “写作不是为了显得无所不知，而是为了更诚实地看见：<em>我正在如何理解这个世界。</em>”
+          “{m.lead}<em>{m.punch}</em>”
         </blockquote>
       </div>
     </section>

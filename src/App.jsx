@@ -34,7 +34,8 @@ import Onboarding from "./components/Onboarding";
 import AnnouncementModal from "./components/AnnouncementModal";
 
 function AppInner() {
-  const { user, followingSet, keyPair, colorMode, setColorMode, styleMode } = useAuth();
+  const { user, followingSet, keyPair, colorMode, setColorMode, styleMode,
+    reloginRequired, setReloginRequired } = useAuth();
 
   // Posts
   const [posts, setPosts] = useState([]);
@@ -52,6 +53,22 @@ function AppInner() {
 
   // Modals
   const [authOpen, setAuthOpen] = useState(false);
+
+  // 会话失效（旧会话 / RLS 拒绝写操作）：显式引导重新登录，不再静默失败
+  useEffect(() => {
+    const onInvalid = () => {
+      setReloginRequired?.(true);
+      setAuthOpen(true);
+      showToast("🔐 登录状态已过期，请重新登录后继续（密码不变）", 4200);
+    };
+    window.addEventListener("stgblog:session-invalid", onInvalid);
+    return () => window.removeEventListener("stgblog:session-invalid", onInvalid);
+  }, [setReloginRequired]);
+
+  useEffect(() => {
+    if (reloginRequired) setAuthOpen(true);
+  }, [reloginRequired]);
+
   const [newDmOpen, setNewDmOpen] = useState(false);
   const [repostModal, setRepostModal] = useState(null); // post to repost
   const [editPostModal, setEditPostModal] = useState(null); // post to edit
@@ -736,6 +753,17 @@ const PAGE_SIZE = 30;
       </nav>
 
       <SectionNav page={page} onNavigate={navigate} />
+
+      {reloginRequired && !user && (
+        <div className="relogin-banner" role="status">
+          <span className="relogin-banner-icon">🔐</span>
+          <div className="relogin-banner-text">
+            <b>站点已完成安全升级</b>
+            <span>旧的登录状态需要刷新一次，输入密码重新登录即可，账号与数据都不会丢失。</span>
+          </div>
+          <button className="relogin-banner-btn" onClick={() => setAuthOpen(true)}>重新登录</button>
+        </div>
+      )}
 
       <div className="desktop-wrap">
         <aside className="sidebar">

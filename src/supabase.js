@@ -21,12 +21,42 @@ export function setSessionToken(token) {
   } catch {}
 }
 
+// 写操作被 RLS 拒绝时统一派发事件，由界面提示「需要重新登录」，
+// 避免旧会话下「点了没反应」的静默失败。
+const SESSION_INVALID_EVENT = "stgblog:session-invalid";
+const AUTH_RPC = /\/rpc\/(secure_login|secure_register|logout)\b/;
+
+function notifyIfSessionInvalid(res, url, method) {
+  if (!["POST", "PATCH", "PUT", "DELETE"].includes(method)) return;
+  if (AUTH_RPC.test(url)) return;
+  if (res.status !== 401 && res.status !== 403) return;
+  try {
+    if (!localStorage.getItem("stgblog_user")) return; // 访客态不打扰
+  } catch { return; }
+  try {
+    window.dispatchEvent(new CustomEvent(SESSION_INVALID_EVENT, {
+      detail: { status: res.status, url },
+    }));
+  } catch {}
+}
+
 const sessionFetch = (input, init = {}) => {
   const token = getSessionToken();
-  if (!token) return fetch(input, init);
+  const url = typeof input === "string" ? input : (input && input.url) || "";
+  const method = String(init.method || (input && input.method) || "GET").toUpperCase();
+  if (!token) {
+    // 无令牌时请求形态与旧版完全一致，只追加响应观察、不改请求
+    return fetch(input, init).then((res) => {
+      notifyIfSessionInvalid(res, url, method);
+      return res;
+    });
+  }
   const headers = new Headers(init.headers || {});
   headers.set("x-stgblog-session", token);
-  return fetch(input, { ...init, headers });
+  return fetch(input, { ...init, headers }).then((res) => {
+    notifyIfSessionInvalid(res, url, method);
+    return res;
+  });
 };
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {

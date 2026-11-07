@@ -1795,6 +1795,32 @@ html[data-zoom="lg"]{zoom:1.12}
   content:"✓";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   color:#fff;font-size:14px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,0.4);
 }
+.settings-row-stack{flex-direction:column;align-items:flex-start;gap:10px}
+
+/* ─── v11 迁移后：旧会话需要重新登录的非阻断横幅 ─── */
+.relogin-banner{
+  display:flex;align-items:center;gap:12px;
+  margin:12px auto 0;max-width:900px;width:calc(100% - 32px);
+  padding:12px 14px;border-radius:14px;
+  background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(16,185,129,0.04));
+  border:1px solid var(--accent-glow,rgba(16,185,129,0.3));
+  box-shadow:var(--shadow-sm,0 2px 8px rgba(0,0,0,0.06));
+}
+.relogin-banner-icon{font-size:20px;flex-shrink:0;line-height:1}
+.relogin-banner-text{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+.relogin-banner-text b{font-size:13px;color:var(--text)}
+.relogin-banner-text span{font-size:12px;color:var(--text-secondary);line-height:1.5}
+.relogin-banner-btn{
+  flex-shrink:0;border:none;border-radius:999px;padding:9px 16px;
+  background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;
+  transition:transform 0.15s var(--ease),filter 0.15s var(--ease);
+}
+.relogin-banner-btn:hover{filter:brightness(1.08)}
+.relogin-banner-btn:active{transform:scale(0.96)}
+@media(max-width:600px){
+  .relogin-banner{flex-wrap:wrap;margin-top:10px;padding:10px 12px;gap:10px}
+  .relogin-banner-btn{width:100%}
+}
 
 /* ═══════════════════════════════════════════════════════════
    v11 公告机制：弹窗卡片 / 徽章 / 管理员复选

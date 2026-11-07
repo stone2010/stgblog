@@ -3,8 +3,17 @@ import { supabase } from "../supabase";
 import { useAuth } from "../context/AuthContext";
 import { Icons } from "./Icons";
 import CommentNode from "./CommentNode";
-import { hasLiked, hasBookmarked, formatTime, formatTimeShort, formatCount, buildTree, parseContent, incrementViewCount } from "../utils";
+import { hasLiked, hasBookmarked, formatTime, formatTimeShort, formatCount, buildTree, parseContent, incrementViewCount, showToast } from "../utils";
 import { renderMarkdown } from "../md";
+
+// 写操作失败不再静默：RLS 拒绝（旧会话无令牌）要给出可操作的提示
+function writeError(error) {
+  const msg = error?.message || "网络错误，请稍后重试";
+  if (/row.level.security|42501|permission denied/i.test(msg) || error?.code === "42501") {
+    return "登录状态已过期，请重新登录后重试";
+  }
+  return msg;
+}
 
 function RenderContent({ content, onHashtag, onMention }) {
   const parts = parseContent(content);
@@ -70,6 +79,8 @@ const commentTree = useMemo(() => buildTree(comments), [comments]);
           type: "comment", post_id: post.id, comment_id: data.id,
         }]);
       }
+    } else {
+      showToast("评论失败：" + writeError(error), 3500);
     }
     setCommentLoading(false);
   }, [user, post, commentText]);
@@ -92,6 +103,8 @@ const commentTree = useMemo(() => buildTree(comments), [comments]);
           type: "reply", post_id: post.id, comment_id: data.id,
         }]);
       }
+    } else {
+      showToast("回复失败：" + writeError(error), 3500);
     }
     setReplySubmitting(false);
   }, [user, post, replyText, comments]);

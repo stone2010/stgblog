@@ -7,6 +7,24 @@ import {
 
 const AuthContext = createContext(null);
 
+// ─── v11 迁移后的旧会话处理 ────────────────────────────────────
+// 安全脚本上线后，所有写操作都要求 session_token。旧 localStorage 里
+// 只有 stgblog_user、没有 stgblog_session 的登录态会「看起来已登录、
+// 实际上什么也写不了」。模块加载时统一清理，并标记需要重新登录，
+// 由 App 层显示横幅 + 自动弹出登录框显式引导。
+function detectStaleSession() {
+  try {
+    const hadUser = !!localStorage.getItem("stgblog_user");
+    const hasToken = !!localStorage.getItem("stgblog_session");
+    if (hadUser && !hasToken) {
+      localStorage.removeItem("stgblog_user");
+      return true;
+    }
+  } catch {}
+  return false;
+}
+const STALE_SESSION_AT_BOOT = detectStaleSession();
+
 // ─── 主题色色板（强调色，全局 CSS 变量生效）───
 export const ACCENT_COLORS = {
   green:  { label: "翠绿", accent: "#10b981", hover: "#059669", active: "#047857", light: "#34d399", dark: "#065f46" },
@@ -17,13 +35,18 @@ export const ACCENT_COLORS = {
   cyan:   { label: "湖青", accent: "#06b6d4", hover: "#0891b2", active: "#0e7490", light: "#22d3ee", dark: "#155e75" },
 };
 
-function applyAccentColors(key) {
+export const ACCENT_VARS = [
+  "--accent", "--accent-hover", "--accent-active", "--accent-light", "--accent-dark",
+  "--accent-glow", "--accent-soft", "--accent2", "--border-focus",
+  "--gemini-gradient", "--gemini-gradient-subtle",
+];
+
+export function applyAccentColors(key) {
   const c = ACCENT_COLORS[key];
   const root = document.documentElement.style;
   if (!c || key === "green") {
-    // 默认色：清除内联覆盖，交还样式表控制
-    ["--accent", "--accent-hover", "--accent-active", "--accent-light", "--accent-dark", "--accent-glow", "--border-focus"]
-      .forEach((v) => root.removeProperty(v));
+    // 默认「跟随主题」：清除全部内联覆盖，交还配色主题样式表控制
+    ACCENT_VARS.forEach((v) => root.removeProperty(v));
     return;
   }
   root.setProperty("--accent", c.accent);
@@ -32,13 +55,19 @@ function applyAccentColors(key) {
   root.setProperty("--accent-light", c.light);
   root.setProperty("--accent-dark", c.dark);
   root.setProperty("--accent-glow", c.accent + "1a");   // 10% 透明光晕
+  root.setProperty("--accent-soft", c.accent + "1f");
+  root.setProperty("--accent2", c.light);
   root.setProperty("--border-focus", c.accent + "73");  // 45% 聚焦边框
+  root.setProperty("--gemini-gradient", `linear-gradient(135deg,${c.accent},${c.light} 55%,${c.hover})`);
+  root.setProperty("--gemini-gradient-subtle", `linear-gradient(135deg,${c.accent}cc,${c.light}88,${c.hover}66)`);
 }
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem("stgblog_user")) || null; } catch { return null; }
   });
+  // 旧会话 / 会话失效：需要显式引导用户重新登录
+  const [reloginRequired, setReloginRequired] = useState(STALE_SESSION_AT_BOOT);
   const [keyPair, setKeyPair] = useState(null);
   const [followingSet, setFollowingSet] = useState(new Set());
   const [dmPrivacy, setDmPrivacy] = useState("open");
@@ -124,11 +153,15 @@ export function AuthProvider({ children }) {
     try { return localStorage.getItem("stgblog_accent") || "green"; } catch { return "green"; }
   });
 
-  // 主题色自选功能已移除(与配色主题系统冲突且无法全局生效):
-  // 仅清除历史遗留的内联覆盖,强调色统一由配色主题的样式表控制
+  // 主题色自选：默认「跟随主题」清除内联覆盖；选具体颜色时覆盖全套
+  // accent 变量，保证按钮、边框、光晕、渐变全局一致生效。
   useEffect(() => {
-    try { applyAccentColors("green"); } catch {}
-  }, []);
+    try {
+      applyAccentColors(accentColor);
+      if (accentColor === "green") localStorage.removeItem("stgblog_accent");
+      else localStorage.setItem("stgblog_accent", accentColor);
+    } catch {}
+  }, [accentColor]);
 
   // Load key pair when user changes
   useEffect(() => {
@@ -148,6 +181,7 @@ export function AuthProvider({ children }) {
           localStorage.removeItem(`stgblog_keys_${user.username}`);
           localStorage.removeItem("stgblog_user");
           setUser(null);
+          setReloginRequired(true);
           showToast("🔐 检测到加密密钥不同步,请重新登录以恢复(输入密码即可)");
           return;
         }
@@ -155,6 +189,7 @@ export function AuthProvider({ children }) {
           // 服务端有加密备份,但本设备没有本地私钥 → 无密码无法恢复,必须重新登录
           if (user) localStorage.removeItem("stgblog_user");
           setUser(null);
+          setReloginRequired(true);
           showToast("🔐 加密密钥尚未同步到本设备,请重新登录以恢复");
           return;
         }
@@ -162,6 +197,7 @@ export function AuthProvider({ children }) {
           // 服务端有公钥但无备份(老账户)且本地无私钥:重新登录后登录流程会用密码补建备份
           localStorage.removeItem("stgblog_user");
           setUser(null);
+          setReloginRequired(true);
           showToast("🔐 加密密钥需要重新登录同步,请输入密码登录");
           return;
         }
@@ -230,6 +266,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem("stgblog_user", JSON.stringify(u));
     setKeyPair(finalKeys); // 显式设置，避免依赖二次 effect 读取产生竞态
     setUser(u);
+    setReloginRequired(false);
     return { ok: true };
   }, []);
 
@@ -244,12 +281,23 @@ export function AuthProvider({ children }) {
       p_hash_id: hashId,
       p_pubkey: JSON.stringify({ pub: kp.publicKey, ...(encPriv ? { encPriv } : {}) }),
     });
-    if (error) return { error: error.message || "注册失败" };
+    if (error) {
+      const msg = error.message || "";
+      let friendly = "注册失败，请稍后重试";
+      if (/用户名已存在/.test(msg)) friendly = "该用户名已被注册，换一个试试";
+      else if (/duplicate key|unique constraint/i.test(msg)) friendly = "注册繁忙，请再试一次";
+      else if (/过于频繁|rate/i.test(msg)) friendly = "操作过于频繁，请稍后再试";
+      else if (/用户名格式/.test(msg)) friendly = "用户名格式不合法（3-20 位中英文、数字或下划线）";
+      else if (/密码至少/.test(msg)) friendly = "密码至少 6 位";
+      else if (/会话无效/.test(msg)) friendly = "登录状态已过期，请重新登录";
+      return { error: friendly };
+    }
     const userData = data[0];
     const u = { username: userData.username, hash_id: userData.hash_id, bio: userData.bio || "" };
     setSessionToken(userData.session_token || null);
     localStorage.setItem("stgblog_user", JSON.stringify(u));
     setUser(u);
+    setReloginRequired(false);
     return { ok: true };
   }, []);
 
@@ -337,7 +385,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      user, keyPair, followingSet, dmPrivacy, dmKey,
+      user, keyPair, followingSet, dmPrivacy, dmKey, reloginRequired, setReloginRequired,
       colorMode, setColorMode, glassMode, setGlassMode, fontSize, setFontSize, accentColor, setAccentColor,
       styleMode, setStyleMode,
       paletteMode, setPaletteMode,

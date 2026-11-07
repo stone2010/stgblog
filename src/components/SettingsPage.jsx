@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from "react";
 import { supabase } from "../supabase";
-import { useAuth } from "../context/AuthContext";
+import { useAuth, ACCENT_COLORS } from "../context/AuthContext";
 import { createKeyBackup } from "../crypto";
 import { Icons } from "./Icons";
 
@@ -26,7 +26,8 @@ function SegRow({ label, hint, value, options, onChange }) {
 
 export default function SettingsPage({ onBack }) {
   const { user, colorMode, setColorMode, glassMode, setGlassMode, fontSize, setFontSize,
-    styleMode, setStyleMode, paletteMode, setPaletteMode, logout, dmPrivacy, dmKey, updateDmPrivacy, keyPair } = useAuth();
+    styleMode, setStyleMode, paletteMode, setPaletteMode, accentColor, setAccentColor,
+    logout, dmPrivacy, dmKey, updateDmPrivacy, keyPair } = useAuth();
 
   // 修改密码（自个人主页迁入）
   const [pwModalOpen, setPwModalOpen] = useState(false);
@@ -147,6 +148,29 @@ export default function SettingsPage({ onBack }) {
               ]}
               onChange={setGlassMode}
             />
+            <div className="settings-row settings-row-stack">
+              <div className="settings-row-label">
+                <span className="settings-row-name">主题色</span>
+                <span className="settings-row-hint">默认「跟随主题」；选一个颜色可全局替换强调色（按钮、边框、渐变、光晕）</span>
+              </div>
+              <div className="theme-color-row">
+                <button
+                  className={`theme-color-dot ${accentColor === "green" ? "on" : ""}`}
+                  style={{ background: "linear-gradient(135deg,#10b981,#B64B32)" }}
+                  title="跟随主题"
+                  aria-label="跟随主题"
+                  onClick={() => setAccentColor("green")}
+                />
+                {Object.entries(ACCENT_COLORS).map(([key, c]) => (
+                  <button key={key}
+                    className={`theme-color-dot ${accentColor === key ? "on" : ""}`}
+                    style={{ background: c.accent }}
+                    title={c.label}
+                    aria-label={c.label}
+                    onClick={() => setAccentColor(key)} />
+                ))}
+              </div>
+            </div>
           </>
         )}
         <SegRow
