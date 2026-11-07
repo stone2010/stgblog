@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0e15" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="STGBLOG" />
+  <meta name="description" content="STGBLOG — 匿名加密校园社交论坛 · 端到端加密私信 · 安全畅聊" />
+  <!-- T4.4 纵深防御：内容安全策略。style-src 需保留 unsafe-inline（React 组件大量使用内联 style 属性） -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; connect-src 'self' https://dbtdguasdbmlzpodfeht.supabase.co wss://dbtdguasdbmlzpodfeht.supabase.co https://*.supabase.co; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
+  <!-- Open Graph: 分享到微信/Twitter 等平台时显示预览卡片 -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="STGBLOG" />
+  <meta property="og:title" content="STGBLOG — 匿名加密校园社交" />
+  <meta property="og:description" content="匿名加密校园社交论坛 · 端到端加密私信 · 安全畅聊" />
+  <meta property="og:url" content="https://stone2010.github.io/stgblog/" />
+  <meta property="og:image" content="https://stone2010.github.io/stgblog/icon-512.png" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="STGBLOG — 匿名加密校园社交" />
+  <meta name="twitter:description" content="匿名加密校园社交论坛 · 端到端加密私信 · 安全畅聊" />
+  <meta name="twitter:image" content="https://stone2010.github.io/stgblog/icon-512.png" />
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="apple-touch-icon" href="./icon-192.png" />
+  <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+  <!-- 自托管字体(替代 Google Fonts,大陆访问更快更稳) -->
+  <link rel="preload" href="./fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="./fonts/space-grotesk-var.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="./fonts/fonts.css" />
+  <title>STGBLOG — 匿名加密校园社交</title>
+  <!-- Cloudflare Web Analytics(隐私友好、无 Cookie)。
+       接入步骤:① 注册/登录 dash.cloudflare.com → Web Analytics → 添加站点 stone2010.github.io
+       ② 复制给出的 token,替换下方 YOUR_CF_TOKEN,然后取消本段注释即可生效 -->
+  <!--
+  <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "YOUR_CF_TOKEN"}'></script>
+  -->
+  <!-- UI Themes -->
+  <link rel="stylesheet" href="/stgblog/assets/style-aurora-fpsZYvAA.css" id="theme-aurora-css" disabled />
+  <script type="module" crossorigin src="/stgblog/assets/index-Clu2zoFs.js"></script>
+  <link rel="modulepreload" crossorigin href="/stgblog/assets/vendor-nf7bT_Uh.js">
+  <link rel="stylesheet" crossorigin href="/stgblog/assets/index-De244-xG.css">
+</head>
+<body>
+  <div id="root"></div>
+</body>
+</html>
