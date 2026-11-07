@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { formatTimeShort } from "../utils";
-import { mdToPlain } from "../md";
+import { mdToPlain, renderMarkdown } from "../md";
 
 /* 博客页 —— 独立一级入口(知乎式文章列表)
    数据约定:posts.category 以 "长文" 开头(长文MD=Markdown / 长文=普通文本)
@@ -42,16 +42,31 @@ export function LongFormModal({ open, onClose, onPublish, publishing }) {
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
   const [isMd, setIsMd] = useState(true);
+  const [preview, setPreview] = useState(false); // 编辑/预览 分段切换
+  // 关闭弹窗后重置为编辑态，草稿内容保留
+  React.useEffect(() => { if (!open) setPreview(false); }, [open]);
   if (!open) return null;
   return (
     <div className="lf-overlay" onClick={onClose}>
       <div className="lf-modal" onClick={(e) => e.stopPropagation()}>
         <div className="lf-modal-head">
           <span className="lf-modal-title">写长文</span>
+          <div className="lf-mode-seg">
+            <button className={`lf-mode-btn ${!preview ? "on" : ""}`} onClick={() => setPreview(false)}>编辑</button>
+            <button className={`lf-mode-btn ${preview ? "on" : ""}`} onClick={() => setPreview(true)}>{isMd ? "预览" : "预览"}</button>
+          </div>
           <button className="lf-close" onClick={onClose}>✕</button>
         </div>
         <input className="lf-title-input" placeholder="文章标题…" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} />
-        <textarea className="lf-text-input" placeholder={isMd ? "支持 Markdown：# 标题、**加粗**、`代码`、> 引用、- 列表、[链接](url)…" : "用普通文本书写，支持话题 #标签# 与 @提及…"} value={text} onChange={(e) => setText(e.target.value)} rows={14} />
+        {preview ? (
+          isMd ? (
+            <div className="lf-text-input lf-preview md-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(text) }} />
+          ) : (
+            <div className="lf-text-input lf-preview lf-preview-plain">{text || "（暂无内容）"}</div>
+          )
+        ) : (
+          <textarea className="lf-text-input" placeholder={isMd ? "支持 Markdown：# 标题、**加粗**、`代码`、> 引用、- 列表、[链接](url)…" : "用普通文本书写，支持话题 #标签# 与 @提及…"} value={text} onChange={(e) => setText(e.target.value)} rows={14} />
+        )}
         <div className="lf-modal-foot">
           <div className="seg-bar lf-format-seg">
             <button className={`seg ${isMd ? "on" : ""}`} onClick={() => setIsMd(true)}>Markdown</button>
