@@ -4,7 +4,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { supabase } from "../supabase";
-import { getOrCreateKeyPair } from "../crypto";
+import { getOrCreateKeyPair, parsePubkeyRecord } from "../crypto";
 
 // Generate a random AES key as a base64 string
 function generateGroupKey() {
@@ -123,19 +123,24 @@ export function useGroupChat(user, keyPair) {
     if (!memberRow?.encrypted_key) return null;
     try {
       const parsed = JSON.parse(memberRow.encrypted_key);
-      // The key was encrypted by the creator with our public key
-      const { data: creatorRow } = await supabase.from("group_chats")
-        .select("creator")
-        .eq("id", groupId)
-        .maybeSingle();
-      if (!creatorRow) return null;
-      const { data: creatorUser } = await supabase.from("users")
-        .select("pubkey")
-        .eq("username", creatorRow.creator)
-        .maybeSingle();
-      if (!creatorUser?.pubkey) return null;
-      const creatorPubKey = JSON.parse(creatorUser.pubkey);
-      const groupKey = await decryptGroupKeyFromMember(parsed.ciphertext, parsed.iv, creatorPubKey, keyPair.privateKey);
+      // encrypted_key 由某位成员用「自己的私钥 + 目标公钥」加密；
+      // 解密需要的是【加密方的公钥】= from_pubkey，回退到创建者公钥。
+      // users.pubkey 是 {pub, encPriv} 结构，必须解包成真正的 JWK。
+      let senderPub = parsed.from_pubkey ? parsePubkeyRecord(parsed.from_pubkey)?.pub : null;
+      if (!senderPub) {
+        const { data: creatorRow } = await supabase.from("group_chats")
+          .select("creator")
+          .eq("id", groupId)
+          .maybeSingle();
+        if (!creatorRow) return null;
+        const { data: creatorUser } = await supabase.from("users")
+          .select("pubkey")
+          .eq("username", creatorRow.creator)
+          .maybeSingle();
+        senderPub = parsePubkeyRecord(creatorUser?.pubkey)?.pub;
+      }
+      if (!senderPub) return null;
+      const groupKey = await decryptGroupKeyFromMember(parsed.ciphertext, parsed.iv, senderPub, keyPair.privateKey);
       setGroupKeyCache((prev) => ({ ...prev, [groupId]: groupKey }));
       return groupKey;
     } catch (e) {
@@ -146,63 +151,95 @@ export function useGroupChat(user, keyPair) {
 
   const createGroup = useCallback(async (name) => {
     if (!user || !keyPair) return { error: "Not logged in" };
-    // S-11：邀请码是真正的凭据，必须用密码学安全随机数
+    // v11 RLS 下 group_chats 仅「已是成员」可读，旧写法 insert().select("*")
+    // 在创建者尚未写入 group_members 时会 401，形成死锁。
+    // 改为：客户端生成 48-bit 强随机 id（2^48 < Number.MAX_SAFE_INTEGER，远离 serial 序列）
+    // + return=minimal 插入 → 立即写入创建者成员记录 → 成为成员后 loadGroups() 正常读到群。
+    // 邀请码编码群 id，供 joinGroup 在 RLS 下直接定位，同时保留 48-bit 随机密钥防猜测。
+    const idBytes = new Uint8Array(6);
+    crypto.getRandomValues(idBytes);
+    let groupId = 0;
+    for (const b of idBytes) groupId = groupId * 256 + b;
     const codeBytes = new Uint8Array(6);
     crypto.getRandomValues(codeBytes);
-    const inviteCode = "GRP-" + Array.from(codeBytes, (b) => b.toString(16).padStart(2, "0")).join("").toUpperCase();
-    const { data: chat, error: chatErr } = await supabase.from("group_chats")
-      .insert([{ name, creator: user.username, invite_code: inviteCode }])
-      .select("*")
-      .single();
-    if (chatErr || !chat) return { error: chatErr?.message || "Failed to create group" };
+    const secret = Array.from(codeBytes, (b) => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+    const inviteCode = "GRP-" + groupId.toString(16).toUpperCase().padStart(12, "0") + "-" + secret;
 
-    // Generate group key
+    const { error: chatErr } = await supabase.from("group_chats")
+      .insert([{ id: groupId, name, creator: user.username, invite_code: inviteCode }]);
+    if (chatErr) return { error: chatErr.message || "Failed to create group" };
+
+    // 生成群密钥，用创建者自己的公钥加密后写入成员记录
     const groupKey = generateGroupKey();
-
-    // Encrypt group key with creator's public key
     const pubKeyStr = JSON.stringify(keyPair.publicKey);
-    const { ciphertext, iv } = await encryptGroupKeyForMember(groupKey, keyPair.publicKey, keyPair.privateKey);
-
-    await supabase.from("group_members")
-      .insert([{
-        group_id: chat.id,
+    let memberErr = null;
+    try {
+      const { ciphertext, iv } = await encryptGroupKeyForMember(groupKey, keyPair.publicKey, keyPair.privateKey);
+      const res = await supabase.from("group_members").insert([{
+        group_id: groupId,
         username: user.username,
         role: "admin",
         encrypted_key: JSON.stringify({ ciphertext, iv, from_pubkey: pubKeyStr }),
       }]);
+      memberErr = res.error;
+    } catch (e) { memberErr = e; }
+    if (memberErr) {
+      // 回滚，避免留下无成员的孤儿群
+      await supabase.from("group_chats").delete().eq("id", groupId).eq("creator", user.username);
+      return { error: memberErr.message || "Failed to join group as member" };
+    }
 
-    setGroupKeyCache((prev) => ({ ...prev, [chat.id]: groupKey }));
+    setGroupKeyCache((prev) => ({ ...prev, [groupId]: groupKey }));
     await loadGroups();
-    return { ok: true, group: chat };
+    // 不 select 回数据库（RLS 限制），本地构造 group 供 UI 展示邀请码
+    return { ok: true, group: { id: groupId, name, creator: user.username, invite_code: inviteCode } };
   }, [user, keyPair, loadGroups]);
 
   const joinGroup = useCallback(async (inviteCode) => {
     if (!user || !keyPair) return { error: "Not logged in" };
-    const { data: chat } = await supabase.from("group_chats")
-      .select("*")
-      .eq("invite_code", inviteCode.trim())
-      .maybeSingle();
-    if (!chat) return { error: "Invalid invite code" };
+    const code = String(inviteCode || "").trim().toUpperCase();
 
-    // Check if already a member
+    // 新格式邀请码：GRP-<12位hex群id>-<12位hex随机密钥>
+    // 群 id 直接编码在码里，避免依赖 group_chats.select("*")（RLS 下未加入者不可读）。
+    let groupId = null;
+    const parts = code.split("-");
+    if (parts.length === 3 && parts[0] === "GRP" && /^[0-9A-F]{1,14}$/.test(parts[1])) {
+      const n = parseInt(parts[1], 16);
+      if (Number.isSafeInteger(n) && n > 0) groupId = n;
+    }
+    if (groupId === null) {
+      // 兼容旧格式 / 手输码：仍尝试按邀请码查询（对已加入的群有效）
+      const { data: legacy } = await supabase.from("group_chats")
+        .select("*").eq("invite_code", code).maybeSingle();
+      if (!legacy) return { error: "邀请码无效，请核对后重试" };
+      groupId = legacy.id;
+    }
+
+    // 检查是否已是成员
     const { data: existing } = await supabase.from("group_members")
-      .select("id")
-      .eq("group_id", chat.id)
-      .eq("username", user.username)
-      .maybeSingle();
+      .select("id").eq("group_id", groupId).eq("username", user.username).maybeSingle();
     if (existing) return { error: "Already a member" };
 
-    // Insert member first (without encrypted key)
-    const { error: insertErr } = await supabase.from("group_members")
-      .insert([{
-        group_id: chat.id,
-        username: user.username,
-        role: "member",
-        encrypted_key: null,
-      }]);
+    // 先写入自己的成员记录（RLS 允许插入 username=自己），
+    // 成为成员后即可读 group_chats，用来校验邀请码是否真实匹配。
+    const { error: insertErr } = await supabase.from("group_members").insert([{
+      group_id: groupId,
+      username: user.username,
+      role: "member",
+      encrypted_key: null,
+    }]);
     if (insertErr) return { error: insertErr.message };
 
-    // Try to get group key from any existing member who has it
+    const { data: chat } = await supabase.from("group_chats")
+      .select("*").eq("id", groupId).maybeSingle();
+    if (!chat || String(chat.invite_code || "").toUpperCase() !== code) {
+      // 校验失败 → 回滚成员记录，杜绝用猜测的 id 混入群
+      await supabase.from("group_members").delete()
+        .eq("group_id", groupId).eq("username", user.username);
+      return { error: "邀请码无效，请核对后重试" };
+    }
+
+    // 从已有成员获取群密钥（成员身份已建立，读取不再受 RLS 阻挡）
     try {
       const { data: membersWithKey } = await supabase.from("group_members")
         .select("username, encrypted_key")
@@ -212,24 +249,28 @@ export function useGroupChat(user, keyPair) {
       if (membersWithKey && membersWithKey.length > 0) {
         for (const m of membersWithKey) {
           try {
-            const { data: memberUser } = await supabase.from("users")
-              .select("pubkey")
-              .eq("username", m.username)
-              .maybeSingle();
-            if (!memberUser?.pubkey) continue;
+            const parsed = JSON.parse(m.encrypted_key || "null");
+            if (!parsed) continue;
+            // 加密方公钥优先取 from_pubkey，否则回退该成员登记公钥（均需解包）
+            let senderPub = parsed.from_pubkey ? parsePubkeyRecord(parsed.from_pubkey)?.pub : null;
+            if (!senderPub) {
+              const { data: memberUser } = await supabase.from("users")
+                .select("pubkey")
+                .eq("username", m.username)
+                .maybeSingle();
+              senderPub = parsePubkeyRecord(memberUser?.pubkey)?.pub;
+            }
+            if (!senderPub) continue;
 
-            const memberPubKey = JSON.parse(memberUser.pubkey);
-            const parsed = JSON.parse(m.encrypted_key);
-            
-            const groupKey = await decryptGroupKeyFromMember(parsed.ciphertext, parsed.iv, memberPubKey, keyPair.privateKey);
-            
+            const groupKey = await decryptGroupKeyFromMember(parsed.ciphertext, parsed.iv, senderPub, keyPair.privateKey);
+
             const { ciphertext, iv } = await encryptGroupKeyForMember(groupKey, keyPair.publicKey, keyPair.privateKey);
-            
+
             await supabase.from("group_members")
               .update({ encrypted_key: JSON.stringify({ ciphertext, iv, from_pubkey: JSON.stringify(keyPair.publicKey) }) })
               .eq("group_id", chat.id)
               .eq("username", user.username);
-            
+
             setGroupKeyCache((prev) => ({ ...prev, [chat.id]: groupKey }));
             break;
           } catch (e) {
@@ -264,7 +305,8 @@ export function useGroupChat(user, keyPair) {
     if (!targetUser?.pubkey) return { error: "Failed to get user info" };
 
     try {
-      const targetPubKey = JSON.parse(targetUser.pubkey);
+      const targetPubKey = parsePubkeyRecord(targetUser.pubkey)?.pub;
+      if (!targetPubKey) return { error: "目标用户公钥无效" };
       // We need to decrypt the group key first
       // Our encrypted_key was encrypted by the creator with our public key
       // We need the creator's public key to do ECDH
@@ -280,9 +322,11 @@ export function useGroupChat(user, keyPair) {
         .maybeSingle();
       if (!creatorUser?.pubkey) return { error: "Failed to get creator info" };
 
-      const creatorPubKey = JSON.parse(creatorUser.pubkey);
       const parsed = JSON.parse(myMember.encrypted_key);
-      const groupKey = await decryptGroupKeyFromMember(parsed.ciphertext, parsed.iv, creatorPubKey, keyPair.privateKey);
+      let senderPub = parsed.from_pubkey ? parsePubkeyRecord(parsed.from_pubkey)?.pub : null;
+      if (!senderPub) senderPub = parsePubkeyRecord(creatorUser.pubkey)?.pub;
+      if (!senderPub) return { error: "无法取得加密方公钥" };
+      const groupKey = await decryptGroupKeyFromMember(parsed.ciphertext, parsed.iv, senderPub, keyPair.privateKey);
 
       // Re-encrypt for target user
       const { ciphertext, iv } = await encryptGroupKeyForMember(groupKey, targetPubKey, keyPair.privateKey);
