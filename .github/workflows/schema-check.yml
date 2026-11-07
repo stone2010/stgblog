@@ -53,8 +53,21 @@ jobs:
               'dm_messages': ['revoked','delete_request','encrypted'],
               'group_chats': ['updated_at'],
           }
-          RPCS = ['secure_login','secure_register','logout','change_password',
-                  'create_post','delete_post','edit_post','increment_views']
+          # 必须传「类型正确」的参数：PostgREST 对空 body 会尝试匹配零参数重载，
+          # 找不到就返回 404 PGRST202，从而把已存在的函数误判成缺失。
+          # 下面这些参数都只触发业务层校验错误，不会真的写入任何数据。
+          RPCS = {
+              'secure_login':     {'p_username': '__probe__', 'p_password': 'x'},
+              'secure_register':  {'p_username': '__probe__', 'p_password': 'x',
+                                   'p_hash_id': 'x', 'p_pubkey': None},
+              'logout':           {},
+              'change_password':  {'p_old_password': 'x', 'p_new_password': 'yyyyyy',
+                                   'p_new_enc_priv': None},
+              'create_post':      {'p_username': 'x', 'p_content': 'x', 'p_category': '动态'},
+              'delete_post':      {'p_username': 'x', 'p_post_id': 0},
+              'edit_post':        {'p_username': 'x', 'p_post_id': 0, 'p_content': 'x'},
+              'increment_views':  {'p_post_id': 0},
+          }
 
           rows, failed = [], 0
           def add(kind, name, ok, detail):
@@ -63,7 +76,10 @@ jobs:
               rows.append((kind, name, 'PASS' if ok else 'FAIL', detail))
 
           for t in TABLES:
-              code, data = req('GET', f'/rest/v1/{t}?select=*&limit=1')
+              # v11 起 users 改为列级权限（隐藏 password_hash），
+              # select=* 需要全部列权限会被 PostgreSQL 拒绝，故用显式列探测。
+              sel = 'username' if t == 'users' else '*'
+              code, data = req('GET', f'/rest/v1/{t}?select={sel}&limit=1')
               add('表', t, code == 200 and isinstance(data, list), f'HTTP {code}')
 
           for t, cols in COLUMNS.items():
@@ -71,8 +87,8 @@ jobs:
                   code, data = req('GET', f'/rest/v1/{t}?select={c}&limit=1')
                   add('列', f'{t}.{c}', code == 200, f'HTTP {code}')
 
-          for fn in RPCS:
-              code, data = req('POST', f'/rest/v1/rpc/{fn}', {})
+          for fn, args in RPCS.items():
+              code, data = req('POST', f'/rest/v1/rpc/{fn}', args)
               msg = str(data.get('code','')) if isinstance(data, dict) else ''
               add('RPC', fn, msg != 'PGRST202' and code != 404, f'HTTP {code} {msg}')
 
