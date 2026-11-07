@@ -90,7 +90,17 @@ function AppInner() {
   const { groups, activeGroup, groupMessages, groupMembers, groupSending, loadGroups, createGroup, joinGroup, shareGroupKey, leaveGroup, loadGroupMessages, loadMoreGroupMessages, sendGroupMessage, getGroupMembers, kickMember, deleteGroup, openGroup, closeGroup, updateGroupName, setMemberRole, transferOwnership } = useGroupChat(user, keyPair);
 
   // ─── Load posts ───
-  const PAGE_SIZE = 30;
+  // ─── 引用帖原帖补全：数据库只存 quote_of 外键，原帖内容需按 id 批量回查 ───
+async function enrichQuotes(rows) {
+  const qids = [...new Set((rows || []).map((p) => p.quote_of).filter(Boolean))];
+  if (!qids.length) return rows;
+  const { data: originals } = await supabase.from("posts").select("*").in("id", qids);
+  if (!originals || !originals.length) return rows;
+  const map = Object.fromEntries(originals.map((o) => [o.id, o]));
+  return rows.map((p) => (p.quote_of && map[p.quote_of] ? { ...p, quote_data: map[p.quote_of] } : p));
+}
+
+const PAGE_SIZE = 30;
   const [hasMore, setHasMore] = useState(true);
 
   const loadPosts = useCallback(async () => {
@@ -110,7 +120,7 @@ function AppInner() {
         if (commentCounts) {
           commentCounts.forEach((c) => { countMap[c.post_id] = (countMap[c.post_id] || 0) + 1; });
         }
-        const enriched = data.map((p) => ({ ...p, comment_count: countMap[p.id] || 0 }));
+        const enriched = await enrichQuotes(data.map((p) => ({ ...p, comment_count: countMap[p.id] || 0 })));
         setPosts(enriched);
       } else {
         setPosts([]);
@@ -138,7 +148,7 @@ function AppInner() {
       if (commentCounts) {
         commentCounts.forEach((c) => { countMap[c.post_id] = (countMap[c.post_id] || 0) + 1; });
       }
-      const enriched = data.map((p) => ({ ...p, comment_count: countMap[p.id] || 0 }));
+      const enriched = await enrichQuotes(data.map((p) => ({ ...p, comment_count: countMap[p.id] || 0 })));
       setPosts((prev) => [...prev, ...enriched]);
       setHasMore(data.length >= PAGE_SIZE);
     } else {
@@ -755,14 +765,14 @@ function AppInner() {
 
       {page !== "dm-chat" && page !== "group-chat" && (
         <nav className="bnav">
-          <button className={`bnav-btn ${mobileTab === "home" ? "on" : ""}`} onClick={() => navigate("home")}><span className="bnav-icon"><Icons.Home /></span></button>
-          <button className={`bnav-btn ${mobileTab === "search" ? "on" : ""}`} onClick={() => navigate("search")}><span className="bnav-icon"><Icons.Search /></span></button>
+          <button className={`bnav-btn ${mobileTab === "home" ? "on" : ""}`} onClick={() => navigate("home")}><span className="bnav-icon"><Icons.Home /></span><span className="bnav-label">主页</span></button>
+          <button className={`bnav-btn ${mobileTab === "search" ? "on" : ""}`} onClick={() => navigate("search")}><span className="bnav-icon"><Icons.Search /></span><span className="bnav-label">搜索</span></button>
           <button className={`bnav-btn ${mobileTab === "dm" ? "on" : ""}`} onClick={() => { if (user) navigate("dm"); else setAuthOpen(true); }} style={{ position: "relative" }}>
-            <span className="bnav-icon"><Icons.Msg /></span>
+            <span className="bnav-icon"><Icons.Msg /></span><span className="bnav-label">私信</span>
             {dmUnreadCount > 0 && <span className="bnav-dot" />}
           </button>
           <button className={`bnav-btn ${mobileTab === "me" ? "on" : ""}`} onClick={() => navigate("profile")} style={{ position: "relative" }}>
-            <span className="bnav-icon"><Icons.User /></span>
+            <span className="bnav-icon"><Icons.User /></span><span className="bnav-label">我的</span>
             {unreadCount > 0 && <span className="bnav-dot" />}
           </button>
           <button className="bnav-compose" onClick={() => { if (user) { navigate("home"); setMobileTab("home"); setTimeout(() => composeRef.current?.focus(), 100); } else setAuthOpen(true); }}>✎</button>
