@@ -29,6 +29,46 @@ html[data-style="editorial"]{
   --hover:rgba(23,23,21,0.05);--hover-strong:rgba(23,23,21,0.09);
 }
 
+/* ── 1b. 墨色纸张（编辑部版 · 深色）──
+   设置 → 外观 → 颜色模式 对编辑部版同样生效。这里刻意反转「纸 / 墨」语义：
+   浅色时 paper=米白纸、ink=黑墨；深色时 paper=墨底、ink=浅色字与细线，
+   因此下方大量 var(--paper)/var(--ink) 规则无需改动即可自动换肤。
+   选择器带 :not([data-theme="light"])，权重高于上方基础块，也高于 style.css 的
+   [data-theme="light"] 与 :root 变量表。 */
+html[data-style="editorial"]:not([data-theme="light"]){
+  --paper:#1b1b19;--ink:#ece8de;--ed-red:#ef665c;--ed-muted:#a09c92;--rule:#4a4842;
+  --bg:#1b1b19;--bg2:#222220;
+  --bg3:rgba(236,232,222,0.055);--bg4:rgba(236,232,222,0.09);--bg5:rgba(236,232,222,0.14);
+  --card:#242420;--card-hover:#2b2b26;--card-active:#33332d;
+  --border:var(--rule);--border-light:#3a3833;--border-focus:rgba(239,102,92,0.55);
+  --text:#ece8de;--text-secondary:#b8b4a9;--text-muted:#8f8b81;--text-dim:#6b685f;
+  --accent:#e04a3e;--accent-hover:#f05b4f;--accent-active:#c23a30;--accent-glow:rgba(239,102,92,0.14);
+  --accent-light:#f2887f;--accent-dark:#a12c22;
+  --gemini-gradient:linear-gradient(135deg,#e04a3e,#a12c22);
+  --gemini-gradient-subtle:linear-gradient(135deg,rgba(224,74,62,0.9),rgba(161,44,34,0.45));
+  --red:#ef665c;--red-hover:#f05b4f;--green:#5fbb83;--green-hover:#4ba570;
+  --glass-bg:#1b1b19;--glass-border:#4a4842;--glass-hi:transparent;--glass-blur:0px;
+  --shadow:none;--shadow-lg:none;--shadow-sm:none;
+  --shadow-card:none;--shadow-hover:none;--shadow-elevated:none;
+  --hover:rgba(236,232,222,0.07);--hover-strong:rgba(236,232,222,0.12);
+}
+/* 基础块里写死的浅色纸面，在墨色版里换成深色纸面 */
+html[data-style="editorial"]:not([data-theme="light"]) .ed-grid .post-menu,
+html[data-style="editorial"]:not([data-theme="light"]) .auth-modal,
+html[data-style="editorial"]:not([data-theme="light"]) .ann-card{background:#242420}
+html[data-style="editorial"]:not([data-theme="light"]) .auth-input{
+  background:#20201d;color:var(--text);
+}
+html[data-style="editorial"]:not([data-theme="light"]) .sidebar-compose,
+html[data-style="editorial"]:not([data-theme="light"]) .auth-btn,
+html[data-style="editorial"]:not([data-theme="light"]) .bnav-compose{color:#fff6ef}
+/* 移动端悬浮发帖条：覆盖 style.css 里写死的深蓝玻璃，改用墨色纸张 */
+@media(max-width:768px){
+  html[data-style="editorial"]:not([data-theme="light"]) .compose-bar{
+    background:rgba(27,27,25,0.94);
+  }
+}
+
 /* ── 2. 全局基底:纸张、油墨、去玻璃光斑 ── */
 html[data-style="editorial"]{background:var(--paper)}
 html[data-style="editorial"] body{

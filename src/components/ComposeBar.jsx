@@ -126,7 +126,7 @@ export default function ComposeBar({ value, onChange, onPublish, publishing, com
   };
 
   return (
-    <div className="compose-bar">
+    <div className={`compose-bar ${showEmoji ? "picker-open" : ""}`}>
       <div className="compose-avatar">{user.username[0]}</div>
       <div className="compose-input">
         <textarea

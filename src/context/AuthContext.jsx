@@ -44,8 +44,16 @@ export const ACCENT_VARS = [
 export function applyAccentColors(key) {
   const c = ACCENT_COLORS[key];
   const root = document.documentElement.style;
-  if (!c || key === "green") {
-    // 默认「跟随主题」：清除全部内联覆盖，交还配色主题样式表控制
+  // 编辑部版有自己固定的红标记设计语言；内联变量权重高于样式表，若不清除，
+  // 用户在经典版选过的强调色会渗进编辑部版（表现为「主题色设置串台」）。
+  // main.jsx 在 React 挂载前调用本函数，此时 data-style 尚未写入，故也读 localStorage。
+  let editorial = false;
+  try {
+    editorial = document.documentElement.getAttribute("data-style") === "editorial" ||
+      localStorage.getItem("stgblog_style") === "editorial";
+  } catch {}
+  if (!c || key === "green" || editorial) {
+    // 默认「跟随主题」/编辑部版：清除全部内联覆盖，交还样式表控制
     ACCENT_VARS.forEach((v) => root.removeProperty(v));
     return;
   }
@@ -155,13 +163,14 @@ export function AuthProvider({ children }) {
 
   // 主题色自选：默认「跟随主题」清除内联覆盖；选具体颜色时覆盖全套
   // accent 变量，保证按钮、边框、光晕、渐变全局一致生效。
+  // 依赖 styleMode：切换「编辑部版 / 经典版」时重新决定是清除还是恢复内联覆盖。
   useEffect(() => {
     try {
       applyAccentColors(accentColor);
       if (accentColor === "green") localStorage.removeItem("stgblog_accent");
       else localStorage.setItem("stgblog_accent", accentColor);
     } catch {}
-  }, [accentColor]);
+  }, [accentColor, styleMode]);
 
   // Load key pair when user changes
   useEffect(() => {

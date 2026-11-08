@@ -34,7 +34,7 @@ import Onboarding from "./components/Onboarding";
 import AnnouncementModal from "./components/AnnouncementModal";
 
 function AppInner() {
-  const { user, followingSet, keyPair, colorMode, setColorMode, styleMode,
+  const { user, followingSet, keyPair, styleMode,
     reloginRequired, setReloginRequired } = useAuth();
 
   // Posts
@@ -85,10 +85,7 @@ function AppInner() {
   const [joinGroupOpen, setJoinGroupOpen] = useState(false);
   const [groupSettingsOpen, setGroupSettingsOpen] = useState(false);
 
-  // Theme（颜色模式来自 AuthContext，全局生效）
-  const toggleTheme = useCallback(() => {
-    setColorMode((c) => (c === "dark" ? "light" : "dark"));
-  }, [setColorMode]);
+  // 颜色模式统一在「设置 → 外观 → 颜色模式」调整；主界面不再重复放开关
 
   // PWA
   const [installPrompt, setInstallPrompt] = useState(null);
@@ -710,9 +707,6 @@ const PAGE_SIZE = 30;
             <span className="topnav-title">{topTitle()}</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <button className="compose-tool" onClick={toggleTheme} title="切换颜色模式">
-              {colorMode === "dark" ? <Icons.ThemeLight /> : <Icons.ThemeDark />}
-            </button>
             <button className="compose-tool" onClick={() => navigate("settings")} title="设置"><Icons.Settings /></button>
             {canInstall && (
               <button className="compose-tool install-btn-nav" onClick={handleInstall} title="安装到桌面"><Icons.Install /></button>
@@ -770,16 +764,14 @@ const PAGE_SIZE = 30;
 
       <div className="desktop-wrap">
         <aside className="sidebar">
-          <button className="sidebar-btn" onClick={() => navigate("home")}><span className="sb-icon"><Icons.Home /></span>主页</button>
-          <button className={`sidebar-btn ${page === "questions" ? "sb-on" : ""}`} onClick={() => navigate("questions")}><span className="sb-icon">❓</span>提问</button>
-          <button className={`sidebar-btn ${page === "blog" ? "sb-on" : ""}`} onClick={() => navigate("blog")}><span className="sb-icon">📄</span>博客</button>
-          <button className="sidebar-btn" onClick={() => navigate("search")}><span className="sb-icon"><Icons.Search /></span>搜索</button>
-          {user && <button className="sidebar-btn" onClick={() => navigate("notifications")}><span className="sb-icon"><Icons.Bell /></span>通知{unreadCount > 0 && <span className="sidebar-badge">{unreadCount > 9 ? "9+" : unreadCount}</span>}</button>}
-          {user && <button className="sidebar-btn" onClick={() => navigate("dm")}><span className="sb-icon"><Icons.Msg /></span>私信{dmUnreadCount > 0 && <span className="sidebar-badge">{dmUnreadCount > 9 ? "9+" : dmUnreadCount}</span>}</button>}
-          {user && <button className="sidebar-btn" onClick={() => navigate("groups")}><span className="sb-icon"><Icons.Group /></span>群组</button>}
-          {user && <button className="sidebar-btn" onClick={() => navigate("profile")}><span className="sb-icon"><Icons.User /></span>个人</button>}
-          <button className="sidebar-btn" onClick={toggleTheme}><span className="sb-icon">{colorMode === "dark" ? <Icons.ThemeLight /> : <Icons.ThemeDark />}</span>{colorMode === "dark" ? "亮色模式" : "暗色模式"}</button>
-          <button className="sidebar-btn" onClick={() => navigate("settings")}><span className="sb-icon"><Icons.Settings /></span>设置</button>
+          {/* 一级内容入口（主页/提问/博客）统一交给顶部 SectionNav，侧栏只保留账号功能 */}
+          <button className={`sidebar-btn ${page === "home" ? "on" : ""}`} onClick={() => navigate("home")}><span className="sb-icon"><Icons.Home /></span>主页</button>
+          <button className={`sidebar-btn ${page === "search" ? "on" : ""}`} onClick={() => navigate("search")}><span className="sb-icon"><Icons.Search /></span>搜索</button>
+          {user && <button className={`sidebar-btn ${page === "notifications" ? "on" : ""}`} onClick={() => navigate("notifications")}><span className="sb-icon"><Icons.Bell /></span>通知{unreadCount > 0 && <span className="sidebar-badge">{unreadCount > 9 ? "9+" : unreadCount}</span>}</button>}
+          {user && <button className={`sidebar-btn ${page === "dm" || page === "dm-chat" ? "on" : ""}`} onClick={() => navigate("dm")}><span className="sb-icon"><Icons.Msg /></span>私信{dmUnreadCount > 0 && <span className="sidebar-badge">{dmUnreadCount > 9 ? "9+" : dmUnreadCount}</span>}</button>}
+          {user && <button className={`sidebar-btn ${page === "groups" || page === "group-chat" ? "on" : ""}`} onClick={() => navigate("groups")}><span className="sb-icon"><Icons.Group /></span>群组</button>}
+          {user && <button className={`sidebar-btn ${page === "profile" || page === "profile-view" || page === "followers" ? "on" : ""}`} onClick={() => navigate("profile")}><span className="sb-icon"><Icons.User /></span>个人</button>}
+          <button className={`sidebar-btn ${page === "settings" ? "on" : ""}`} onClick={() => navigate("settings")}><span className="sb-icon"><Icons.Settings /></span>设置</button>
           {user ? (
             <button className="sidebar-compose" onClick={() => { navigate("home"); setMobileTab("home"); setTimeout(() => composeRef.current?.focus(), 100); }}>发帖</button>
           ) : (

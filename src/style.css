@@ -211,7 +211,9 @@ a{color:var(--accent);text-decoration:none}
 
 /* ===== Desktop Sidebar ===== */
 .sidebar{
-  position:sticky;top:var(--nav-h);
+  /* 顶部有两层吸顶栏：topnav(60px) + secnav(51px)。侧栏若仍停在 60px，
+     滚动后前 51px 会被 secnav 盖住（表现为「主页」等首个菜单项消失）。*/
+  position:sticky;top:calc(var(--nav-h) + 51px);
   width:220px;height:fit-content;
   padding:16px 8px;flex-shrink:0;
   display:flex;flex-direction:column;gap:2px;
@@ -970,7 +972,8 @@ a{color:var(--accent);text-decoration:none}
   .topnav{position:fixed;top:0;left:0;right:0}
   .desktop-wrap{padding-top:var(--nav-h)}
   .compose-bar{
-    position:sticky;bottom:0;z-index:101;
+    /* 低于吸顶的 topnav(100)/secnav(99)；表情面板展开时由 .picker-open 抬到 105 */
+    position:sticky;bottom:0;z-index:60;
     background:var(--bg);border-top:1px solid var(--border);
     padding-bottom:max(12px,env(safe-area-inset-bottom));
   }
@@ -1682,7 +1685,8 @@ input:active, textarea:active {
 /* ── 移动端底栏上的发帖区块保持悬浮玻璃 ── */
 @media(max-width:768px){
   .compose-bar{
-    position:sticky;bottom:8px;z-index:101;
+    /* 同上：常态低于两层导航，避免上滑时整块发帖条压在「主页/提问/博客」上方 */
+    position:sticky;bottom:8px;z-index:60;
     margin:0 10px 10px;padding-bottom:max(12px,env(safe-area-inset-bottom));
     border-radius:var(--r2);
     background:rgba(15,19,28,0.72);
@@ -2120,11 +2124,12 @@ html[data-zoom="lg"]{zoom:1.12}
 /* ═════════ 2026-11-07 反馈修复 ═════════ */
 
 /* ── 1) 表情面板：浮层优先级高于顶栏 + 弹出方向可控 ── */
-/* 关键：compose-bar 的 backdrop-filter 形成独立堆叠上下文(z=0)，
-   面板自身 z 再高也压不过顶栏(100)，必须提升整个发帖条的层级。
-   桌面端补定位；移动端保持 sticky 仅提高 z-index */
-@media(min-width:769px){.compose-bar{position:relative;z-index:105}}
-@media(max-width:768px){.compose-bar{z-index:105}}
+/* 发帖条默认必须低于吸顶导航(topnav 100 / secnav 90)：否则页面滚动时
+   整个发帖条会盖在顶栏之上、把「主页/提问/博客」入口挡住，同时自己被
+   视口顶部裁掉一半（2026-11-08 反馈的显示异常根因）。
+   仅在表情面板展开(picker-open)时临时抬升层级，保证浮层不被顶栏遮挡。 */
+@media(min-width:769px){.compose-bar{position:relative;z-index:1}}
+.compose-bar.picker-open{z-index:105}
 .emoji-picker{z-index:320}
 .emoji-picker.emoji-down{bottom:auto;top:100%;margin-top:8px;margin-bottom:0}
 @media(max-width:768px){

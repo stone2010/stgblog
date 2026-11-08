@@ -109,11 +109,22 @@ export default function SettingsPage({ onBack }) {
           ]}
           onChange={setStyleMode}
         />
+        {/* 颜色模式全局生效：经典版与编辑部版都可在此切换深/浅，侧栏不再放重复开关 */}
+        <SegRow
+          label="颜色模式"
+          hint={styleMode === "editorial" ? "米白纸感(浅色) / 墨色纸张(深色)，编辑部版同样生效" : "深色 / 浅色配色"}
+          value={colorMode}
+          options={[
+            { value: "dark", label: "深色", icon: "🌙" },
+            { value: "light", label: "浅色", icon: "☀️" },
+          ]}
+          onChange={setColorMode}
+        />
         {styleMode === "editorial" ? (
           <div className="settings-row">
             <div className="settings-row-label">
               <span className="settings-row-name">外观提示</span>
-              <span className="settings-row-hint">编辑部风格使用固定纸感配色，颜色模式 / 玻璃效果 / 配色主题仅在经典版下生效——切换到「经典版」后可调整</span>
+              <span className="settings-row-hint">编辑部版使用独立纸感排版，配色主题 / 玻璃效果 / 主题色仅在「经典版」下生效</span>
             </div>
           </div>
         ) : (
@@ -127,16 +138,6 @@ export default function SettingsPage({ onBack }) {
                 { value: "modern", label: "现代蓝绿", icon: "💧" },
               ]}
               onChange={(v) => { setPaletteMode(v); if (colorMode !== "light") setColorMode("light"); }}
-            />
-            <SegRow
-              label="颜色模式"
-              hint="深色 / 浅色配色"
-              value={colorMode}
-              options={[
-                { value: "dark", label: "深色", icon: "🌙" },
-                { value: "light", label: "浅色", icon: "☀️" },
-              ]}
-              onChange={setColorMode}
             />
             <SegRow
               label="玻璃效果"
