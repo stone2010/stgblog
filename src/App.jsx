@@ -581,8 +581,11 @@ const PAGE_SIZE = 30;
 
   const handleBookmark = useCallback((post) => {
     if (!post) return;
-    const nowBookmarked = toggleBookmark(post.id);
-    setPosts((prev) => [...prev]);
+    toggleBookmark(post.id);
+    // PostCard 是 memo 组件：只替换数组引用不会让卡片重渲染，
+    // hasBookmarked() 便不会重新读取，表现为「点了书签没反应」。
+    // 这里同时替换被点书签的 post 对象引用，强制该卡片刷新。
+    setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p } : p)));
   }, []);
 
   const handleShare = useCallback(async (post) => {
