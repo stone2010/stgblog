@@ -540,6 +540,15 @@ DROP TRIGGER IF EXISTS trg_honors_post_delete ON public.posts;
 CREATE TRIGGER trg_honors_post_delete AFTER DELETE ON public.posts
   FOR EACH ROW EXECUTE FUNCTION public.honors_on_post_delete();
 
+-- ─── 11. 显式函数授权 ───────────────────────────────────────────────────────
+-- increment_likes 在第 8 段被 DROP 后重建，原有 GRANT 会随旧函数一起消失；
+-- 各 honors_* RPC 也需要显式授权，避免项目默认权限不同导致前端 403。
+-- Postgres 新函数默认给 PUBLIC EXECUTE，这里再显式授一次，纯增量、可重复执行。
+GRANT EXECUTE ON FUNCTION public.increment_likes(BIGINT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.honors_set_enabled(BOOLEAN) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.honors_set_featured(TEXT, BOOLEAN) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.honors_level_for_xp(BIGINT) TO anon, authenticated;
+
 -- 通知 PostgREST 立即刷新 schema cache，避免新表/新视图短暂 404
 NOTIFY pgrst, 'reload schema';
 
