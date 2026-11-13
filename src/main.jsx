@@ -4,6 +4,7 @@ import App from "./App";
 import "./style.css";
 import "./style-palettes.css";
 import "./style-editorial.css";
+import "./style-honors.css";
 import { applyAccentColors } from "./context/AuthContext";
 
 // 配色主题在 React 挂载前先落地,避免首帧闪错色(默认复古暖调)

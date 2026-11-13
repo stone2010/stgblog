@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "./supabase";
 import { hasLiked, hasViewed, saveLiked, saveViewed, toggleBookmark, isAdmin, showToast, bumpPostCounter, avatarColor } from "./utils";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { HonorsProvider, useHonors } from "./context/HonorsContext";
 import { useNotifications } from "./hooks/useNotifications";
 import { useDM } from "./hooks/useDM";
 import { useGroupChat } from "./hooks/useGroupChat";
@@ -32,10 +33,19 @@ import EditPostModal from "./components/EditPostModal";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Onboarding from "./components/Onboarding";
 import AnnouncementModal from "./components/AnnouncementModal";
+import HonorsPage from "./components/HonorsPage";
+import HonorToast from "./components/HonorToast";
+
+// 荣誉体系开启后，发帖 / 点赞会派发此事件让成长数据做一次去抖刷新。
+// 关闭时 HonorsProvider 不监听任何事件，因此这里派发是零成本的。
+function notifyHonorsActivity() {
+  try { window.dispatchEvent(new CustomEvent("stgblog:honors-activity")); } catch {}
+}
 
 function AppInner() {
   const { user, followingSet, keyPair, styleMode,
     reloginRequired, setReloginRequired } = useAuth();
+  const honors = useHonors();
 
   // Posts
   const [posts, setPosts] = useState([]);
@@ -235,7 +245,7 @@ const PAGE_SIZE = 30;
     }
     if (p === "groups" && user) loadGroups();
     closeGroup();
-    setMobileTab(p === "home" ? "home" : p === "dm" ? "dm" : p === "groups" ? "groups" : (p === "profile" || p === "settings") ? "me" : p === "notifications" ? "notif" : "home");
+    setMobileTab(p === "home" ? "home" : p === "dm" ? "dm" : p === "groups" ? "groups" : (p === "profile" || p === "settings" || p === "honors") ? "me" : p === "notifications" ? "notif" : "home");
     window.history.pushState({ page: p }, "", `#${p}`);
   }, [user, loadDmList, dmList, setDmTarget, loadGroups, closeGroup]);
 
@@ -420,6 +430,7 @@ const PAGE_SIZE = 30;
         setPosts((prev) => [post, ...prev]);
         setComposeText("");
         setComposeAnnouncement(false);
+        notifyHonorsActivity();
       }
     } catch (e) {
       console.error("发帖失败:", e);
@@ -521,6 +532,7 @@ const PAGE_SIZE = 30;
     if (selectedPost?.id === post.id) setSelectedPost((s) => s ? { ...s, likes: next } : s);
     saveLiked(post.id);
     const serverNext = await bumpPostCounter(post.id, "likes", 1);
+    notifyHonorsActivity();
     if (serverNext != null && serverNext !== next) {
       setPosts((prev) => prev.map((i) => i.id === post.id ? { ...i, likes: serverNext } : i));
       if (selectedPost?.id === post.id) setSelectedPost((s) => s ? { ...s, likes: serverNext } : s);
@@ -659,6 +671,7 @@ const PAGE_SIZE = 30;
     if (page === "followers") return followersPage?.type === "followers" ? "粉丝" : "关注";
     if (page === "settings") return "设置";
     if (page === "profile") return "个人";
+    if (page === "honors") return "STG 荣誉体系";
     return "STGBLOG";
   };
 
@@ -690,8 +703,9 @@ const PAGE_SIZE = 30;
         onLoadMore={loadMoreGroupMessages} />
     );
     if (page === "profile-view" && viewingProfile) return <ProfileViewPage viewingProfile={viewingProfile} posts={posts} onBack={() => { setViewingProfile(null); setPage("home"); setMobileTab("home"); }} onSelectPost={openPostDetail} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} />;
-    if (page === "settings") return <SettingsPage onBack={() => { if (user) { navigate("profile"); } else { navigate("home"); } }} />;
-    if (page === "profile") return <ProfilePage posts={posts} onAuthOpen={() => setAuthOpen(true)} onSelectPost={openPostDetail} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onFollowersPage={(type) => setFollowersPage({ username: user?.username, type })} onOpenUser={openUserClick} onOpenSettings={() => navigate("settings")} />;
+    if (page === "honors") return <HonorsPage onBack={() => navigate(user ? "profile" : "home")} />;
+    if (page === "settings") return <SettingsPage onBack={() => { if (user) { navigate("profile"); } else { navigate("home"); } }} onOpenHonors={() => navigate("honors")} />;
+    if (page === "profile") return <ProfilePage posts={posts} onAuthOpen={() => setAuthOpen(true)} onSelectPost={openPostDetail} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onFollowersPage={(type) => setFollowersPage({ username: user?.username, type })} onOpenUser={openUserClick} onOpenSettings={() => navigate("settings")} onOpenHonors={() => navigate("honors")} />;
     if (page === "questions") return <QuestionsPage posts={posts} postsLoading={postsLoading} onAsk={handleAsk} onSelectPost={openPostDetail} onAuthOpen={() => setAuthOpen(true)} onUserClick={openUserClick} />;
     if (page === "blog") return <BlogPage posts={posts} postsLoading={postsLoading} publishing={publishing} onPublishLongForm={handlePublishLongForm} onSelectPost={openPostDetail} onAuthOpen={() => setAuthOpen(true)} onUserClick={openUserClick} />;
     return <HomeFeed posts={posts} postsLoading={postsLoading} hasMore={hasMore} loadMorePosts={loadMorePosts} searchKey={searchKey} composeText={composeText} setComposeText={setComposeText} onPublish={handlePublish} publishing={publishing} composeRef={composeRef} isAnnouncement={composeAnnouncement} onAnnouncementChange={setComposeAnnouncement} onSelectPost={openPostDetail} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onHashtag={handleHashtag} onAuthOpen={() => setAuthOpen(true)} />;
@@ -771,6 +785,7 @@ const PAGE_SIZE = 30;
           {user && <button className={`sidebar-btn ${page === "dm" || page === "dm-chat" ? "on" : ""}`} onClick={() => navigate("dm")}><span className="sb-icon"><Icons.Msg /></span>私信{dmUnreadCount > 0 && <span className="sidebar-badge">{dmUnreadCount > 9 ? "9+" : dmUnreadCount}</span>}</button>}
           {user && <button className={`sidebar-btn ${page === "groups" || page === "group-chat" ? "on" : ""}`} onClick={() => navigate("groups")}><span className="sb-icon"><Icons.Group /></span>群组</button>}
           {user && <button className={`sidebar-btn ${page === "profile" || page === "profile-view" || page === "followers" ? "on" : ""}`} onClick={() => navigate("profile")}><span className="sb-icon"><Icons.User /></span>个人</button>}
+          {honors.enabled && honors.ready === true && <button className={`sidebar-btn ${page === "honors" ? "on" : ""}`} onClick={() => navigate("honors")}><span className="sb-icon">✦</span>荣誉</button>}
           <button className={`sidebar-btn ${page === "settings" ? "on" : ""}`} onClick={() => navigate("settings")}><span className="sb-icon"><Icons.Settings /></span>设置</button>
           {user ? (
             <button className="sidebar-compose" onClick={() => { navigate("home"); setMobileTab("home"); setTimeout(() => composeRef.current?.focus(), 100); }}>发帖</button>
@@ -804,6 +819,7 @@ const PAGE_SIZE = 30;
 
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
       <AnnouncementModal user={user} />
+      <HonorToast />
       {newDmOpen && <NewDmModal onClose={() => setNewDmOpen(false)} onStartDm={(target) => { setNewDmOpen(false); openDm(target); setPage("dm-chat"); }} />}
       {repostModal && <RepostModal post={repostModal} onRepost={doRepost} onQuote={doQuote} onClose={() => setRepostModal(null)} />}
       {editPostModal && <EditPostModal post={editPostModal} onSave={handleEditPost} onClose={() => setEditPostModal(null)} />}
@@ -828,7 +844,9 @@ const PAGE_SIZE = 30;
 export default function App() {
   return (
     <AuthProvider>
-      <AppInner />
+      <HonorsProvider>
+        <AppInner />
+      </HonorsProvider>
     </AuthProvider>
   );
 }

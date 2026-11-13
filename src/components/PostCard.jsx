@@ -3,6 +3,8 @@ import { Icons } from "./Icons";
 import { hasLiked, hasBookmarked, formatTimeShort, formatCount, parseContent, getBlockedSet, getMutedSet, avatarColor } from "../utils";
 import { mdToPlain } from "../md";
 import { useAuth } from "../context/AuthContext";
+import { useHonors } from "../context/HonorsContext";
+import { LevelChip, HonorBadge } from "./HonorBadge";
 
 function RenderContent({ content, onHashtag, onMention }) {
   const parts = parseContent(content);
@@ -20,6 +22,7 @@ function RenderContent({ content, onHashtag, onMention }) {
 
 const PostCard = memo(function PostCard({ post, index = 0, editorial = false, onSelect, onLike, onShare, onRepost, onBookmark, onHashtag }) {
   const { user, followingSet, follow } = useAuth();
+  const honors = useHonors();
   const [showMenu, setShowMenu] = useState(false);
   const bookmarked = hasBookmarked(post.id);
   const liked = hasLiked(post.id);
@@ -28,6 +31,11 @@ const PostCard = memo(function PostCard({ post, index = 0, editorial = false, on
   const displayPost = isRepost ? (post.repost_data || post) : post;
   const repostAuthor = isRepost ? post.author : null;
   const isLongCard = (displayPost.category || "").startsWith("长文");
+  // 荣誉标识是纯增量：只有开启且服务端就绪、且该作者也主动加入时才渲染
+  const authorGrowth = honors.enabled && honors.ready === true
+    ? honors.growthOf(displayPost.author) : null;
+  const showAuthorHonors = !!(authorGrowth && authorGrowth.honors_enabled);
+  const authorBadges = showAuthorHonors ? honors.badgesOf(displayPost.author) : [];
 
   // 编辑部封面文案:取正文首行,去掉 #/@ 符号,截取前 12 字
   const edCoverWord = React.useMemo(() => {
@@ -68,6 +76,12 @@ const PostCard = memo(function PostCard({ post, index = 0, editorial = false, on
           <span className="post-handle">@{displayPost.author}</span>
           <span className="post-dot">·</span>
           <span className="post-time">{formatTimeShort(displayPost.created_at)}</span>
+          {showAuthorHonors && (
+            <>
+              <LevelChip level={authorGrowth.level} compact />
+              {authorBadges.map((c) => <HonorBadge key={c} code={c} size="xs" />)}
+            </>
+          )}
           {displayPost.is_announcement && <span className="post-ann-badge">📢 公告</span>}
           {displayPost.pinned && <span className="post-pin-icon"><Icons.Pin /></span>}
           {displayPost.edited && <span className="post-edited-tag">已编辑</span>}

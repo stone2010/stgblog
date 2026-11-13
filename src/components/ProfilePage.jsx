@@ -1,10 +1,14 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useHonors } from "../context/HonorsContext";
 import { Icons } from "./Icons";
 import PostCard from "./PostCard";
+import HonorCard from "./HonorCard";
+import { LevelChip } from "./HonorBadge";
 
-export default function ProfilePage({ posts, onAuthOpen, onSelectPost, onLike, onShare, onRepost, onBookmark, onFollowersPage, onOpenSettings }) {
+export default function ProfilePage({ posts, onAuthOpen, onSelectPost, onLike, onShare, onRepost, onBookmark, onFollowersPage, onOpenSettings, onOpenHonors }) {
   const { user, followingSet, logout, updateBio } = useAuth();
+  const honors = useHonors();
   const [editOpen, setEditOpen] = useState(false);
   const [editBio, setEditBio] = useState("");
   const [profileTab, setProfileTab] = useState("posts");
@@ -40,7 +44,12 @@ export default function ProfilePage({ posts, onAuthOpen, onSelectPost, onLike, o
         <div className="profile-banner" />
         <div className="profile-info">
           <div className="profile-avatar">{user.username[0]}</div>
-          <div className="profile-name">{user.username} <Icons.Verified /></div>
+          <div className="profile-name">
+            {user.username} <Icons.Verified />
+            {honors.enabled && honors.ready === true && honors.myGrowth && (
+              <LevelChip level={honors.myGrowth.level} compact />
+            )}
+          </div>
           <div className="profile-handle">@{user.username}</div>
           <div className="profile-bio">{user.bio || "STGBLOG 用户 · 加密社交"}</div>
           <div className="profile-stats">
@@ -58,6 +67,14 @@ export default function ProfilePage({ posts, onAuthOpen, onSelectPost, onLike, o
       </div>
 
       {/* 设置入口已迁移到独立设置页（外观 / 私信 / 账号） */}
+      {honors.enabled && honors.ready === true && honors.myGrowth && (
+        <HonorCard
+          growth={honors.myGrowth}
+          badges={honors.badgesOf(user.username)}
+          isMe
+          onOpen={onOpenHonors}
+        />
+      )}
 
       <div className="profile-tabs">
         <button className={`profile-tab ${profileTab === "posts" ? "on" : ""}`} onClick={() => setProfileTab("posts")}>帖子</button>

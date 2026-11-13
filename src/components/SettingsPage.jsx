@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from "react";
 import { supabase } from "../supabase";
 import { useAuth, ACCENT_COLORS } from "../context/AuthContext";
+import { useHonors } from "../context/HonorsContext";
 import { createKeyBackup } from "../crypto";
 import { Icons } from "./Icons";
 
@@ -24,10 +25,11 @@ function SegRow({ label, hint, value, options, onChange }) {
   );
 }
 
-export default function SettingsPage({ onBack }) {
+export default function SettingsPage({ onBack, onOpenHonors }) {
   const { user, colorMode, setColorMode, glassMode, setGlassMode, fontSize, setFontSize,
     styleMode, setStyleMode, paletteMode, setPaletteMode, accentColor, setAccentColor,
     logout, dmPrivacy, dmKey, updateDmPrivacy, keyPair } = useAuth();
+  const honors = useHonors();
 
   // 修改密码（自个人主页迁入）
   const [pwModalOpen, setPwModalOpen] = useState(false);
@@ -229,6 +231,54 @@ export default function SettingsPage({ onBack }) {
           </>
         ) : (
           <div className="settings-empty">登录后可管理账号选项</div>
+        )}
+      </div>
+
+      {/* ─── 功能：STG 荣誉体系（opt-in，默认关闭）─── */}
+      <div className="settings-section">
+        <div className="settings-section-title">功能</div>
+        <div className="settings-row honors-toggle-row">
+          <div className="settings-row-label">
+            <span className="settings-row-name">STG 荣誉体系 <span className="honors-beta">可选</span></span>
+            <span className="settings-row-hint">按发帖、回复与社区认可累计等级和徽章；默认关闭，关闭时不采集任何成长数据</span>
+          </div>
+          <button
+            className={`honors-switch ${honors.enabled ? "on" : ""}`}
+            role="switch"
+            aria-checked={honors.enabled}
+            aria-label="STG 荣誉体系开关"
+            onClick={() => honors.setEnabled(!honors.enabled)}
+          >
+            <span className="honors-switch-knob" />
+            <span className="honors-switch-text">{honors.enabled ? "已开启" : "已关闭"}</span>
+          </button>
+        </div>
+        <div className="honors-switch-note">
+          仅公开等级与已获徽章；积分流水、行为明细、最后活跃日期不公开。私信与群聊内容永不参与计算。
+        </div>
+        {honors.enabled && (
+          <>
+            {honors.ready === null && honors.loading && (
+              <div className="honors-notice">正在连接荣誉服务…</div>
+            )}
+            {honors.ready === false && (
+              <div className="honors-notice">
+                服务端尚未启用该功能：站点管理员需在 Supabase SQL Editor 执行一次
+                <code> migrations/v12_honors.sql </code>。在此之前网站其余功能完全不受影响。
+              </div>
+            )}
+            {honors.ready === true && (
+              <>
+                {!user && <div className="honors-notice">当前为访客浏览，登录后才会开始记录成长值。</div>}
+                {onOpenHonors && (
+                  <button className="settings-action" onClick={onOpenHonors}>
+                    <span className="settings-action-icon">✦</span> 查看荣誉中心 / 成就图鉴
+                    <span className="settings-action-arrow">›</span>
+                  </button>
+                )}
+              </>
+            )}
+          </>
         )}
       </div>
 
