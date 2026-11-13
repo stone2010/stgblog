@@ -42,6 +42,17 @@ function notifyHonorsActivity() {
   try { window.dispatchEvent(new CustomEvent("stgblog:honors-activity")); } catch {}
 }
 
+// 通知下拉与通知页共用同一套文案（含 v12 的 honor 类型）
+function notifMeta(type) {
+  const m = {
+    like: ["❤️", "赞了你的帖子"], comment: ["💬", "评论了你的帖子"],
+    reply: ["↩️", "回复了你的评论"], follow: ["👤", "关注了你"],
+    repost: ["🔁", "转发了你的帖子"], quote: ["💭", "引用了你的帖子"],
+    honor: ["✦", "解锁了新成就，快去荣誉中心看看"],
+  };
+  return m[type] || ["🔔", "新通知"];
+}
+
 function AppInner() {
   const { user, followingSet, keyPair, styleMode,
     reloginRequired, setReloginRequired } = useAuth();
@@ -628,6 +639,7 @@ const PAGE_SIZE = 30;
       const found = posts.find((p) => p.id === notif.post_id);
       if (found) { openPostDetail(found); setPage("home"); return; }
     }
+    if (notif.type === "honor") { setPage("honors"); return; }
     if (notif.type === "follow") {
       setViewingProfile(notif.user_from);
       setPage("profile-view");
@@ -738,10 +750,10 @@ const PAGE_SIZE = 30;
                       <div className="notif-empty">暂无通知</div>
                     ) : notifications.slice(0, 20).map((n) => (
                       <div key={n.id} className={`notif-item ${n.read ? "" : "unread"}`} onClick={() => handleNotifClick(n)}>
-                        <div className="notif-icon">{n.type === "like" ? "❤️" : n.type === "comment" ? "💬" : n.type === "reply" ? "↩️" : n.type === "repost" ? "🔁" : n.type === "quote" ? "💬" : "🔔"}</div>
+                        <div className="notif-icon">{notifMeta(n.type)[0]}</div>
                         <div className="notif-body">
-                          <span className="notif-from">{n.user_from}</span>
-                          <span className="notif-text">{n.type === "like" ? "赞了你的帖子" : n.type === "comment" ? "评论了你的帖子" : n.type === "reply" ? "回复了你的评论" : n.type === "repost" ? "转发了你的帖子" : n.type === "quote" ? "引用了你的帖子" : "关注了你"}</span>
+                          <span className="notif-from">{n.user_from === "SYSTEM" ? "STG 荣誉体系" : n.user_from}</span>
+                          <span className="notif-text">{notifMeta(n.type)[1]}</span>
                           <span className="notif-time">{/* formatTime */}</span>
                         </div>
                         {!n.read && <div className="notif-dot" />}

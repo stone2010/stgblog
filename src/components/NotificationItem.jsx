@@ -8,6 +8,7 @@ const typeMap = {
   follow: { icon: "👤", text: "关注了你" },
   repost: { icon: "🔁", text: "转发了你的帖子" },
   quote: { icon: "💭", text: "引用了你的帖子" },
+  honor: { icon: "✦", text: "解锁了新成就，快去荣誉中心看看" },
 };
 
 const NotificationItem = memo(function NotificationItem({ notif, onClick }) {
@@ -16,7 +17,7 @@ const NotificationItem = memo(function NotificationItem({ notif, onClick }) {
     <div className={`notif-item ${notif.read ? "" : "unread"}`} onClick={() => onClick(notif)}>
       <div className="notif-icon">{icon}</div>
       <div className="notif-body">
-        <span className="notif-from">{notif.user_from}</span>
+        <span className="notif-from">{notif.user_from === "SYSTEM" ? "STG 荣誉体系" : notif.user_from}</span>
         <span className="notif-text">{text}</span>
         <span className="notif-time">{formatTime(notif.created_at)}</span>
       </div>
