@@ -62,6 +62,7 @@
 
 /* ─── 第二级：荣誉中心「一个可上下滑动的框」 ─── */
 .honors-frame{
+  position:relative;
   margin:12px 12px 0;border:1px solid var(--border-light);border-radius:var(--r2);
   background:var(--bg2);overflow:hidden;display:flex;flex-direction:column;
   height:clamp(460px,72vh,760px);box-shadow:var(--shadow-sm);
@@ -71,20 +72,44 @@
 .honors-frame-head .honors-tabs{margin:10px 12px 0}
 .honors-frame-scroll{
   flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;
-  overscroll-behavior:contain;scrollbar-width:thin;padding-bottom:20px;
+  overscroll-behavior:contain;scrollbar-width:thin;padding-bottom:44px;
+  /* 底部渐隐：内容不会在边框处被「一刀切断」 */
+  -webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 26px),transparent 100%);
+  mask-image:linear-gradient(180deg,#000 calc(100% - 26px),transparent 100%);
 }
-.honors-frame-scroll::-webkit-scrollbar{width:6px}
-.honors-frame-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+/* 细圆条滚动条，去掉 Windows 默认的箭头与灰色轨道 */
+.honors-frame-scroll::-webkit-scrollbar{width:9px;height:9px}
+.honors-frame-scroll::-webkit-scrollbar-track{background:transparent}
+.honors-frame-scroll::-webkit-scrollbar-thumb{
+  background:var(--border);border-radius:99px;
+  border:2px solid transparent;background-clip:content-box;
+}
+.honors-frame-scroll::-webkit-scrollbar-thumb:hover{
+  background:var(--text-muted);background-clip:content-box;
+}
 .honors-frame-scroll .honors-body{margin-top:14px}
 .honors-frame-scroll .honors-empty{margin:24px 12px}
 
 /* 五个分区的标签更紧凑，移动端可横向滑动 */
 .honors-tabs{gap:4px}
 .honors-tab{padding:8px 9px;font-size:11.5px}
-.honors-scrollhint{
-  display:flex;align-items:center;justify-content:center;gap:6px;
-  padding:6px 0 0;font-size:11px;color:var(--text-muted);
+/* 悬浮提示框：贴框底居中，滚动后淡出 */
+.honors-float-hint{
+  position:absolute;left:50%;bottom:12px;z-index:3;pointer-events:none;
+  transform:translateX(-50%);
+  display:inline-flex;align-items:center;gap:5px;
+  padding:6px 14px;border-radius:var(--r-pill);
+  font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--text-secondary);
+  background:color-mix(in srgb, var(--card) 86%, transparent);
+  border:1px solid var(--border-light);
+  box-shadow:0 8px 22px rgba(0,0,0,.24);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  transition:opacity .22s ease, transform .22s ease;
 }
+.honors-float-hint.hide{opacity:0;transform:translate(-50%,8px)}
+.honors-float-hint-icon{font-size:12px;opacity:.75;animation:hintNudge 1.8s ease-in-out infinite}
+@keyframes hintNudge{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+@media(prefers-reduced-motion:reduce){.honors-float-hint-icon{animation:none}}
 
 /* ─── 经验体系卡片 ─── */
 .growth-stack{display:flex;flex-direction:column;gap:12px;margin:0 12px}
@@ -164,6 +189,30 @@
 .admin-tabs{display:flex;gap:6px;margin:6px 12px 0;padding:4px;border:1px solid var(--border);border-radius:var(--r-pill);background:var(--bg3);overflow-x:auto}
 .admin-tabs button{flex:1;white-space:nowrap;border:0;border-radius:var(--r-pill);padding:8px 10px;background:transparent;color:var(--text-muted);font-size:12px;font-weight:700;cursor:pointer}
 .admin-tabs button.on{background:var(--card-active);color:var(--text)}
+/* 桌面端收窄，避免列表横跨 1100px 导致视线与鼠标行程过长 */
+.admin-panel{max-width:900px;margin-inline:auto;padding-bottom:8px}
+
+/* 帖子 / 用户搜索 */
+.admin-search{
+  display:flex;align-items:center;gap:8px;
+  margin:10px 12px 0;padding:0 12px;height:38px;
+  border:1px solid var(--border);border-radius:var(--r-pill);background:var(--bg2);
+  transition:border-color .15s var(--ease);
+}
+.admin-search:focus-within{border-color:var(--accent)}
+.admin-search-icon{flex:none;font-size:15px;line-height:1;color:var(--text-muted)}
+.admin-search input{
+  flex:1 1 auto;min-width:0;border:0;background:transparent;outline:none;
+  color:var(--text);font-size:13px;font-family:inherit;
+}
+.admin-search input::placeholder{color:var(--text-muted)}
+.admin-search-clear{
+  flex:none;width:20px;height:20px;padding:0;border:0;border-radius:50%;
+  display:grid;place-items:center;cursor:pointer;
+  background:var(--bg4);color:var(--text-secondary);font-size:10px;
+}
+.admin-search-clear:hover{color:var(--text)}
+.admin-search-count{flex:none;font-size:11px;color:var(--text-muted);white-space:nowrap}
 .admin-panel>.growth-warn{margin:10px 12px 0}
 .admin-scroll{max-height:62vh;overflow-y:auto;margin:12px 12px 0}
 .admin-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}

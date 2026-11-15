@@ -88,7 +88,14 @@ export default function HonorsPage({ onBack }) {
   const [flt, setFlt] = useState("all");
   const [sheet, setSheet] = useState(null); // null | {type:"detail",code} | {type:"picker"}
   const [featErr, setFeatErr] = useState("");
+  const [hintHidden, setHintHidden] = useState(false);
   const sheetRef = useRef(null);
+
+  // 切换页签后内容重新从顶部开始，悬浮提示也重新出现
+  useEffect(() => { setHintHidden(false); }, [tab]);
+  const onFrameScroll = (e) => {
+    if (!hintHidden && e.currentTarget.scrollTop > 20) setHintHidden(true);
+  };
 
   useEffect(() => { if (enabled && ready) refresh(); }, [enabled, ready, refresh]);
   useEffect(() => { if (!enabled || ready === false) setSheet(null); }, [enabled, ready]);
@@ -217,7 +224,7 @@ export default function HonorsPage({ onBack }) {
               </div>
             </div>
 
-            <div className="honors-frame-scroll" key={tab}>
+            <div className="honors-frame-scroll" key={tab} onScroll={onFrameScroll}>
               {tab === "growth" && <GrowthTasks />}
               {tab === "verify" && <VerifyPanel />}
 
@@ -369,8 +376,11 @@ export default function HonorsPage({ onBack }) {
             </div>
           )}
             </div>
+            {/* 悬浮提示：不占布局高度；一开始浮在框底，滚动后自动淡出 */}
+            <div className={`honors-float-hint${hintHidden ? " hide" : ""}`} aria-hidden="true">
+              <span className="honors-float-hint-icon">↕</span> 上下滑动查看更多
+            </div>
           </div>
-          <div className="honors-scrollhint">↕ 在框内上下滑动查看更多 · 点击徽章打开详情</div>
         </>
       )}
 

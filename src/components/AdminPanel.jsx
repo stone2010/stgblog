@@ -19,8 +19,12 @@ export default function AdminPanel({ onBack }) {
   const [tab, setTab] = useState("posts");
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
+  const [q, setQ] = useState("");
   const s = growth.state;
   const ov = growth.admin.overview;
+
+  // 切换页签时清空搜索词，避免「在帖子页搜过的词」带到账号页造成空列表
+  const switchTab = (t) => { setTab(t); setQ(""); setErr(""); };
 
   const act = async (key, fn, args, confirmText) => {
     if (confirmText && !window.confirm(confirmText)) return;
@@ -40,6 +44,14 @@ export default function AdminPanel({ onBack }) {
   );
   if (!ov) return <div className="growth-hint">正在加载管理数据…</div>;
 
+  // 本地过滤：管理数据一次性取回（帖子 40 条 / 用户 60 条），搜索无需再打服务端。
+  const kw = q.trim().toLowerCase();
+  const posts = (ov.posts || []).filter((p) => !kw
+    || String(p.author || "").toLowerCase().includes(kw)
+    || String(p.content || "").toLowerCase().includes(kw));
+  const users = (ov.users || []).filter((u) => !kw
+    || String(u.username || "").toLowerCase().includes(kw));
+
   return (
     <div className="admin-panel">
       <div className="admin-top">
@@ -51,16 +63,33 @@ export default function AdminPanel({ onBack }) {
       </div>
 
       <div className="admin-tabs">
-        <button className={tab === "posts" ? "on" : ""} onClick={() => setTab("posts")}>帖子评审</button>
-        <button className={tab === "users" ? "on" : ""} onClick={() => setTab("users")}>账号管理</button>
-        <button className={tab === "log" ? "on" : ""} onClick={() => setTab("log")}>操作日志</button>
+        <button className={tab === "posts" ? "on" : ""} onClick={() => switchTab("posts")}>帖子评审</button>
+        <button className={tab === "users" ? "on" : ""} onClick={() => switchTab("users")}>账号管理</button>
+        <button className={tab === "log" ? "on" : ""} onClick={() => switchTab("log")}>操作日志</button>
       </div>
+
+      {tab !== "log" && (
+        <div className="admin-search">
+          <span className="admin-search-icon" aria-hidden="true">⌕</span>
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={tab === "posts" ? "搜索作者或正文关键词…" : "搜索用户名…"}
+            aria-label={tab === "posts" ? "搜索帖子" : "搜索用户"}
+          />
+          {q && <button className="admin-search-clear" onClick={() => setQ("")} aria-label="清空搜索">✕</button>}
+          <span className="admin-search-count">
+            {tab === "posts" ? `${posts.length}/${(ov.posts || []).length}` : `${users.length}/${(ov.users || []).length}`} 条
+          </span>
+        </div>
+      )}
+
       {err && <div className="growth-warn">{err}</div>}
 
       <div className="admin-scroll">
         {tab === "posts" && (
           <ul className="admin-list">
-            {(ov.posts || []).map((p) => (
+            {posts.map((p) => (
               <li key={p.id}>
                 <div className="admin-row-main">
                   <b>{p.author}</b>
@@ -81,13 +110,13 @@ export default function AdminPanel({ onBack }) {
                 </div>
               </li>
             ))}
-            {!(ov.posts || []).length && <li className="admin-empty">暂无帖子</li>}
+            {!posts.length && <li className="admin-empty">{kw ? "没有匹配的帖子，换个关键词试试。" : "暂无帖子"}</li>}
           </ul>
         )}
 
         {tab === "users" && (
           <ul className="admin-list">
-            {(ov.users || []).map((u) => (
+            {users.map((u) => (
               <li key={u.username}>
                 <div className="admin-row-main">
                   <b>{u.username}</b>
@@ -113,6 +142,7 @@ export default function AdminPanel({ onBack }) {
                 </div>
               </li>
             ))}
+            {!users.length && <li className="admin-empty">{kw ? "没有匹配的用户，换个关键词试试。" : "暂无用户"}</li>}
           </ul>
         )}
 

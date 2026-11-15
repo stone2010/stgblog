@@ -215,12 +215,19 @@ a{color:var(--accent);text-decoration:none}
      滚动后前 51px 会被 secnav 盖住（表现为「主页」等首个菜单项消失）。*/
   position:sticky;top:calc(var(--nav-h) + 51px);
   width:220px;height:fit-content;
-  padding:16px 8px;flex-shrink:0;
+  padding:12px 8px;flex-shrink:0;
   display:flex;flex-direction:column;gap:2px;
+  /* v13：加入「管理员模式」后条目变多，矮屏会顶出视口（设置/发帖点不到）。
+     限制高度并在内部滚动，滚动条隐藏，保证所有入口都能到达。 */
+  max-height:calc(100vh - var(--nav-h) - 51px - 16px);
+  max-height:calc(100dvh - var(--nav-h) - 51px - 16px);
+  overflow-y:auto;overflow-x:hidden;
+  overscroll-behavior:contain;scrollbar-width:none;
 }
+.sidebar::-webkit-scrollbar{display:none}
 .sidebar-btn{
   display:flex;align-items:center;gap:14px;
-  padding:10px 14px;border-radius:var(--r-pill);
+  padding:9px 14px;border-radius:var(--r-pill);
   font-size:15px;color:var(--text-secondary);
   transition:all 0.15s var(--ease);
 }
@@ -232,13 +239,23 @@ a{color:var(--accent);text-decoration:none}
 }
 .sidebar-btn .sb-icon{font-size:22px;width:24px;text-align:center}
 .sidebar-compose{
-  padding:12px 20px;background:var(--accent);color:#fff;
-  border-radius:var(--r-pill);font-size:14px;font-weight:500;margin-top:12px;
+  padding:11px 20px;background:var(--accent);color:#fff;
+  border-radius:var(--r-pill);font-size:14px;font-weight:500;margin-top:10px;
   text-align:center;transition:all 0.2s var(--ease);
   box-shadow:0 1px 4px rgba(99,102,241,0.3);
+  /* 侧栏内部可滚动时，发帖按钮始终贴在可视区底部 */
+  position:sticky;bottom:0;z-index:2;
 }
 .sidebar-compose:hover{background:var(--accent-hover);box-shadow:0 2px 8px rgba(99,102,241,0.4)}
 .sidebar-compose:active{transform:scale(0.96)}
+
+/* 矮屏（笔记本 768/720 及更矮）再收紧一档，让 9 个入口 + 发帖尽量一屏放下 */
+@media(max-height:820px){
+  .sidebar{padding:8px 8px}
+  .sidebar-btn{padding:7px 14px;font-size:14px}
+  .sidebar-btn .sb-icon{font-size:20px;width:22px}
+  .sidebar-compose{padding:10px 20px;margin-top:8px;font-size:13px}
+}
 
 /* ===== Desktop Layout ===== */
 .desktop-wrap{
