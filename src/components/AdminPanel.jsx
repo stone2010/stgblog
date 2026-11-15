@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useGrowth } from "../context/GrowthContext";
+import { supabase } from "../supabase";
 import { showToast } from "../utils";
 import IdentityMark from "./IdentityMark";
 
@@ -13,6 +14,9 @@ function fmt(s) {
 
 // 管理员模式：入口在右侧边栏，仅服务端 users.is_admin=true 时才出现。
 // 所有动作都走 SECURITY DEFINER RPC 并重新校验身份；提权仅超管 Stone 可用。
+//
+// 搜索说明：admin_overview() 只返回「最近 40 篇 / 最近 60 位」用于默认浏览，
+// 因此搜索必须查服务端全表，不能在前端过滤这份快照——否则老用户永远搜不到。
 export default function AdminPanel({ onBack }) {
   const { user } = useAuth();
   const growth = useGrowth();
@@ -20,6 +24,8 @@ export default function AdminPanel({ onBack }) {
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
   const [q, setQ] = useState("");
+  const [tick, setTick] = useState(0);   // 操作成功后让搜索结果重新拉取
+  const [remote, setRemote] = useState({ posts: null, users: null, loading: false, error: "" });
   const s = growth.state;
   const ov = growth.admin.overview;
 
@@ -31,9 +37,52 @@ export default function AdminPanel({ onBack }) {
     setBusy(key); setErr("");
     const res = await growth.admin.act(fn, args);
     if (res.error) { setErr(res.error); showToast(res.error, 3400); }
-    else showToast("✅ 操作已记录到管理员日志", 2400);
+    else { showToast("✅ 操作已记录到管理员日志", 2400); setTick((t) => t + 1); }
     setBusy("");
   };
+
+  // ─── 服务端全站搜索（防抖 300ms）────────────────────────────────────────
+  useEffect(() => {
+    const kw = q.trim();
+    if (!kw || tab === "log") {
+      setRemote({ posts: null, users: null, loading: false, error: "" });
+      return;
+    }
+    // PostgREST 的 or= 以逗号分隔条件，过滤掉会破坏语法的字符
+    const safe = kw.replace(/[,()*%\\]/g, " ").replace(/\s+/g, " ").trim();
+    if (!safe) { setRemote({ posts: null, users: null, loading: false, error: "" }); return; }
+
+    let alive = true;
+    setRemote((r) => ({ ...r, loading: true, error: "" }));
+    const timer = setTimeout(async () => {
+      try {
+        if (tab === "posts") {
+          const { data, error } = await supabase
+            .from("posts")
+            .select("id,author,content,created_at,is_featured,is_announcement")
+            .or(`author.ilike.%${safe}%,content.ilike.%${safe}%`)
+            .order("created_at", { ascending: false })
+            .limit(50);
+          if (!alive) return;
+          if (error) setRemote({ posts: null, users: null, loading: false, error: "搜索失败：" + error.message });
+          else setRemote({ posts: data || [], users: null, loading: false, error: "" });
+        } else {
+          const { data, error } = await supabase
+            .from("users")
+            .select("username,is_admin,is_banned,created_at")
+            .ilike("username", `%${safe}%`)
+            .order("created_at", { ascending: false })
+            .limit(50);
+          if (!alive) return;
+          if (error) setRemote({ posts: null, users: null, loading: false, error: "搜索失败：" + error.message });
+          else setRemote({ posts: null, users: data || [], loading: false, error: "" });
+        }
+      } catch (e) {
+        if (alive) setRemote({ posts: null, users: null, loading: false, error: "搜索失败：" + (e?.message || "网络错误") });
+      }
+    }, 300);
+    return () => { alive = false; clearTimeout(timer); };
+  }, [q, tab, tick]);
 
   if (!user) return <div className="growth-hint">请先登录。</div>;
   if (growth.ready === false) return (
@@ -44,13 +93,12 @@ export default function AdminPanel({ onBack }) {
   );
   if (!ov) return <div className="growth-hint">正在加载管理数据…</div>;
 
-  // 本地过滤：管理数据一次性取回（帖子 40 条 / 用户 60 条），搜索无需再打服务端。
-  const kw = q.trim().toLowerCase();
-  const posts = (ov.posts || []).filter((p) => !kw
-    || String(p.author || "").toLowerCase().includes(kw)
-    || String(p.content || "").toLowerCase().includes(kw));
-  const users = (ov.users || []).filter((u) => !kw
-    || String(u.username || "").toLowerCase().includes(kw));
+  const searching = q.trim().length > 0 && tab !== "log";
+  const snapshotPosts = ov.posts || [];
+  const snapshotUsers = ov.users || [];
+  const posts = searching ? (remote.posts || []) : snapshotPosts;
+  const users = searching ? (remote.users || []) : snapshotUsers;
+  const pending = searching && remote.loading;
 
   return (
     <div className="admin-panel">
@@ -69,22 +117,33 @@ export default function AdminPanel({ onBack }) {
       </div>
 
       {tab !== "log" && (
-        <div className="admin-search">
-          <span className="admin-search-icon" aria-hidden="true">⌕</span>
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder={tab === "posts" ? "搜索作者或正文关键词…" : "搜索用户名…"}
-            aria-label={tab === "posts" ? "搜索帖子" : "搜索用户"}
-          />
-          {q && <button className="admin-search-clear" onClick={() => setQ("")} aria-label="清空搜索">✕</button>}
-          <span className="admin-search-count">
-            {tab === "posts" ? `${posts.length}/${(ov.posts || []).length}` : `${users.length}/${(ov.users || []).length}`} 条
-          </span>
-        </div>
+        <>
+          <div className={`admin-search${searching ? " is-live" : ""}`}>
+            <span className="admin-search-icon" aria-hidden="true">⌕</span>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder={tab === "posts" ? "搜索全站帖子：作者或正文…" : "搜索全站用户名…"}
+              aria-label={tab === "posts" ? "搜索帖子" : "搜索用户"}
+            />
+            {q && <button className="admin-search-clear" onClick={() => setQ("")} aria-label="清空搜索">✕</button>}
+            <span className="admin-search-count">
+              {pending ? "搜索中…" : searching
+                ? `${tab === "posts" ? posts.length : users.length} 条`
+                : `${tab === "posts" ? `${posts.length}/${snapshotPosts.length}` : `${users.length}/${snapshotUsers.length}`} 条`}
+            </span>
+          </div>
+          <p className="admin-search-hint">
+            {searching
+              ? "正在搜索全站数据（最多显示 50 条）"
+              : tab === "posts"
+                ? `默认只列出最近 ${snapshotPosts.length} 篇，输入关键词可搜索全站`
+                : `默认只列出最近 ${snapshotUsers.length} 位，输入关键词可搜索全站`}
+          </p>
+        </>
       )}
 
-      {err && <div className="growth-warn">{err}</div>}
+      {(err || remote.error) && <div className="growth-warn">{err || remote.error}</div>}
 
       <div className="admin-scroll">
         {tab === "posts" && (
@@ -110,7 +169,11 @@ export default function AdminPanel({ onBack }) {
                 </div>
               </li>
             ))}
-            {!posts.length && <li className="admin-empty">{kw ? "没有匹配的帖子，换个关键词试试。" : "暂无帖子"}</li>}
+            {!posts.length && (
+              <li className="admin-empty">
+                {pending ? "搜索中…" : searching ? "全站没有匹配的帖子，换个关键词试试。" : "暂无帖子"}
+              </li>
+            )}
           </ul>
         )}
 
@@ -142,7 +205,11 @@ export default function AdminPanel({ onBack }) {
                 </div>
               </li>
             ))}
-            {!users.length && <li className="admin-empty">{kw ? "没有匹配的用户，换个关键词试试。" : "暂无用户"}</li>}
+            {!users.length && (
+              <li className="admin-empty">
+                {pending ? "搜索中…" : searching ? "全站没有匹配的用户，换个关键词试试。" : "暂无用户"}
+              </li>
+            )}
           </ul>
         )}
 

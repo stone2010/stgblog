@@ -213,6 +213,9 @@
 }
 .admin-search-clear:hover{color:var(--text)}
 .admin-search-count{flex:none;font-size:11px;color:var(--text-muted);white-space:nowrap}
+/* 正在全站搜索时高亮，和「默认最近 N 条」区分开 */
+.admin-search.is-live{border-color:var(--accent);background:var(--card)}
+.admin-search-hint{margin:6px 14px 0;font-size:10.5px;line-height:1.5;color:var(--text-muted)}
 .admin-panel>.growth-warn{margin:10px 12px 0}
 .admin-scroll{max-height:62vh;overflow-y:auto;margin:12px 12px 0}
 .admin-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
