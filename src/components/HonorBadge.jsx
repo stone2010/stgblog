@@ -1,5 +1,6 @@
 import React from "react";
 import { ACHIEVEMENT_MAP, RARITY, LEVELS } from "../honors";
+import HonorEmblem from "./HonorEmblem";
 
 // 紧凑身份标识：只在「荣誉体系已开启且服务端已就绪」时由调用方渲染
 export function LevelChip({ level = 1, compact = false }) {
@@ -19,7 +20,7 @@ export function HonorBadge({ code, size = "sm", locked = false, title }) {
   return (
     <span className={`honor-badge honor-badge-${size} rarity-${a.rarity}${locked ? " is-locked" : ""}`}
       title={title || `${a.name} · ${RARITY[a.rarity].label} · ${a.desc}`}>
-      <span className="honor-badge-glyph">{a.glyph}</span>
+      <HonorEmblem achievement={a} size={size === "xs" ? 15 : 19} locked={locked} />
       {size !== "xs" && <span className="honor-badge-name">{a.name}</span>}
     </span>
   );

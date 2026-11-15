@@ -1,13 +1,12 @@
 /* ===========================================================================
    STG HONORS · 荣誉体系（增量样式，默认关闭时页面上除「设置开关」外不渲染任何元素）
-   全部颜色走现有主题变量：经典深色 / 浅色 / 复古 / 现代蓝绿 / 编辑部纸感深浅色
+   颜色全部走现有主题变量：经典深色 / 浅色 / 复古 / 现代蓝绿 / 编辑部米白与墨色。
+   UI 结构参考《STGBLOG Achievements》设计稿：稀有度徽章、档案预览、进度列表、
+   底部详情面板与徽章选择器。
    =========================================================================== */
 
-.honor-lvl,
-.honor-badge,
-.honors-ach,
-.honor-toast,
-.honor-card { --tone: #9aa6b8; --tone-soft: rgba(154, 166, 184, 0.14); }
+.honor-lvl, .honor-badge, .honor-toast, .honor-card,
+.honors-row, .honors-pk, .honors-detail { --tone: #9aa5bd; --tone-soft: rgba(154, 166, 184, 0.14); }
 
 .tone-silver   { --tone: #9aa6b8; --tone-soft: rgba(154, 166, 184, 0.16); }
 .tone-cyan     { --tone: #38bdf8; --tone-soft: rgba(56, 189, 248, 0.16); }
@@ -16,16 +15,38 @@
 .tone-champagne{ --tone: #e3c28c; --tone-soft: rgba(227, 194, 140, 0.18); }
 .tone-gold     { --tone: #fbbf24; --tone-soft: rgba(251, 191, 36, 0.18); }
 
-.rarity-common { --tone: #94a3b8; --tone-soft: rgba(148, 163, 184, 0.14); }
-.rarity-rare   { --tone: #38bdf8; --tone-soft: rgba(56, 189, 248, 0.14); }
-.rarity-epic   { --tone: #a78bfa; --tone-soft: rgba(167, 139, 250, 0.16); }
-.rarity-legend { --tone: #f0b429; --tone-soft: rgba(240, 180, 41, 0.16); }
+/* 稀有度配色：外框渐变 + 文字/进度条主色（取自参考稿） */
+.rarity-common { --b1:#7d8cab; --b2:#56627f; --hi:#c3cce0; --tone:#9aa5bd; --tone-soft:rgba(154,165,189,0.16); }
+.rarity-rare   { --b1:#3b82f6; --b2:#1d4fb4; --hi:#9cc2ff; --tone:#4ea1ff; --tone-soft:rgba(78,161,255,0.16); }
+.rarity-epic   { --b1:#f5a30b; --b2:#b45309; --hi:#ffe19a; --tone:#ffb020; --tone-soft:rgba(255,176,32,0.16); }
+.rarity-legend { --b1:#f43f8e; --b2:#9d1457; --hi:#ffb3d3; --tone:#ff4f8b; --tone-soft:rgba(255,79,139,0.16); }
 
 /* 文本色随主题自适应：浅色主题向深色文字靠拢，深色主题向浅色文字靠拢 */
-.honor-lvl, .honor-badge, .honors-rarity, .honor-card-emblem, .honors-ach-glyph {
+.honor-lvl, .honor-badge, .honors-rarity, .honor-card-emblem {
   color: var(--tone);
   color: color-mix(in srgb, var(--tone) 62%, var(--text));
 }
+
+/* ─── SVG 徽章：外框形状由稀有度决定 ─────────────────────────────────────── */
+.honor-emblem{display:block;flex:none;--em:#fff;--b1:#7d8cab;--b2:#56627f;--hi:#c3cce0}
+.honor-emblem .he-a1{fill:var(--b1)}
+.honor-emblem .he-a2{fill:var(--b2)}
+.honor-emblem .he-ah{fill:none;stroke:var(--hi);stroke-opacity:.55;stroke-width:1.5}
+.honor-emblem .he-f{fill:var(--em)}
+.honor-emblem .he-k{fill:var(--b1)}
+.honor-emblem .he-s{fill:none;stroke:var(--em);stroke-width:4.5;stroke-linecap:round;stroke-linejoin:round}
+.honor-emblem .he-ks{fill:none;stroke:var(--b1);stroke-width:5;stroke-linecap:round;stroke-linejoin:round}
+.honor-emblem .he-ks.he-thin{stroke-width:3}
+.honor-emblem .he-line{fill:none;stroke:var(--b1);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+/* 未解锁：用主题色派生灰阶，三套主题都保持可读性 */
+.honor-emblem.is-locked{
+  --b1:color-mix(in srgb, var(--text-muted) 22%, var(--card));
+  --b2:color-mix(in srgb, var(--text-muted) 12%, var(--card));
+  --hi:transparent;
+  --em:color-mix(in srgb, var(--text-muted) 52%, var(--card));
+}
+.honor-emblem.pop{animation:honorPop .7s cubic-bezier(.3,1.5,.5,1)}
+@keyframes honorPop{0%{transform:scale(.5) rotate(-10deg)}100%{transform:none}}
 
 /* ─── 紧凑身份标识（帖子作者行 / 荣誉榜） ─── */
 .honor-lvl{
@@ -41,13 +62,12 @@
 
 .honor-badge{
   display:inline-flex;align-items:center;gap:4px;max-width:100%;
-  padding:1px 7px;border-radius:var(--r-pill);
+  padding:1px 7px 1px 3px;border-radius:var(--r-pill);
   border:1px solid var(--tone-soft);background:var(--tone-soft);
   font-size:10px;line-height:1.5;white-space:nowrap;vertical-align:middle;
 }
-.honor-badge-glyph{font-size:11px;line-height:1;font-weight:700}
-.honor-badge-xs{padding:0 5px;font-size:10px}
-.honor-badge-xs .honor-badge-glyph{font-size:11px}
+.honor-badge .honor-emblem{display:block;flex:none}
+.honor-badge-xs{padding:0 4px;font-size:10px}
 .honor-badge.is-locked{opacity:0.45;filter:grayscale(1)}
 
 /* ─── 设置里的总开关 ─── */
@@ -125,15 +145,9 @@
 .honors-tab:hover{color:var(--text)}
 .honors-tab.on{background:var(--card-active);color:var(--text);box-shadow:var(--shadow-sm)}
 .honors-tab-num{font-size:10px;opacity:0.7;margin-left:3px}
-.honors-body{margin:14px 12px 0;min-width:0}
-.honors-summary{
-  display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;
-  font-size:12px;color:var(--text-secondary);margin-bottom:12px;
-}
-.honors-summary b{color:var(--text)}
-.honors-summary-hint{color:var(--text-muted);font-size:11px}
+.honors-body{margin:0 12px;min-width:0}
 
-/* ─── 荣誉名片 ─── */
+/* ─── 荣誉名片（等级 / XP / 声望） ─── */
 .honor-card{
   margin:14px 12px 0;padding:16px;border-radius:var(--r2);
   border:1px solid var(--border-light);
@@ -198,48 +212,98 @@
 .honor-card-compact .honor-card-emblem-lv{font-size:19px}
 .honor-card-compact .honor-card-name{font-size:16px}
 
-/* ─── 成就图鉴 ─── */
-.honors-cat{margin-bottom:18px;min-width:0}
-.honors-cat-title{
-  font-size:12px;font-weight:800;letter-spacing:0.06em;
-  color:var(--text-secondary);margin-bottom:10px;
-  display:flex;align-items:center;gap:8px;
+/* ─── 图鉴总览 ─── */
+.honors-summary{
+  display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;
+  gap:6px 12px;font-size:12px;color:var(--text-secondary);margin:18px 0 0;
 }
-.honors-cat-title::after{content:"";flex:1;height:1px;background:var(--border)}
-.honors-grid{
-  display:grid;gap:8px;min-width:0;
-  grid-template-columns:repeat(auto-fill,minmax(min(160px,100%),1fr));
+.honors-summary strong{font-size:22px;font-weight:800;letter-spacing:-0.02em;color:var(--text);line-height:1.1}
+.honors-summary>span{font-size:14px;color:var(--text-secondary)}
+.honors-meter{height:6px;border-radius:999px;background:var(--bg4);margin-top:10px;overflow:hidden}
+.honors-meter i{display:block;height:100%;background:var(--accent);border-radius:999px;transition:width .6s var(--ease)}
+.honors-summary-hint{margin:8px 0 0;font-size:11px;color:var(--text-muted);line-height:1.6}
+
+/* ─── 档案预览 / 徽章槽位 ─── */
+.honors-profile{
+  margin-top:22px;padding:18px;border:1px solid var(--border);
+  border-radius:var(--r2);background:var(--bg3);
 }
-.honors-ach{
-  display:flex;align-items:flex-start;gap:9px;min-width:0;width:100%;
-  padding:11px 10px;text-align:left;cursor:default;
-  border:1px solid var(--border);border-radius:var(--r3);
-  background:var(--bg3);color:var(--text);
-  transition:all 0.15s var(--ease);
+.honors-profile-who{display:flex;align-items:center;gap:12px;min-width:0}
+.honors-avatar{
+  flex:none;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;
+  background:var(--bg4);color:var(--text-secondary);font-size:18px;font-weight:800;
 }
-.honors-ach.got{cursor:pointer;background:var(--card);border-color:var(--tone-soft)}
-.honors-ach.got:hover{border-color:var(--tone);background:var(--card-hover);transform:translateY(-1px)}
-.honors-ach.locked{opacity:0.62}
-.honors-ach.upcoming{opacity:0.45}
-.honors-ach.hidden{opacity:0.5}
-.honors-ach-glyph{
-  flex:0 0 30px;width:30px;height:30px;border-radius:10px;
-  display:flex;align-items:center;justify-content:center;
-  font-size:16px;font-weight:700;
-  background:var(--tone-soft);border:1px solid var(--tone-soft);
+.honors-profile-id{flex:1 1 auto;min-width:0}
+.honors-profile-id b{display:block;font-size:16px;font-weight:800;color:var(--text);overflow-wrap:anywhere}
+.honors-profile-id small{display:block;font-size:12px;color:var(--text-muted);margin-top:2px}
+.honors-pill{
+  margin-left:auto;flex:none;cursor:pointer;
+  border:1px solid var(--border-light);background:var(--card);
+  border-radius:var(--r-pill);padding:7px 14px;
+  font-size:12px;font-weight:700;color:var(--text-secondary);
+  transition:all .15s var(--ease);
 }
-.honors-ach-main{display:flex;flex-direction:column;gap:2px;flex:1 1 auto;min-width:0}
-.honors-ach-name{font-size:12px;font-weight:700;overflow-wrap:anywhere}
-.honors-ach-desc{font-size:10px;line-height:1.5;color:var(--text-muted);overflow-wrap:anywhere}
-.honors-ach-tags{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex:0 0 auto}
-.honors-rarity{font-size:8px;font-weight:800;letter-spacing:0.1em;opacity:0.85}
-.honors-state{font-size:9px;color:var(--text-muted);white-space:nowrap}
-.honors-state.got{color:var(--accent);font-weight:800}
+.honors-pill:hover{color:var(--accent);border-color:var(--accent-glow)}
+.honors-slots{display:flex;gap:16px;margin:18px 0 12px;flex-wrap:wrap}
+.honors-slot{
+  width:76px;height:76px;border-radius:50%;flex:none;
+  border:1.5px dashed var(--text-muted);background:transparent;
+  display:grid;place-items:center;color:var(--text-muted);
+  font-size:26px;cursor:pointer;padding:0;opacity:.8;
+  transition:transform .18s var(--ease),opacity .18s var(--ease),border-color .18s var(--ease);
+}
+.honors-slot:hover{opacity:1;border-color:var(--accent);color:var(--accent)}
+.honors-slot.filled{border:0;background:transparent;opacity:1}
+.honors-slot.filled .honor-emblem{width:100%;height:auto}
+.honors-slot.filled:hover{transform:scale(1.05)}
+.honors-profile p{margin:0;color:var(--text-muted);font-size:12px;line-height:1.6}
+
+/* ─── 分区标题 + 分段筛选 ─── */
+.honors-section{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:30px 0 4px}
+.honors-section h2{margin:0;font-size:16px;font-weight:800;letter-spacing:-0.01em;color:var(--text)}
+.honors-seg{display:inline-flex;padding:3px;background:var(--bg3);border:1px solid var(--border);border-radius:10px}
+.honors-seg button{
+  border:0;background:none;color:var(--text-muted);font-weight:700;
+  font-size:12px;padding:6px 12px;border-radius:7px;cursor:pointer;white-space:nowrap;
+}
+.honors-seg button[aria-pressed="true"]{background:var(--text);color:var(--bg);box-shadow:var(--shadow-sm)}
+
+/* ─── 成就列表 ─── */
+.honors-list{list-style:none;margin:0;padding:0;min-width:0}
+.honors-list>li{border-bottom:1px solid var(--border);min-width:0}
+.honors-list>li:last-child{border-bottom:0}
+.honors-row.upcoming,.honors-row.secret{opacity:.68}
+.honors-item{
+  display:grid;grid-template-columns:60px 1fr;gap:14px;width:100%;
+  padding:16px 2px;background:none;border:0;text-align:left;cursor:pointer;color:inherit;
+}
+.honors-item:hover .honors-item-top b{color:var(--accent)}
+.honors-item-badge{display:block;flex:none;min-width:0}
+.honors-item-badge .honor-emblem{width:100%;height:auto;max-width:60px}
+.honors-item-body{display:block;min-width:0}
+.honors-item-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;min-width:0}
+.honors-item-top b{font-size:15px;font-weight:800;color:var(--text);min-width:0;overflow-wrap:anywhere}
+.honors-pts{font-size:12px;color:var(--text-muted);white-space:nowrap;flex:none}
+.honors-row.on .honors-pts{color:var(--accent);font-weight:700}
+.honors-item-desc{display:block;margin-top:2px;color:var(--text-muted);font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+.honors-prog{display:flex;align-items:center;gap:10px;margin-top:10px}
+.honors-bar{flex:1;height:6px;border-radius:999px;background:var(--bg4);overflow:hidden;min-width:0}
+.honors-bar i{display:block;height:100%;border-radius:999px;background:var(--tone);transition:width .4s var(--ease)}
+.honors-prog em{font-style:normal;font-size:12px;color:var(--text-muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.honors-meta{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:7px;font-size:11px;color:var(--text-muted)}
+.honors-tag{display:inline-flex;align-items:center;gap:6px}
+.honors-tag i{width:8px;height:8px;border-radius:50%;background:var(--tone)}
+.honors-pf{color:var(--accent);font-weight:700}
+.honors-list-empty{padding:24px 0;color:var(--text-muted);font-size:12px;border:0 !important}
+
+/* ─── 关于 ─── */
 .honors-about{
-  padding:14px;border-radius:var(--r3);
+  margin-top:30px;padding:14px;border-radius:var(--r3);
   border:1px dashed var(--border);background:var(--bg3);
 }
-.honors-about p{font-size:11px;line-height:1.75;color:var(--text-muted);margin:0 0 3px}
+.honors-about h2{font-size:13px;font-weight:800;color:var(--text-secondary);margin:0 0 8px}
+.honors-about p{font-size:11px;line-height:1.8;color:var(--text-muted);margin:0 0 3px}
+.honors-about b{color:var(--text-secondary)}
 
 /* ─── 成长记录 ─── */
 .honors-next{
@@ -281,23 +345,83 @@
 .honors-board-xp{font-weight:800;color:var(--text);white-space:nowrap;font-size:11px}
 .honors-board-rep{font-size:10px;color:var(--text-muted);white-space:nowrap}
 
+/* ─── 底部面板：详情 / 徽章选择器 ─── */
+.honors-mask{
+  /* 高于顶栏(100)/发帖浮层(105)/登录层(200)，低于长文弹窗(300)、
+     引导层(950) 与公告层(1000)：站点级公告始终可交互，不会被本面板锁死。 */
+  position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:250;
+  animation:honorsFade .25s ease both;
+}
+@keyframes honorsFade{from{opacity:0}to{opacity:1}}
+.honors-sheet{
+  position:fixed;left:0;right:0;bottom:0;margin:0 auto;
+  width:100%;max-width:560px;max-height:86vh;overflow:auto;z-index:251;
+  background:var(--card);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  border:1px solid var(--border);border-bottom:0;
+  border-radius:24px 24px 0 0;
+  padding:14px 22px calc(24px + env(safe-area-inset-bottom,0px));
+  box-shadow:var(--shadow-elevated);
+  animation:honorsSheetIn .32s cubic-bezier(.3,.9,.3,1) both;
+}
+[data-glass="off"] .honors-sheet{backdrop-filter:none;-webkit-backdrop-filter:none;background:var(--bg2)}
+@keyframes honorsSheetIn{from{transform:translateY(105%)}to{transform:none}}
+.honors-sheet:focus{outline:none}
+.honors-sheet :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:8px}
+.honors-grab{width:38px;height:4px;border-radius:999px;background:var(--border-light);margin:0 auto 18px}
+.honors-sheet>h2{text-align:center;font-size:17px;font-weight:800;color:var(--text);margin:0}
+.honors-hint{font-size:12px;color:var(--text-muted);margin:10px 0 0;line-height:1.6}
+.honors-hint.center{text-align:center}
+.honors-sheet .honors-notice{margin:12px 0 0}
+
+.honors-detail{text-align:center}
+.honors-detail .honor-emblem{margin:6px auto 14px}
+.honors-detail h3{margin:0;font-size:22px;font-weight:800;color:var(--text);letter-spacing:-0.01em}
+.honors-detail>p{color:var(--text-muted);margin:6px 0 14px;font-size:13px;line-height:1.6}
+.honors-facts{
+  display:flex;justify-content:center;gap:8px 20px;flex-wrap:wrap;
+  font-size:12px;color:var(--text-secondary);margin-bottom:18px;
+}
+.honors-facts span{white-space:nowrap}
+.honors-cta{
+  width:100%;padding:13px;border-radius:12px;cursor:pointer;
+  border:1px solid var(--text);background:var(--text);color:var(--bg);
+  font-size:14px;font-weight:700;transition:opacity .15s var(--ease);
+}
+.honors-cta:hover{opacity:.88}
+.honors-cta.alt{background:transparent;border:1px solid var(--border-light);color:var(--text)}
+
+.honors-pick{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));
+  gap:14px 10px;margin:16px 0 20px;
+}
+.honors-pk{
+  background:none;border:0;padding:6px 0;cursor:pointer;min-width:0;
+  display:grid;justify-items:center;gap:6px;position:relative;
+  font-size:11px;color:var(--text-muted);border-radius:14px;
+  transition:background .15s var(--ease);
+}
+.honors-pk.sel{color:var(--text);background:var(--tone-soft)}
+.honors-pk .honor-emblem{pointer-events:none}
+.honors-pk span{overflow-wrap:anywhere;max-width:100%}
+.honors-pk em{
+  position:absolute;top:2px;right:8px;width:22px;height:22px;border-radius:50%;
+  background:var(--accent);color:#fff;font:700 12px/22px inherit;
+  text-align:center;font-style:normal;z-index:1;
+}
+
 /* ─── 解锁提示 ─── */
 .honor-toast{
   position:fixed;right:16px;bottom:76px;z-index:130;
   display:flex;align-items:center;gap:11px;
-  width:min(340px,calc(100vw - 32px));padding:12px 14px;
+  width:min(360px,calc(100vw - 32px));padding:12px 14px 12px 10px;
   border-radius:var(--r2);cursor:pointer;
-  border:1px solid var(--border-light);
+  border:1px solid var(--tone-soft);
   background:var(--card-active);
   box-shadow:var(--shadow-elevated);
   animation:honorToastIn 0.28s var(--ease-bounce);
 }
 @keyframes honorToastIn{from{opacity:0;transform:translateY(14px) scale(0.96)}to{opacity:1;transform:none}}
-.honor-toast-glyph{
-  flex:0 0 40px;width:40px;height:40px;border-radius:12px;
-  display:flex;align-items:center;justify-content:center;font-size:20px;
-  background:var(--tone-soft);border:1px solid var(--tone-soft);
-}
+.honor-toast .honor-toast-emblem{flex:none}
 .honor-toast-body{flex:1 1 auto;min-width:0}
 .honor-toast-kicker{font-size:9px;font-weight:800;letter-spacing:0.1em;color:var(--text-muted)}
 .honor-toast-name{font-size:14px;font-weight:800;color:var(--text);margin:2px 0}
@@ -310,15 +434,28 @@
 /* ─── 移动端收紧 ─── */
 @media(max-width:768px){
   .honor-card{margin:12px 10px 0;padding:13px}
-  .honors-tabs,.honors-body{margin-left:10px;margin-right:10px}
-  .honors-grid{grid-template-columns:repeat(auto-fill,minmax(min(145px,100%),1fr))}
+  .honors-tabs{margin-left:10px;margin-right:10px}
+  .honors-body{margin-left:10px;margin-right:10px}
   .honor-card-link{font-size:10px;padding:5px 8px}
   .honors-log-time{display:none}
   .honor-toast{bottom:70px;right:10px;width:calc(100vw - 20px)}
   .honors-board-rep{display:none}
+  .honors-slots{gap:12px}
+  .honors-slot{width:66px;height:66px}
+  .honors-item{grid-template-columns:52px 1fr;gap:12px;padding:14px 2px}
+  .honors-item-top b{font-size:14px}
+  .honors-section{margin-top:24px}
 }
 @media(max-width:380px){
-  .honors-grid{grid-template-columns:1fr}
   .honor-card-emblem{flex-basis:46px;width:46px;height:46px}
   .honor-card-name{font-size:16px}
+  .honors-profile{padding:14px}
+  .honors-pill{padding:6px 10px;font-size:11px}
+  .honors-slot{width:58px;height:58px}
+  .honors-seg button{padding:6px 8px;font-size:11px}
+  .honors-summary strong{font-size:19px}
+}
+@media(prefers-reduced-motion:reduce){
+  .honor-emblem.pop,.honors-mask,.honors-sheet,.honor-toast{animation:none !important}
+  .honors-meter i,.honors-bar i,.honor-progress-fill,.honors-slot{transition:none !important}
 }

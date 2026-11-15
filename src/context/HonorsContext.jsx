@@ -12,7 +12,7 @@ const HonorsContext = createContext(null);
 const EMPTY = {
   enabled: false, ready: null, loading: false, myGrowth: null, profiles: {},
   growthOf: () => null, badgesOf: () => [], unlocked: [], unlockedCodes: new Set(),
-  featuredCodes: new Set(), xpLog: [], toast: null,
+  featuredCodes: new Set(), holderCounts: {}, xpLog: [], toast: null,
   refresh: () => {}, setEnabled: () => {}, setFeatured: () => {}, dismissToast: () => {},
 };
 
@@ -32,6 +32,7 @@ export function HonorsProvider({ children }) {
   const [loading, setLoading] = useState(false);
   const [profiles, setProfiles] = useState({});   // username -> 公开档案
   const [featuredMap, setFeaturedMap] = useState({}); // user_id -> [code]
+  const [holderCounts, setHolderCounts] = useState({}); // code -> 全站解锁人数（公开数据）
   const [unlocked, setUnlocked] = useState([]);   // 本人已解锁
   const [xpLog, setXpLog] = useState([]);
   const [toast, setToast] = useState(null);
@@ -39,7 +40,8 @@ export function HonorsProvider({ children }) {
   const refreshTimer = useRef(null);
 
   const clear = useCallback(() => {
-    setProfiles({}); setFeaturedMap({}); setUnlocked([]); setXpLog([]);
+    setProfiles({}); setFeaturedMap({}); setHolderCounts({});
+    setUnlocked([]); setXpLog([]);
     setToast(null); setReady(null); setLoading(false);
   }, []);
 
@@ -66,6 +68,14 @@ export function HonorsProvider({ children }) {
       const fmap = {};
       (feat || []).forEach((r) => { (fmap[r.user_id] = fmap[r.user_id] || []).push(r.code); });
       setFeaturedMap(fmap);
+
+      // 全站解锁人数：user_achievements 公开可读，只取 code 一列，用于详情页的真实社交证明。
+      // 不写死百分比，也不推算不存在的列；超过 PostgREST 上限时显示的是保守下限。
+      const { data: holders } = await supabase
+        .from("user_achievements").select("code").limit(1000);
+      const hc = {};
+      (holders || []).forEach((r) => { if (r && r.code) hc[r.code] = (hc[r.code] || 0) + 1; });
+      setHolderCounts(hc);
 
       const { data: mineUa } = mine
         ? await supabase.from("user_achievements")
@@ -186,9 +196,9 @@ export function HonorsProvider({ children }) {
     unlocked,
     unlockedCodes: new Set(unlocked.map((r) => r.code)),
     featuredCodes: new Set(unlocked.filter((r) => r.is_featured).map((r) => r.code)),
-    xpLog, toast, dismissToast: () => setToast(null), setFeatured,
+    holderCounts, xpLog, toast, dismissToast: () => setToast(null), setFeatured,
   }), [enabled, setEnabled, ready, loading, refresh, profiles, featuredMap,
-       unlocked, xpLog, toast, uname, setFeatured]);
+       holderCounts, unlocked, xpLog, toast, uname, setFeatured]);
 
   return <HonorsContext.Provider value={value}>{children}</HonorsContext.Provider>;
 }
