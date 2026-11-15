@@ -114,7 +114,23 @@
 .honors-switch-note{font-size:11px;color:var(--text-muted);line-height:1.6;margin-top:8px}
 
 /* ─── 荣誉页骨架 ─── */
-.honors-page{padding-bottom:28px;max-width:100%;overflow-x:hidden}
+/* 注意：overflow-x:hidden 会被浏览器按规范计算成 overflow-x:hidden;overflow-y:auto，
+   使本元素变成滚动容器，进而让复用的 .detail-top(sticky) 相对「本容器」吸顶，
+   页头被推到内容中间并盖住下方荣誉名片。clip 不会把另一轴变成 auto，
+   同样能裁掉横向溢出。hidden 作为旧浏览器 fallback 保留。 */
+.honors-page{
+  padding-bottom:28px;max-width:100%;
+  overflow-x:hidden;overflow-x:clip;
+}
+/* 荣誉页页头：不复用帖子详情页「吸在 secnav 下方」的 sticky 规则。
+   详情页的 top:calc(var(--nav-h) + 50px)/z-index:89 在这里会把页头压进内容区，
+   把 HonorCard 从中间切断。改为普通静态标题行，随页面一起滚动。 */
+.honors-page > .detail-top{
+  position:relative;top:auto;z-index:auto;
+  background:transparent;border-bottom:0;
+  backdrop-filter:none;-webkit-backdrop-filter:none;
+  padding:8px 12px 4px;
+}
 .honors-top-tag{
   margin-left:auto;font-size:10px;font-weight:800;letter-spacing:0.16em;
   color:var(--text-muted);white-space:nowrap;
