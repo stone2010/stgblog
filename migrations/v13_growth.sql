@@ -287,7 +287,7 @@ BEGIN
     'pow_seconds', g.pow_seconds, 'is_verified', v_verified,
     'is_admin', v_admin, 'is_banned', COALESCE(u.is_banned, false),
     'avatar_url', g.avatar_url, 'banner_url', g.banner_url,
-    'can_upload', (g.level >= 4),
+    'can_upload', (g.level >= 3),
     'quota', jsonb_build_object(
       'posts_used', v_posts, 'posts_cap', CASE WHEN v_admin OR v_verified THEN 9999 ELSE 3 + v_stamps END,
       'comments_used', v_comments, 'comments_cap', CASE WHEN v_admin OR v_verified THEN 9999 ELSE 5 + v_stamps END,
@@ -455,7 +455,7 @@ BEGIN
   IF v_uname IS NULL THEN RAISE EXCEPTION '会话无效，请重新登录'; END IF;
   v_uid := public.growth_ensure_user();
   SELECT * INTO g FROM public.user_growth WHERE user_id = v_uid;
-  IF g.level < 4 THEN RAISE EXCEPTION '需要达到 Lv.4 才能自定义头像与主页背景'; END IF;
+  IF g.level < 3 THEN RAISE EXCEPTION '需要达到 Lv.3 才能自定义头像与主页背景'; END IF;
   IF p_kind NOT IN ('avatar', 'banner') THEN RAISE EXCEPTION '图片类型无效'; END IF;
   IF p_data IS NOT NULL THEN
     -- 200KB 二进制 → base64 273,068 字符 + data:image/...;base64, 前缀约 23 字符。

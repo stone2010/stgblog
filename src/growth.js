@@ -2,7 +2,7 @@
 // 权威判定全在 Postgres（migrations/v13_growth.sql）；这里只做展示与本地压缩。
 
 export const MAX_FEATURED = 5;          // 个人主页徽章展示位
-export const UPLOAD_LEVEL = 4;          // 头像 / 背景图解锁等级
+export const UPLOAD_LEVEL = 3;          // 头像 / 背景图解锁等级
 export const MAX_IMAGE_BYTES = 200 * 1024;
 export const VERIFY_GOAL = 3600;        // 累计在线计算 1 小时
 export const POW_ZEROS = 4;             // Hashcash 凭证前导 0 个数
@@ -14,8 +14,8 @@ export const BASE_COMMENT_CAP = 5;
 export const LEVEL_RIGHTS = [
   { level: 1, right: "参与主题与回复" },
   { level: 2, right: "解锁成长记录明细" },
-  { level: 3, right: "登上社区荣誉榜" },
-  { level: 4, right: "自定义头像与主页背景" },
+  { level: 3, right: "自定义头像与主页背景" },
+  { level: 4, right: "登上社区荣誉榜" },
   { level: 5, right: "5 枚徽章展示位全开" },
   { level: 6, right: "专属等级称号" },
   { level: 7, right: "优先参与社区话题" },
@@ -45,7 +45,7 @@ export function quotaMessage(msg) {
   if (/封禁/.test(s)) return "账号已被封禁，暂时无法发布内容。如有疑问请联系管理员。";
   if (/每日最多发 3 篇/.test(s)) return "今日 3 篇主题的免费额度已用完。完成真人认证，或让计算任务多跑一会儿获得反垃圾凭证，即可继续发布。";
   if (/每日最多发 5 条/.test(s)) return "今日 5 条评论的免费额度已用完。完成真人认证，或用计算凭证兑换额外额度后即可继续。";
-  if (/Lv\.4|需要达到/.test(s)) return "自定义头像与主页背景需要达到 Lv.4，继续签到和发帖就能升级。";
+  if (/Lv\.\d|需要达到/.test(s)) return "自定义头像与主页背景需要达到 Lv.3，继续签到和发帖就能升级。";
   return s || "网络错误，请稍后重试";
 }
 
