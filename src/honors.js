@@ -118,4 +118,5 @@ export const XP_EVENT_LABELS = {
   post: "发布主题", reply: "发布回复", recognition: "获得认可",
   daily_first: "当日首次参与", backfill_post: "历史主题回填",
   backfill_reply: "历史回复回填", event: "社区活动",
+  signin: "每日签到", signin_bonus: "连续签到奖励", verified: "完成真人认证",
 };

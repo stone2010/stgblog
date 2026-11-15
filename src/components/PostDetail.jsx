@@ -5,14 +5,20 @@ import { Icons } from "./Icons";
 import CommentNode from "./CommentNode";
 import { hasLiked, hasBookmarked, formatTime, formatTimeShort, formatCount, buildTree, parseContent, incrementViewCount, showToast } from "../utils";
 import { renderMarkdown } from "../md";
+import { quotaMessage } from "../growth";
 
-// 写操作失败不再静默：RLS 拒绝（旧会话无令牌）要给出可操作的提示
+// 写操作失败不再静默：RLS 拒绝（旧会话无令牌）要给出可操作的提示；
+// v13 的每日限额/封禁由服务端触发器抛出，这里翻译成可执行的引导文案。
 function writeError(error) {
   const msg = error?.message || "网络错误，请稍后重试";
   if (/row.level.security|42501|permission denied/i.test(msg) || error?.code === "42501") {
     return "登录状态已过期，请重新登录后重试";
   }
-  return msg;
+  return quotaMessage(msg);
+}
+
+function notifyGrowthActivity() {
+  try { window.dispatchEvent(new CustomEvent("stgblog:honors-activity")); } catch {}
 }
 
 function RenderContent({ content, onHashtag, onMention }) {
@@ -79,8 +85,9 @@ const commentTree = useMemo(() => buildTree(comments), [comments]);
           type: "comment", post_id: post.id, comment_id: data.id,
         }]);
       }
+      notifyGrowthActivity();
     } else {
-      showToast("评论失败：" + writeError(error), 3500);
+      showToast("评论失败：" + writeError(error), 3800);
     }
     setCommentLoading(false);
   }, [user, post, commentText]);
@@ -103,8 +110,9 @@ const commentTree = useMemo(() => buildTree(comments), [comments]);
           type: "reply", post_id: post.id, comment_id: data.id,
         }]);
       }
+      notifyGrowthActivity();
     } else {
-      showToast("回复失败：" + writeError(error), 3500);
+      showToast("回复失败：" + writeError(error), 3800);
     }
     setReplySubmitting(false);
   }, [user, post, replyText, comments]);

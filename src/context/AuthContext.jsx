@@ -123,9 +123,20 @@ export function AuthProvider({ children }) {
     try { return localStorage.getItem("stgblog_fontsize") || "md"; } catch { return "md"; }
   });
 
-  // ─── 界面偏好 4：界面风格（default=液态玻璃默认 / editorial=编辑部印刷风）───
+  // ─── 界面偏好 4：界面风格（v13 起 editorial=默认 / default=经典液态玻璃）───
+  // 一次性标记：老客户端第一次升级时自动切到编辑部版；之后用户在设置里的
+  // 选择（含切回经典版）永远保留。main.jsx 会在挂载前同步这个标记，避免闪帧。
   const [styleMode, setStyleMode] = useState(() => {
-    try { return localStorage.getItem("stgblog_style") || "default"; } catch { return "default"; }
+    try {
+      const v = localStorage.getItem("stgblog_style");
+      if (v === "editorial" || v === "default") {
+        if (localStorage.getItem("stgblog_style_v13") === "1") return v;
+        localStorage.setItem("stgblog_style_v13", "1");
+        return "editorial";
+      }
+      localStorage.setItem("stgblog_style_v13", "1");
+      return "editorial";
+    } catch { return "editorial"; }
   });
 
   useEffect(() => {

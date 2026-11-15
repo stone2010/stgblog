@@ -1,10 +1,15 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useHonors } from "../context/HonorsContext";
+import { useGrowth } from "../context/GrowthContext";
+import { MAX_FEATURED } from "../growth";
 import { Icons } from "./Icons";
 import HonorCard from "./HonorCard";
 import HonorEmblem from "./HonorEmblem";
 import { LevelChip } from "./HonorBadge";
+import { IdentityMarks } from "./IdentityMark";
+import GrowthTasks from "./GrowthTasks";
+import VerifyPanel from "./VerifyPanel";
 import {
   ACHIEVEMENTS, ACHIEVEMENT_MAP, CATEGORY_LABEL, RARITY, AVAILABLE_COUNT,
   XP_EVENT_LABELS, levelProgress, achievementPoints, achievementProgress,
@@ -78,6 +83,7 @@ export default function HonorsPage({ onBack }) {
     enabled, ready, loading, myGrowth, profiles, refresh,
     unlocked, unlockedCodes, featuredCodes, holderCounts, xpLog, setFeatured,
   } = useHonors();
+  const growth = useGrowth();
   const [tab, setTab] = useState("badges");
   const [flt, setFlt] = useState("all");
   const [sheet, setSheet] = useState(null); // null | {type:"detail",code} | {type:"picker"}
@@ -118,7 +124,7 @@ export default function HonorsPage({ onBack }) {
   const completionPct = Math.round((unlockedCount / AVAILABLE_COUNT) * 100);
 
   const featuredOrder = useMemo(
-    () => Array.from(featuredCodes).filter((c) => ACHIEVEMENT_MAP[c]).slice(0, 3),
+    () => Array.from(featuredCodes).filter((c) => ACHIEVEMENT_MAP[c]).slice(0, MAX_FEATURED),
     [featuredCodes]
   );
   const pickList = useMemo(
@@ -146,12 +152,12 @@ export default function HonorsPage({ onBack }) {
   const toggleFeatured = async (a) => {
     setFeatErr("");
     const on = featuredCodes.has(a.code);
-    if (!on && featuredCodes.size >= 3) {
-      setFeatErr("最多只能展示 3 枚精选徽章，请先取消一枚");
+    if (!on && featuredCodes.size >= MAX_FEATURED) {
+      setFeatErr(`最多只能展示 ${MAX_FEATURED} 枚精选徽章，请先取消一枚`);
       return;
     }
     const err = await setFeatured(a.code, !on);
-    if (err) setFeatErr(/3 枚|最多/.test(err) ? "最多只能展示 3 枚精选徽章，请先取消一枚" : err);
+    if (err) setFeatErr(/枚|最多/.test(err) ? `最多只能展示 ${MAX_FEATURED} 枚精选徽章，请先取消一枚` : err);
   };
 
   const detailA = sheet?.type === "detail" ? ACHIEVEMENT_MAP[sheet.code] : null;
@@ -172,38 +178,48 @@ export default function HonorsPage({ onBack }) {
       {!enabled ? (
         <div className="honors-empty">
           <div className="honors-empty-icon">✦</div>
-          <h3>荣誉体系尚未开启</h3>
-          <p>这是可选功能，默认关闭。你可以在「设置 → 功能」中开启。</p>
+          <h3>荣誉体系已暂停</h3>
+          <p>成就系统正在灰度测试，默认对所有成员开启。你可以在「设置 → 功能」中重新开启。</p>
           <button className="compose-submit" onClick={onBack}>返回</button>
         </div>
       ) : ready === false ? (
         <div className="honors-empty">
           <div className="honors-empty-icon">🗄</div>
           <h3>服务端功能尚未启用</h3>
-          <p>站点管理员需要在 Supabase SQL Editor 执行一次 <code>migrations/v12_honors.sql</code>。</p>
+          <p>站点管理员需在 Supabase SQL Editor 依次执行 <code>migrations/v12_honors.sql</code> 与 <code>migrations/v13_growth.sql</code>。</p>
           <p className="honors-empty-sub">在此之前网站其余功能完全不受影响，也不会产生任何成长数据。</p>
           <button className="compose-submit" onClick={onBack}>返回</button>
         </div>
       ) : (
         <>
-          {!user && (
-            <div className="honors-notice">当前为访客浏览，登录后才会开始记录你的成长值、解锁成就与挑选徽章。</div>
-          )}
-          {myGrowth ? (
-            <HonorCard growth={myGrowth} badges={featuredOrder} isMe />
-          ) : (
-            <div className="honors-notice">
-              {loading ? "正在同步荣誉数据…" : "尚无成长档案：登录并发布一条内容后即可开始累计。"}
-            </div>
-          )}
+          {/* 第二级：所有内容收进一个框，框内上下滑动；页签固定在框顶部 */}
+          <div className="honors-frame">
+            <div className="honors-frame-head">
+              {!user && (
+                <div className="honors-notice">当前为访客浏览，登录后才会开始记录你的成长值、解锁成就与挑选徽章。</div>
+              )}
+              {myGrowth ? (
+                <HonorCard growth={myGrowth} badges={featuredOrder} isMe />
+              ) : (
+                <div className="honors-notice">
+                  {loading ? "正在同步荣誉数据…" : "尚无成长档案：登录并发布一条内容后即可开始累计。"}
+                </div>
+              )}
 
-          <div className="honors-tabs" role="tablist">
-            <button className={`honors-tab ${tab === "badges" ? "on" : ""}`} onClick={() => setTab("badges")}>
-              成就图鉴 <span className="honors-tab-num">{unlockedCount}/{AVAILABLE_COUNT}</span>
-            </button>
-            <button className={`honors-tab ${tab === "log" ? "on" : ""}`} onClick={() => setTab("log")}>成长记录</button>
-            <button className={`honors-tab ${tab === "board" ? "on" : ""}`} onClick={() => setTab("board")}>荣誉榜</button>
-          </div>
+              <div className="honors-tabs" role="tablist">
+                <button className={`honors-tab ${tab === "badges" ? "on" : ""}`} onClick={() => setTab("badges")}>
+                  成就图鉴 <span className="honors-tab-num">{unlockedCount}/{AVAILABLE_COUNT}</span>
+                </button>
+                <button className={`honors-tab ${tab === "growth" ? "on" : ""}`} onClick={() => setTab("growth")}>经验任务</button>
+                <button className={`honors-tab ${tab === "log" ? "on" : ""}`} onClick={() => setTab("log")}>成长记录</button>
+                <button className={`honors-tab ${tab === "board" ? "on" : ""}`} onClick={() => setTab("board")}>荣誉榜</button>
+                <button className={`honors-tab ${tab === "verify" ? "on" : ""}`} onClick={() => setTab("verify")}>真人认证</button>
+              </div>
+            </div>
+
+            <div className="honors-frame-scroll" key={tab}>
+              {tab === "growth" && <GrowthTasks />}
+              {tab === "verify" && <VerifyPanel />}
 
           {tab === "badges" && (
             <div className="honors-body">
@@ -215,14 +231,14 @@ export default function HonorsPage({ onBack }) {
               <div className="honors-meter"><i style={{ width: `${completionPct}%` }} /></div>
               <p className="honors-summary-hint">点击任意徽章查看详情；已解锁的可设为个人主页展示。</p>
 
-              {/* 档案预览：3 个圆形槽位 */}
+              {/* 档案预览：5 个圆形槽位，与个人主页展示位一一对应 */}
               <section className="honors-profile" aria-label="徽章展示预览">
                 <div className="honors-profile-who">
                   <span className="honors-avatar" aria-hidden="true">
                     {user?.username ? String(user.username).slice(0, 1).toUpperCase() : "?"}
                   </span>
                   <div className="honors-profile-id">
-                    <b>{user?.username || "访客"}</b>
+                    <b>{user?.username || "访客"}<IdentityMarks identity={growth.identityOf(user?.username)} size={13} /></b>
                     <small>
                       {myGrowth?.joined_at ? `加入于 ${fmtMonth(myGrowth.joined_at)}` : "匿名校园社区"}
                       {myGrowth ? ` · Lv.${myGrowth.level}` : ""}
@@ -233,7 +249,7 @@ export default function HonorsPage({ onBack }) {
                   </button>
                 </div>
                 <div className="honors-slots">
-                  {[0, 1, 2].map((k) => {
+                  {Array.from({ length: MAX_FEATURED }, (_, k) => k).map((k) => {
                     const code = featuredOrder[k];
                     if (!code) {
                       return <button key={k} className="honors-slot" aria-label="添加徽章" onClick={() => { setFeatErr(""); setSheet({ type: "picker" }); }}>+</button>;
@@ -246,7 +262,7 @@ export default function HonorsPage({ onBack }) {
                     );
                   })}
                 </div>
-                <p>别人打开你的主页或看到你的帖子时会看到这些徽章，最多 3 枚。</p>
+                <p>别人打开你的主页或看到你的帖子时会看到这些徽章，最多 {MAX_FEATURED} 枚；个人主页有同样的专属展示位。</p>
               </section>
 
               {/* 最接近解锁 */}
@@ -291,7 +307,9 @@ export default function HonorsPage({ onBack }) {
                 <p>· 图鉴分只用于展示稀有度与收藏进度，<b>成就本身不奖励经验值</b>，也不计入等级。</p>
                 <p>· 浏览量不参与任何计分；点赞由服务端唯一约束去重；删帖只标记不追扣等级。</p>
                 <p>· 进度条只使用公开汇总数据（主题数 / 回复数 / 活跃天数）计算，其余成就不画估算进度。</p>
-                <p>· 仅公开等级与已获徽章；积分流水、原始行为记录、最后活跃日期不对外公开。私信与群聊内容永不参与计算。</p>
+                <p>· 每日签到 +5 XP，连续 3 / 7 / 14 / 30 天另有奖励；主题 +8 XP、回复 +2 XP，均由服务端按真实行为结算。</p>
+                <p>· Lv.4 解锁自定义头像与主页背景（图片自动压缩到 200KB 以内）；完成 1 小时在线计算可获得蓝色真人认证并解除每日限额。</p>
+                <p>· 仅公开等级、认证标识与已获徽章；积分流水、原始行为记录、最后活跃日期不对外公开。私信与群聊内容永不参与计算。</p>
               </div>
             </div>
           )}
@@ -340,6 +358,7 @@ export default function HonorsPage({ onBack }) {
                     <li key={p.user_id} className={user?.username === p.username ? "me" : ""}>
                       <span className={`honors-rank rank-${i + 1}`}>{i + 1}</span>
                       <span className="honors-board-name">{p.username}</span>
+                      <IdentityMarks identity={growth.identityOf(p.username)} size={13} />
                       <LevelChip level={p.level} compact />
                       <span className="honors-board-xp">{Number(p.total_xp || 0).toLocaleString()} XP</span>
                       <span className="honors-board-rep">声望 {Number(p.reputation || 0).toLocaleString()}</span>
@@ -349,6 +368,9 @@ export default function HonorsPage({ onBack }) {
               )}
             </div>
           )}
+            </div>
+          </div>
+          <div className="honors-scrollhint">↕ 在框内上下滑动查看更多 · 点击徽章打开详情</div>
         </>
       )}
 
@@ -361,7 +383,7 @@ export default function HonorsPage({ onBack }) {
             {sheet.type === "picker" ? (
               <>
                 <h2>选择展示的徽章</h2>
-                <p className="honors-hint center">最多 3 枚。点击已在展示的徽章可取消。</p>
+                <p className="honors-hint center">最多 {MAX_FEATURED} 枚。点击已在展示的徽章可取消。</p>
                 {featErr && <div className="honors-notice honors-notice-warn">{featErr}</div>}
                 {pickList.length === 0 ? (
                   <p className="honors-hint center">还没有解锁任何徽章，先去发一篇主题吧。</p>
@@ -407,7 +429,7 @@ export default function HonorsPage({ onBack }) {
                   <button className="honors-cta alt" onClick={closeSheet}>关闭</button>
                 )}
                 <p className="honors-hint center">
-                  {detailGot ? "最多同时展示 3 枚精选徽章。" : "解锁后即可把徽章展示在个人主页与帖子中。"}
+                  {detailGot ? `最多同时展示 ${MAX_FEATURED} 枚精选徽章。` : "解锁后即可把徽章展示在个人主页与帖子中。"}
                 </p>
               </div>
             )}

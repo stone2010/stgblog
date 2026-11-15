@@ -234,13 +234,13 @@ export default function SettingsPage({ onBack, onOpenHonors }) {
         )}
       </div>
 
-      {/* ─── 功能：STG 荣誉体系（opt-in，默认关闭）─── */}
+      {/* ─── 功能：STG 荣誉体系（v13 灰度测试，默认全量开启，可退出）─── */}
       <div className="settings-section">
         <div className="settings-section-title">功能</div>
         <div className="settings-row honors-toggle-row">
           <div className="settings-row-label">
-            <span className="settings-row-name">STG 荣誉体系 <span className="honors-beta">可选</span></span>
-            <span className="settings-row-hint">按发帖、回复与社区认可累计等级和徽章；默认关闭，关闭时不采集任何成长数据</span>
+            <span className="settings-row-name">STG 荣誉体系 <span className="honors-beta">灰度</span></span>
+            <span className="settings-row-hint">正在灰度测试，默认对所有成员开启：签到、每日任务、等级、徽章与真人认证。关闭后不再采集任何成长数据，可随时重新开启</span>
           </div>
           <button
             className={`honors-switch ${honors.enabled ? "on" : ""}`}
@@ -263,8 +263,9 @@ export default function SettingsPage({ onBack, onOpenHonors }) {
             )}
             {honors.ready === false && (
               <div className="honors-notice">
-                服务端尚未启用该功能：站点管理员需在 Supabase SQL Editor 执行一次
-                <code> migrations/v12_honors.sql </code>。在此之前网站其余功能完全不受影响。
+                服务端尚未启用该功能：站点管理员需在 Supabase SQL Editor 依次执行
+                <code> migrations/v12_honors.sql </code> 与 <code> migrations/v13_growth.sql </code>。
+                在此之前网站其余功能完全不受影响，也不会限制发帖与评论。
               </div>
             )}
             {honors.ready === true && (

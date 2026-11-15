@@ -59,7 +59,7 @@ export default function HonorCard({ growth, badges = [], onOpen, compact = false
         </div>
       )}
       {isMe && badges.length === 0 && (
-        <div className="honor-card-tip">在荣誉中心可以挑选最多 3 枚徽章展示在主页与帖子中</div>
+        <div className="honor-card-tip">在荣誉中心可以挑选最多 5 枚徽章展示在主页与帖子中</div>
       )}
     </section>
   );

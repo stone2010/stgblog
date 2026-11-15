@@ -3,14 +3,14 @@ import { supabase } from "../supabase";
 import { useAuth } from "./AuthContext";
 import { HONORS_KEY, HONORS_SEEN_KEY, ACHIEVEMENT_MAP } from "../honors";
 
-// STG HONORS 是 opt-in 功能：默认关闭。
-// 关闭时本 Provider 不发出任何对新表 / 新 RPC 的请求，站点行为与 v11 完全一致。
-// 服务端未执行 v12 迁移时 ready=false，所有荣誉 UI 降级为提示，绝不抛错。
+// STG HONORS v13：成就系统进入灰度测试 = 默认全量开启。
+// 只有用户在「设置 → 功能」里明确关掉（本地存 "0"）才停用；停用时仍会通知服务端
+// 停止计分，且不发出任何荣誉数据请求。服务端未迁移时 ready=false，UI 只降级为提示。
 
 const HonorsContext = createContext(null);
 
 const EMPTY = {
-  enabled: false, ready: null, loading: false, myGrowth: null, profiles: {},
+  enabled: true, ready: null, loading: false, myGrowth: null, profiles: {},
   growthOf: () => null, badgesOf: () => [], unlocked: [], unlockedCodes: new Set(),
   featuredCodes: new Set(), holderCounts: {}, xpLog: [], toast: null,
   refresh: () => {}, setEnabled: () => {}, setFeatured: () => {}, dismissToast: () => {},
@@ -21,7 +21,8 @@ export function useHonors() {
 }
 
 function readLocal() {
-  try { return localStorage.getItem(HONORS_KEY) === "1"; } catch { return false; }
+  // 默认开启；只有显式写入 "0" 才是用户主动关闭。
+  try { return localStorage.getItem(HONORS_KEY) !== "0"; } catch { return true; }
 }
 
 export function HonorsProvider({ children }) {
@@ -116,8 +117,8 @@ export function HonorsProvider({ children }) {
     setLoading(false);
   }, [uname]);
 
-  // 默认关闭时不触发任何请求 —— 这是「功能默认不开启」的关键。
-  // 只有在「由开到关」时才通知服务端停止计分；首屏默认关闭绝不发任何请求。
+  // 灰度默认开启：登录后自动调用 honors_set_enabled(true) 建档（服务端幂等，
+  // 仅 false→true 时回填）。用户主动关闭时同样通知服务端停止计分并清空本地缓存。
   useEffect(() => {
     const prev = prevEnabled.current;
     prevEnabled.current = enabled;
@@ -166,13 +167,18 @@ export function HonorsProvider({ children }) {
     };
   }, [enabled, refresh]);
 
-  // 只改本地偏好，服务端同步统一交给上面的 effect，避免打开时重复调用 RPC
+  // 只改本地偏好，服务端同步统一交给上面的 effect，避免打开时重复调用 RPC。
+  // 关闭必须持久化 "0"，否则下次刷新会按「默认开启」又把功能打开。
   const setEnabled = useCallback((v) => {
     const next = !!v;
     setEnabledState(next);
     try {
-      if (next) localStorage.setItem(HONORS_KEY, "1");
-      else { localStorage.removeItem(HONORS_KEY); localStorage.removeItem(HONORS_SEEN_KEY); }
+      if (next) {
+        localStorage.setItem(HONORS_KEY, "1");
+      } else {
+        localStorage.setItem(HONORS_KEY, "0");
+        localStorage.removeItem(HONORS_SEEN_KEY);
+      }
     } catch {}
   }, []);
 
@@ -191,7 +197,7 @@ export function HonorsProvider({ children }) {
     growthOf: (name) => profiles[name] || null,
     badgesOf: (name) => {
       const p = profiles[name];
-      return p ? (featuredMap[p.user_id] || []).slice(0, 2) : [];
+      return p ? (featuredMap[p.user_id] || []).slice(0, 5) : [];
     },
     unlocked,
     unlockedCodes: new Set(unlocked.map((r) => r.code)),

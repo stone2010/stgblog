@@ -3,6 +3,8 @@ import { supabase } from "./supabase";
 import { hasLiked, hasViewed, saveLiked, saveViewed, toggleBookmark, isAdmin, showToast, bumpPostCounter, avatarColor } from "./utils";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { HonorsProvider, useHonors } from "./context/HonorsContext";
+import { GrowthProvider, useGrowth } from "./context/GrowthContext";
+import { quotaMessage } from "./growth";
 import { useNotifications } from "./hooks/useNotifications";
 import { useDM } from "./hooks/useDM";
 import { useGroupChat } from "./hooks/useGroupChat";
@@ -35,6 +37,7 @@ import Onboarding from "./components/Onboarding";
 import AnnouncementModal from "./components/AnnouncementModal";
 import HonorsPage from "./components/HonorsPage";
 import HonorToast from "./components/HonorToast";
+import AdminPanel from "./components/AdminPanel";
 
 // 荣誉体系开启后，发帖 / 点赞会派发此事件让成长数据做一次去抖刷新。
 // 关闭时 HonorsProvider 不监听任何事件，因此这里派发是零成本的。
@@ -57,6 +60,9 @@ function AppInner() {
   const { user, followingSet, keyPair, styleMode,
     reloginRequired, setReloginRequired } = useAuth();
   const honors = useHonors();
+  const growth = useGrowth();
+  // 侧栏入口只认服务端 users.is_admin，绝不读 localStorage 里的用户名
+  const isServerAdmin = !!(growth.ready === true && growth.state?.is_admin);
 
   // Posts
   const [posts, setPosts] = useState([]);
@@ -256,7 +262,7 @@ const PAGE_SIZE = 30;
     }
     if (p === "groups" && user) loadGroups();
     closeGroup();
-    setMobileTab(p === "home" ? "home" : p === "dm" ? "dm" : p === "groups" ? "groups" : (p === "profile" || p === "settings" || p === "honors") ? "me" : p === "notifications" ? "notif" : "home");
+    setMobileTab(p === "home" ? "home" : p === "dm" ? "dm" : p === "groups" ? "groups" : (p === "profile" || p === "settings" || p === "honors" || p === "admin") ? "me" : p === "notifications" ? "notif" : "home");
     window.history.pushState({ page: p }, "", `#${p}`);
   }, [user, loadDmList, dmList, setDmTarget, loadGroups, closeGroup]);
 
@@ -445,7 +451,7 @@ const PAGE_SIZE = 30;
       }
     } catch (e) {
       console.error("发帖失败:", e);
-      alert("发帖失败: " + (e.message || "网络错误"));
+      alert(quotaMessage(e?.message || "网络错误"));
     } finally {
       setPublishing(false);
     }
@@ -463,8 +469,9 @@ const PAGE_SIZE = 30;
     if (!error && data) {
       setPosts((prev) => [data, ...prev]);
       showToast("✅ 提问成功，等待大家回答");
+      notifyHonorsActivity();
     } else {
-      showToast("提问失败：" + (error?.message || "未知错误"), 3000);
+      showToast(quotaMessage(error?.message || "未知错误"), 3600);
     }
   }, [user]);
 
@@ -480,8 +487,9 @@ const PAGE_SIZE = 30;
     if (!error && data) {
       setPosts((prev) => [data, ...prev]);
       showToast("✅ 长文已发布");
+      notifyHonorsActivity();
     } else {
-      showToast("发布失败：" + (error?.message || "未知错误"), 3000);
+      showToast(quotaMessage(error?.message || "未知错误"), 3600);
     }
   }, [user]);
 
@@ -579,6 +587,9 @@ const PAGE_SIZE = 30;
       if (user.username !== post.author) {
         await supabase.from("notifications").insert([{ user_to: post.author, user_from: user.username, type: "repost", post_id: post.id }]);
       }
+      notifyHonorsActivity();
+    } else {
+      showToast(quotaMessage(error?.message || "转发失败"), 3600);
     }
   }, [user, posts]);
 
@@ -596,6 +607,9 @@ const PAGE_SIZE = 30;
       if (user.username !== post.author) {
         await supabase.from("notifications").insert([{ user_to: post.author, user_from: user.username, type: "quote", post_id: post.id }]);
       }
+      notifyHonorsActivity();
+    } else {
+      showToast(quotaMessage(error?.message || "引用失败"), 3600);
     }
   }, [user]);
 
@@ -684,6 +698,7 @@ const PAGE_SIZE = 30;
     if (page === "settings") return "设置";
     if (page === "profile") return "个人";
     if (page === "honors") return "STG 荣誉体系";
+    if (page === "admin") return "管理员模式";
     return "STGBLOG";
   };
 
@@ -715,6 +730,7 @@ const PAGE_SIZE = 30;
         onLoadMore={loadMoreGroupMessages} />
     );
     if (page === "profile-view" && viewingProfile) return <ProfileViewPage viewingProfile={viewingProfile} posts={posts} onBack={() => { setViewingProfile(null); setPage("home"); setMobileTab("home"); }} onSelectPost={openPostDetail} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} />;
+    if (page === "admin") return <AdminPanel onBack={() => navigate(user ? "profile" : "home")} />;
     if (page === "honors") return <HonorsPage onBack={() => navigate(user ? "profile" : "home")} />;
     if (page === "settings") return <SettingsPage onBack={() => { if (user) { navigate("profile"); } else { navigate("home"); } }} onOpenHonors={() => navigate("honors")} />;
     if (page === "profile") return <ProfilePage posts={posts} onAuthOpen={() => setAuthOpen(true)} onSelectPost={openPostDetail} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onFollowersPage={(type) => setFollowersPage({ username: user?.username, type })} onOpenUser={openUserClick} onOpenSettings={() => navigate("settings")} onOpenHonors={() => navigate("honors")} />;
@@ -797,7 +813,8 @@ const PAGE_SIZE = 30;
           {user && <button className={`sidebar-btn ${page === "dm" || page === "dm-chat" ? "on" : ""}`} onClick={() => navigate("dm")}><span className="sb-icon"><Icons.Msg /></span>私信{dmUnreadCount > 0 && <span className="sidebar-badge">{dmUnreadCount > 9 ? "9+" : dmUnreadCount}</span>}</button>}
           {user && <button className={`sidebar-btn ${page === "groups" || page === "group-chat" ? "on" : ""}`} onClick={() => navigate("groups")}><span className="sb-icon"><Icons.Group /></span>群组</button>}
           {user && <button className={`sidebar-btn ${page === "profile" || page === "profile-view" || page === "followers" ? "on" : ""}`} onClick={() => navigate("profile")}><span className="sb-icon"><Icons.User /></span>个人</button>}
-          {honors.enabled && honors.ready === true && <button className={`sidebar-btn ${page === "honors" ? "on" : ""}`} onClick={() => navigate("honors")}><span className="sb-icon">✦</span>荣誉</button>}
+          {honors.enabled && <button className={`sidebar-btn ${page === "honors" ? "on" : ""}`} onClick={() => navigate("honors")}><span className="sb-icon">✦</span>荣誉</button>}
+          {isServerAdmin && <button className={`sidebar-btn sidebar-btn-admin ${page === "admin" ? "on" : ""}`} onClick={() => navigate("admin")}><span className="sb-icon">🛡</span>管理员模式</button>}
           <button className={`sidebar-btn ${page === "settings" ? "on" : ""}`} onClick={() => navigate("settings")}><span className="sb-icon"><Icons.Settings /></span>设置</button>
           {user ? (
             <button className="sidebar-compose" onClick={() => { navigate("home"); setMobileTab("home"); setTimeout(() => composeRef.current?.focus(), 100); }}>发帖</button>
@@ -857,7 +874,9 @@ export default function App() {
   return (
     <AuthProvider>
       <HonorsProvider>
-        <AppInner />
+        <GrowthProvider>
+          <AppInner />
+        </GrowthProvider>
       </HonorsProvider>
     </AuthProvider>
   );

@@ -4,7 +4,9 @@ import { hasLiked, hasBookmarked, formatTimeShort, formatCount, parseContent, ge
 import { mdToPlain } from "../md";
 import { useAuth } from "../context/AuthContext";
 import { useHonors } from "../context/HonorsContext";
+import { useGrowth } from "../context/GrowthContext";
 import { LevelChip, HonorBadge } from "./HonorBadge";
+import { IdentityMarks } from "./IdentityMark";
 
 function RenderContent({ content, onHashtag, onMention }) {
   const parts = parseContent(content);
@@ -23,6 +25,7 @@ function RenderContent({ content, onHashtag, onMention }) {
 const PostCard = memo(function PostCard({ post, index = 0, editorial = false, onSelect, onLike, onShare, onRepost, onBookmark, onHashtag }) {
   const { user, followingSet, follow } = useAuth();
   const honors = useHonors();
+  const growth = useGrowth();
   const [showMenu, setShowMenu] = useState(false);
   const bookmarked = hasBookmarked(post.id);
   const liked = hasLiked(post.id);
@@ -36,6 +39,10 @@ const PostCard = memo(function PostCard({ post, index = 0, editorial = false, on
     ? honors.growthOf(displayPost.author) : null;
   const showAuthorHonors = !!(authorGrowth && authorGrowth.honors_enabled);
   const authorBadges = showAuthorHonors ? honors.badgesOf(displayPost.author) : [];
+  // Lv 与认证标识对每个人都显示；身份只取服务端公开视图，前端不自行推断。
+  const identity = growth.identityOf(displayPost.author) || authorGrowth || {};
+  const authorLevel = Number(identity.level || 0) || 1;
+  const authorAvatar = growth.imagesOf(displayPost.author)?.avatar_url || "";
 
   // 编辑部封面文案:取正文首行,去掉 #/@ 符号,截取前 12 字
   const edCoverWord = React.useMemo(() => {
@@ -69,20 +76,21 @@ const PostCard = memo(function PostCard({ post, index = 0, editorial = false, on
           <Icons.RT /> <span>{repostAuthor} 转发了</span>
         </div>
       )}
-      <div className="post-avatar" style={{ cursor: "pointer", background: avatarColor(displayPost.author) }} onClick={handleAuthorClick}>{displayPost.author[0]}</div>
+      <div className="post-avatar"
+        style={{ cursor: "pointer", background: avatarColor(displayPost.author),
+          ...(authorAvatar ? { backgroundImage: `url("${authorAvatar}")`, backgroundSize: "cover", backgroundPosition: "center" } : {}) }}
+        onClick={handleAuthorClick}>{authorAvatar ? "" : displayPost.author[0]}</div>
       <div className="post-body">
         <div className="post-head">
           <span className="post-author" onClick={handleAuthorClick} style={{ cursor: "pointer" }}>{displayPost.author}</span>
           <span className="post-handle">@{displayPost.author}</span>
           <span className="post-dot">·</span>
           <span className="post-time">{formatTimeShort(displayPost.created_at)}</span>
-          {showAuthorHonors && (
-            <>
-              <LevelChip level={authorGrowth.level} compact />
-              {authorBadges.map((c) => <HonorBadge key={c} code={c} size="xs" />)}
-            </>
-          )}
+          <LevelChip level={authorLevel} compact />
+          <IdentityMarks identity={identity} size={13} />
+          {showAuthorHonors && authorBadges.map((c) => <HonorBadge key={c} code={c} size="xs" />)}
           {displayPost.is_announcement && <span className="post-ann-badge">📢 公告</span>}
+          {displayPost.is_featured && <span className="post-featured-tag">✦ 精华</span>}
           {displayPost.pinned && <span className="post-pin-icon"><Icons.Pin /></span>}
           {displayPost.edited && <span className="post-edited-tag">已编辑</span>}
           {user && displayPost.author !== user.username && !followingSet.has(displayPost.author) && (

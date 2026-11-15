@@ -1,18 +1,12 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../supabase";
 import { useAuth } from "../context/AuthContext";
-import { useHonors } from "../context/HonorsContext";
 import { Icons } from "./Icons";
 import PostCard from "./PostCard";
-import HonorCard from "./HonorCard";
-import { LevelChip } from "./HonorBadge";
+import ProfileShowcase from "./ProfileShowcase";
 
 export default function ProfileViewPage({ viewingProfile, posts: allPosts, onBack, onSelectPost, onLike, onShare, onRepost, onBookmark, onOpenDm }) {
   const { user, followingSet, follow, unfollow } = useAuth();
-  const honors = useHonors();
-  const otherGrowth = honors.enabled && honors.ready === true
-    ? honors.growthOf(viewingProfile) : null;
-  const showHonors = !!(otherGrowth && otherGrowth.honors_enabled);
   const [profileData, setProfileData] = useState(null);
 
   useEffect(() => {
@@ -55,21 +49,17 @@ export default function ProfileViewPage({ viewingProfile, posts: allPosts, onBac
         <button className="detail-back" onClick={onBack}><Icons.Back /></button>
         <span className="detail-top-title">{viewingProfile}</span>
       </div>
-      <div className="profile-header">
-        <div className="profile-banner" />
-        <div className="profile-info">
-          <div className="profile-avatar">{viewingProfile[0]}</div>
-          <div className="profile-name">
-            {viewingProfile}
-            {showHonors && <LevelChip level={otherGrowth.level} compact />}
-          </div>
-          <div className="profile-handle">@{viewingProfile}</div>
-          <div className="profile-bio">{profileUser.bio || "STGBLOG 用户"}</div>
+      <ProfileShowcase
+        username={viewingProfile}
+        bio={profileUser.bio}
+        stats={
           <div className="profile-stats">
             <span><b>{postCount}</b> 帖子</span>
             <span><b>{following}</b> 关注</span>
             <span><b>{followers}</b> 粉丝</span>
           </div>
+        }
+        actions={
           <div className="profile-actions">
             {user && viewingProfile !== user.username && (
               <button className={`follow-btn ${isFollowing ? "following" : ""}`} onClick={handleFollowToggle}>
@@ -80,11 +70,8 @@ export default function ProfileViewPage({ viewingProfile, posts: allPosts, onBac
               <button className="profile-edit" onClick={() => onOpenDm(viewingProfile)}>💬 私信</button>
             )}
           </div>
-        </div>
-      </div>
-      {showHonors && (
-        <HonorCard growth={otherGrowth} badges={honors.badgesOf(viewingProfile)} compact />
-      )}
+        }
+      />
       <div className="feed">
         {userPosts.length === 0 ? (
           <div className="empty-state"><div className="icon">📝</div><h3>暂无帖子</h3></div>

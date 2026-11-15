@@ -1,14 +1,11 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
-import { useHonors } from "../context/HonorsContext";
 import { Icons } from "./Icons";
 import PostCard from "./PostCard";
-import HonorCard from "./HonorCard";
-import { LevelChip } from "./HonorBadge";
+import ProfileShowcase from "./ProfileShowcase";
 
 export default function ProfilePage({ posts, onAuthOpen, onSelectPost, onLike, onShare, onRepost, onBookmark, onFollowersPage, onOpenSettings, onOpenHonors }) {
   const { user, followingSet, logout, updateBio } = useAuth();
-  const honors = useHonors();
   const [editOpen, setEditOpen] = useState(false);
   const [editBio, setEditBio] = useState("");
   const [profileTab, setProfileTab] = useState("posts");
@@ -40,41 +37,30 @@ export default function ProfilePage({ posts, onAuthOpen, onSelectPost, onLike, o
 
   return (
     <>
-      <div className="profile-header">
-        <div className="profile-banner" />
-        <div className="profile-info">
-          <div className="profile-avatar">{user.username[0]}</div>
-          <div className="profile-name">
-            {user.username} <Icons.Verified />
-            {honors.enabled && honors.ready === true && honors.myGrowth && (
-              <LevelChip level={honors.myGrowth.level} compact />
-            )}
-          </div>
-          <div className="profile-handle">@{user.username}</div>
-          <div className="profile-bio">{user.bio || "STGBLOG 用户 · 加密社交"}</div>
+      {/* 第一级：等级 / 认证 / 头像背景 / 5 枚徽章集中在这里；
+          详细的经验、成就、榜单、认证全部收进荣誉中心的滑动框，避免两套体系堆叠。 */}
+      <ProfileShowcase
+        username={user.username}
+        isMe
+        bio={user.bio}
+        onPickBadges={onOpenHonors}
+        stats={
           <div className="profile-stats">
             <span style={{ cursor: "pointer" }} onClick={() => onFollowersPage?.("following")}><b>{followingSet.size}</b> 关注</span>
             <span style={{ cursor: "pointer" }} onClick={() => onFollowersPage?.("followers")}><b>{posts.filter((p) => p.author === user.username).length}</b> 帖子</span>
           </div>
+        }
+        actions={
           <div className="profile-actions">
             <button className="profile-edit" onClick={() => { setEditBio(user.bio || ""); setEditOpen(true); }}>编辑资料</button>
             <button className="profile-edit" onClick={() => onOpenSettings?.()}>
               <Icons.Settings /> 设置
             </button>
+            {onOpenHonors && <button className="profile-edit" onClick={onOpenHonors}>✦ 荣誉中心</button>}
             <button className="profile-edit" onClick={logout} style={{ color: "var(--red)", borderColor: "rgba(244,33,46,0.3)" }}>退出</button>
           </div>
-        </div>
-      </div>
-
-      {/* 设置入口已迁移到独立设置页（外观 / 私信 / 账号） */}
-      {honors.enabled && honors.ready === true && honors.myGrowth && (
-        <HonorCard
-          growth={honors.myGrowth}
-          badges={honors.badgesOf(user.username)}
-          isMe
-          onOpen={onOpenHonors}
-        />
-      )}
+        }
+      />
 
       <div className="profile-tabs">
         <button className={`profile-tab ${profileTab === "posts" ? "on" : ""}`} onClick={() => setProfileTab("posts")}>帖子</button>

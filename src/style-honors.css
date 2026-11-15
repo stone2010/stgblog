@@ -461,6 +461,10 @@
   .honors-item{grid-template-columns:52px 1fr;gap:12px;padding:14px 2px}
   .honors-item-top b{font-size:14px}
   .honors-section{margin-top:24px}
+  /* v13：5 个页签在窄屏绝不能被压缩到「文字溢出按钮」。
+     移动端改为两行换行（3 + 2），全部页签一眼可见，不需要横向滑动。 */
+  .honors-tabs{flex-wrap:wrap;border-radius:16px}
+  .honors-tab{flex:1 1 calc(33.333% - 6px);min-width:0;padding:8px 6px;font-size:11.5px}
 }
 @media(max-width:380px){
   .honor-card-emblem{flex-basis:46px;width:46px;height:46px}
@@ -470,6 +474,11 @@
   .honors-slot{width:58px;height:58px}
   .honors-seg button{padding:6px 8px;font-size:11px}
   .honors-summary strong{font-size:19px}
+  .honors-tab{padding:7px 9px;font-size:11px}
+}
+/* 320px 级别的极窄屏：两列排布，保证「成就图鉴 1/20」也完整不溢出 */
+@media(max-width:340px){
+  .honors-tab{flex:1 1 calc(50% - 6px);padding:8px 8px}
 }
 @media(prefers-reduced-motion:reduce){
   .honor-emblem.pop,.honors-mask,.honors-sheet,.honor-toast{animation:none !important}

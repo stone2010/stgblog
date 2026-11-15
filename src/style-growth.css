@@ -1,0 +1,221 @@
+/* ===========================================================================
+   STGBLOG v13 · 分级信息架构 / 经验体系 / 徽章展示 / 图片 / 管理员 / 真人认证
+   全部颜色走站点主题变量，自动适配 经典深色 / 浅色 / 复古 / 现代 / 编辑部。
+   =========================================================================== */
+
+/* ─── 认证标识：金色管理员 / 蓝色真人（X 风格） ─── */
+.idmark{display:inline-flex;align-items:center;justify-content:center;flex:none;vertical-align:middle;line-height:0}
+.idmark svg{display:block;filter:drop-shadow(0 0 3px currentColor)}
+.idmark-gold{color:#e5a916}
+.idmark-blue{color:#1d9bf0}
+[data-theme="light"] .idmark-gold{color:#c8890a}
+
+/* ─── 第一级：个人主页 ─── */
+.profile-banner{position:relative}
+.profile-avatar{position:relative;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.35)}
+.profile-name{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.profile-name .honor-lvl{margin-left:2px}
+.img-edit{
+  position:absolute;border:1px solid rgba(255,255,255,.75);
+  background:rgba(20,22,28,.62);color:#fff;backdrop-filter:blur(8px);
+  border-radius:var(--r-pill);font-size:11px;font-weight:700;cursor:pointer;
+  padding:5px 11px;transition:transform .15s var(--ease),background .15s var(--ease);
+}
+.img-edit:hover{transform:scale(1.04);background:rgba(20,22,28,.85)}
+.img-edit-banner{right:12px;bottom:12px}
+.img-edit-avatar{
+  right:-6px;bottom:-6px;width:24px;height:24px;padding:0;border-radius:50%;
+  display:grid;place-items:center;font-size:15px;line-height:1;
+  background:var(--accent);border:2px solid var(--bg);color:#fff;
+}
+.showcase-lock{
+  margin-top:12px;padding:8px 10px;border-radius:10px;font-size:12px;
+  background:var(--bg3);border:1px dashed var(--border);color:var(--text-muted);
+}
+
+/* 专属 5 槽徽章展示位 */
+.showcase{
+  margin:14px 12px 0;padding:16px;border-radius:var(--r2);
+  border:1px solid var(--border-light);background:var(--glass-bg,var(--card));
+}
+.showcase-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.showcase-head b{font-size:15px;font-weight:800;color:var(--text)}
+.showcase-head span{margin-left:8px;font-size:11px;color:var(--text-muted)}
+.showcase-manage{
+  border:1px solid var(--border-light);background:var(--bg3);color:var(--text-secondary);
+  border-radius:var(--r-pill);padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;
+}
+.showcase-manage:hover{color:var(--text);border-color:var(--accent)}
+.showcase-slots{display:flex;gap:12px;margin:16px 0 12px;flex-wrap:wrap}
+.showcase-slot{
+  width:62px;height:62px;flex:none;border-radius:50%;display:grid;place-items:center;
+  border:1.5px dashed var(--text-muted);background:transparent;color:var(--text-muted);
+  font-size:22px;cursor:pointer;padding:0;opacity:.75;
+  transition:transform .18s var(--ease),opacity .18s var(--ease),border-color .18s var(--ease);
+}
+.showcase-slot:hover{opacity:1;border-color:var(--accent);color:var(--accent);transform:scale(1.05)}
+.showcase-slot.static{cursor:default}
+.showcase-slot.static:hover{transform:none;border-color:var(--text-muted);color:var(--text-muted)}
+.showcase-slot.filled{border:0;background:transparent;opacity:1}
+.showcase-slot.filled .honor-emblem{width:100%;height:auto}
+.showcase>p{margin:0;color:var(--text-muted);font-size:12px;line-height:1.6}
+
+/* ─── 第二级：荣誉中心「一个可上下滑动的框」 ─── */
+.honors-frame{
+  margin:12px 12px 0;border:1px solid var(--border-light);border-radius:var(--r2);
+  background:var(--bg2);overflow:hidden;display:flex;flex-direction:column;
+  height:clamp(460px,72vh,760px);box-shadow:var(--shadow-sm);
+}
+.honors-frame-head{flex:none;border-bottom:1px solid var(--border);background:var(--card);padding:0 0 8px}
+.honors-frame-head .honor-card{margin:12px 12px 0;border:0;background:var(--bg3)}
+.honors-frame-head .honors-tabs{margin:10px 12px 0}
+.honors-frame-scroll{
+  flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;
+  overscroll-behavior:contain;scrollbar-width:thin;padding-bottom:20px;
+}
+.honors-frame-scroll::-webkit-scrollbar{width:6px}
+.honors-frame-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.honors-frame-scroll .honors-body{margin-top:14px}
+.honors-frame-scroll .honors-empty{margin:24px 12px}
+
+/* 五个分区的标签更紧凑，移动端可横向滑动 */
+.honors-tabs{gap:4px}
+.honors-tab{padding:8px 9px;font-size:11.5px}
+.honors-scrollhint{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  padding:6px 0 0;font-size:11px;color:var(--text-muted);
+}
+
+/* ─── 经验体系卡片 ─── */
+.growth-stack{display:flex;flex-direction:column;gap:12px;margin:0 12px}
+.growth-hint{
+  margin:14px 12px;padding:16px;border-radius:var(--r2);
+  border:1px dashed var(--border);background:var(--bg3);
+  color:var(--text-secondary);font-size:13px;line-height:1.7;
+}
+.growth-hint b{display:block;color:var(--text);font-size:15px;margin-bottom:6px}
+.growth-hint p{margin:6px 0 0}
+.growth-hint code{font-size:12px;background:var(--bg4);padding:1px 5px;border-radius:4px}
+.growth-card{
+  padding:16px;border-radius:var(--r2);border:1px solid var(--border-light);
+  background:var(--card);
+}
+.growth-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.growth-kicker{display:block;font-size:10px;letter-spacing:.14em;font-weight:800;color:var(--accent);margin-bottom:4px}
+.growth-card h3{margin:0;font-size:16px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:6px}
+.growth-card-head p{margin:5px 0 0;font-size:12px;color:var(--text-muted);line-height:1.6}
+.growth-streak{text-align:center;flex:none;padding:6px 12px;border-radius:12px;background:var(--bg3)}
+.growth-streak b{display:block;font-size:24px;line-height:1.1;color:var(--text)}
+.growth-streak span{display:block;font-size:10px;color:var(--text-muted);margin-top:3px}
+.growth-cta{
+  width:100%;margin-top:14px;padding:11px 16px;border:0;border-radius:var(--r-pill);
+  background:var(--accent);color:#fff;font-size:14px;font-weight:800;cursor:pointer;
+  transition:filter .15s var(--ease),transform .15s var(--ease);
+}
+.growth-cta:hover:not(:disabled){filter:brightness(1.08);transform:translateY(-1px)}
+.growth-cta:disabled{cursor:default;opacity:.6}
+.growth-cta.done{background:var(--bg3);color:var(--text-muted);border:1px solid var(--border)}
+.growth-cta.stop{background:var(--red,#e0245e)}
+.growth-bar{height:7px;border-radius:99px;background:var(--bg4);overflow:hidden;margin:12px 0}
+.growth-bar i{display:block;height:100%;border-radius:99px;background:var(--accent);transition:width .4s var(--ease)}
+.growth-rights{margin-top:8px;display:flex;flex-direction:column;gap:2px}
+.growth-right{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:8px;font-size:12px;color:var(--text-muted)}
+.growth-right.on{background:var(--bg3);color:var(--text)}
+.growth-right-lv{font-weight:800;font-size:11px;min-width:34px;color:var(--accent)}
+.growth-right em{margin-left:auto;font-style:normal;font-size:10px;opacity:.75}
+.growth-tasks,.verify-points{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.growth-tasks li{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:var(--bg3)}
+.growth-tasks li.done{opacity:.62}
+.growth-task-icon{width:32px;height:32px;flex:none;border-radius:9px;background:var(--bg4);display:grid;place-items:center;font-size:16px}
+.growth-task-body{flex:1 1 auto;min-width:0}
+.growth-task-body b{display:block;font-size:13px;color:var(--text)}
+.growth-task-body small{display:block;font-size:11px;color:var(--text-muted);margin-top:2px}
+.growth-task-xp{flex:none;font-size:12px;font-weight:800;color:var(--accent)}
+.growth-quota{display:flex;gap:8px;margin-top:12px}
+.growth-quota>div{flex:1;text-align:center;padding:10px 4px;border-radius:10px;background:var(--bg3)}
+.growth-quota b{display:block;font-size:15px;color:var(--text)}
+.growth-quota span{display:block;font-size:11px;color:var(--text-muted);margin-top:3px}
+.growth-foot{margin:12px 0 0;font-size:11px;line-height:1.7;color:var(--text-muted)}
+.growth-warn{margin-top:10px;padding:8px 10px;border-radius:9px;background:rgba(224,36,94,.10);color:var(--red,#e0245e);font-size:12px}
+
+/* ─── 真人认证 ─── */
+.verify-card{position:relative}
+.verify-ring{
+  flex:none;width:72px;height:72px;border-radius:50%;display:grid;place-items:center;align-content:center;
+  background:conic-gradient(#1d9bf0 var(--p),var(--bg4) 0);position:relative;
+}
+.verify-ring::before{content:"";position:absolute;inset:7px;border-radius:50%;background:var(--card)}
+.verify-ring b,.verify-ring span{position:relative;z-index:1}
+.verify-ring b{font-size:17px;color:var(--text);line-height:1.1}
+.verify-ring span{font-size:9px;color:var(--text-muted)}
+.verify-bar i{background:#1d9bf0}
+.verify-stats{display:flex;gap:8px;margin-top:12px}
+.verify-stats>div{flex:1;text-align:center;padding:9px 4px;border-radius:10px;background:var(--bg3)}
+.verify-stats b{display:block;font-size:13px;color:var(--text)}
+.verify-stats span{display:block;font-size:10px;color:var(--text-muted);margin-top:3px}
+.verify-live{margin:9px 0 0;font-size:11px;text-align:center;color:#1d9bf0}
+.verify-points li{font-size:12px;line-height:1.7;color:var(--text-secondary);padding:8px 10px;border-radius:9px;background:var(--bg3)}
+.verify-points b{color:var(--text)}
+
+/* ─── 管理员模式 ─── */
+.admin-top{display:flex;align-items:center;gap:12px;padding:14px 12px 8px}
+.admin-top h2{margin:0;font-size:18px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:6px}
+.admin-top p{margin:3px 0 0;font-size:11px;color:var(--text-muted)}
+.admin-tabs{display:flex;gap:6px;margin:6px 12px 0;padding:4px;border:1px solid var(--border);border-radius:var(--r-pill);background:var(--bg3);overflow-x:auto}
+.admin-tabs button{flex:1;white-space:nowrap;border:0;border-radius:var(--r-pill);padding:8px 10px;background:transparent;color:var(--text-muted);font-size:12px;font-weight:700;cursor:pointer}
+.admin-tabs button.on{background:var(--card-active);color:var(--text)}
+.admin-panel>.growth-warn{margin:10px 12px 0}
+.admin-scroll{max-height:62vh;overflow-y:auto;margin:12px 12px 0}
+.admin-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.admin-list li{padding:12px;border-radius:var(--r2);border:1px solid var(--border-light);background:var(--card)}
+.admin-row-main{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.admin-row-main b{font-size:13px;color:var(--text)}
+.admin-row-main small{margin-left:auto;font-size:10px;color:var(--text-muted)}
+.admin-row-sub{margin:6px 0 0;font-size:12px;color:var(--text-secondary);line-height:1.6;overflow-wrap:anywhere}
+.admin-tag{font-size:10px;font-weight:700;padding:1px 6px;border-radius:var(--r-pill);background:var(--bg4);color:var(--text-muted)}
+.admin-tag.gold{background:rgba(229,169,22,.16);color:#c8890a}
+.admin-tag.red{background:rgba(224,36,94,.14);color:var(--red,#e0245e)}
+.admin-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.admin-actions button{
+  border:1px solid var(--border-light);background:var(--bg3);color:var(--text-secondary);
+  border-radius:var(--r-pill);padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;
+}
+.admin-actions button:hover:not(:disabled){color:var(--text);border-color:var(--accent)}
+.admin-actions button.danger{color:var(--red,#e0245e);border-color:rgba(224,36,94,.3)}
+.admin-actions button:disabled{opacity:.5;cursor:default}
+.admin-empty{text-align:center;color:var(--text-muted);font-size:12px}
+.admin-panel>.growth-foot{margin:12px}
+
+/* ─── 侧栏管理员入口：金色认证呼应 ─── */
+.sidebar-btn-admin .sb-icon{filter:drop-shadow(0 0 4px rgba(229,169,22,.45))}
+.sidebar-btn-admin.on{color:#c8890a;border-color:rgba(229,169,22,.4)}
+.honors-profile-id b{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.honors-board-name{display:inline-flex;align-items:center;gap:3px}
+
+/* ─── 已在 posts 上标记的精华 ─── */
+.post-featured-tag{
+  display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:800;
+  color:#c8890a;background:rgba(229,169,22,.13);border-radius:var(--r-pill);padding:2px 7px;
+}
+
+/* ─── 5 槽选择器（荣誉中心内同步） ─── */
+.honors-slots{gap:10px}
+.honors-slot{width:62px;height:62px}
+@media(max-width:768px){
+  .honors-frame{height:clamp(420px,70vh,660px);margin-left:10px;margin-right:10px}
+  .honors-frame-head .honor-card{margin:10px 10px 0}
+  .honors-frame-head .honors-tabs{margin:8px 10px 0}
+  .showcase{margin-left:10px;margin-right:10px;padding:14px}
+  .showcase-slots{gap:9px;justify-content:space-between}
+  .showcase-slot{width:52px;height:52px}
+  .growth-stack{margin-left:10px;margin-right:10px}
+  .honors-slot{width:52px;height:52px}
+}
+@media(max-width:380px){
+  .showcase-slot{width:46px;height:46px}
+  .honors-slot{width:46px;height:46px}
+  .growth-quota b{font-size:13px}
+}
+@media(prefers-reduced-motion:reduce){
+  .img-edit,.showcase-slot,.growth-cta,.growth-bar i{transition:none !important}
+}
