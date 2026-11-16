@@ -1,10 +1,9 @@
-import React from "react";
+import React, { useId } from "react";
 
 // STG HONORS · 徽章图形
-// 参考《STGBLOG Achievements》UI 设计稿：稀有度决定外框形状与配色，
-// 成就主题决定内部图标。全部为内联 SVG，无外部字体 / 图片依赖；
-// 颜色通过 CSS 变量注入（见 style-honors.css），可适配站点三套主题。
-// 这里不做任何计分或状态判定，只负责把一条成就元数据画出来。
+// 稀有度决定外框形状与配色，成就主题决定内部图标。全部为内联 SVG，
+// 无外部字体 / 图片依赖。外框用金属箔渐变（--hi → --b1 → --b2），
+// 颜色由 style-honors.css 的 .rarity-* 注入，自动适配站点各套主题。
 
 const HEX = "M50 3L91 26.5v47L50 97 9 73.5v-47z";
 const SHD = "M50 3L88 17v32c0 25-17 40-38 48C29 89 12 74 12 49V17z";
@@ -16,25 +15,26 @@ const STAR = Array.from({ length: 24 }, (_, k) => {
 
 const sc = (k) => `translate(50 50) scale(${k}) translate(-50 -50)`;
 
-function Frame({ rarity }) {
+function Frame({ rarity, gid }) {
+  const foil = { fill: `url(#${gid})` };
   if (rarity === "common") {
     return <>
-      <circle className="he-a2" cx="50" cy="50" r="47" />
-      <circle className="he-a1" cx="50" cy="50" r="40" />
+      <circle className="he-a2" cx="50" cy="50" r="47" style={foil} />
+      <circle className="he-a1" cx="50" cy="50" r="40" style={foil} />
       <circle className="he-ah" cx="50" cy="50" r="35" />
     </>;
   }
   if (rarity === "legend") {
     return <>
-      <polygon className="he-a2" points={STAR} />
-      <circle className="he-a1" cx="50" cy="50" r="38" />
+      <polygon className="he-a2" points={STAR} style={foil} />
+      <circle className="he-a1" cx="50" cy="50" r="38" style={foil} />
       <circle className="he-ah" cx="50" cy="50" r="33" />
     </>;
   }
   const p = rarity === "rare" ? HEX : SHD;
   return <>
-    <path className="he-a2" d={p} />
-    <path className="he-a1" d={p} transform={sc(0.86)} />
+    <path className="he-a2" d={p} style={foil} />
+    <path className="he-a1" d={p} transform={sc(0.86)} style={foil} />
     <path className="he-ah" d={p} transform={sc(0.76)} />
   </>;
 }
@@ -191,6 +191,8 @@ const SHAPES = {
 
 // icon 取自 src/honors.js 的成就元数据，与 v12 SQL 的 achievements.icon 保持一致。
 export default function HonorEmblem({ achievement, size = 60, locked = false, hidden = false, pop = false, className = "" }) {
+  const raw = useId();
+  const gid = `he-${String(raw).replace(/[^a-zA-Z0-9_-]/g, "")}`;
   if (!achievement) return null;
   const shape = hidden ? "help" : achievement.icon;
   const icon = SHAPES[shape] || SHAPES.spark;
@@ -200,7 +202,14 @@ export default function HonorEmblem({ achievement, size = 60, locked = false, hi
       width={size} height={size} viewBox="0 0 100 100" role="img"
       aria-label={locked ? "未解锁徽章" : `${achievement.name} 徽章`}
     >
-      <Frame rarity={achievement.rarity} />
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="var(--hi)" />
+          <stop offset="38%" stopColor="var(--b1)" />
+          <stop offset="100%" stopColor="var(--b2)" />
+        </linearGradient>
+      </defs>
+      <Frame rarity={achievement.rarity} gid={gid} />
       {icon}
     </svg>
   );

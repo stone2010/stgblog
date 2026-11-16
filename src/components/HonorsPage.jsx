@@ -6,6 +6,7 @@ import { MAX_FEATURED } from "../growth";
 import { Icons } from "./Icons";
 import HonorCard from "./HonorCard";
 import HonorEmblem from "./HonorEmblem";
+import HonorPopover from "./HonorPopover";
 import { LevelChip } from "./HonorBadge";
 import { IdentityMarks } from "./IdentityMark";
 import GrowthTasks from "./GrowthTasks";
@@ -47,7 +48,10 @@ function AchievementRow({ a, got, hidden, featured, progress, date, holders, com
     <li className={`honors-row rarity-${a.rarity}${got ? " on" : ""}${isUpcoming ? " upcoming" : ""}${hidden ? " secret" : ""}`}>
       <button className="honors-item" onClick={() => onOpen(a.code)} aria-label={`查看 ${name} 详情`}>
         <span className="honors-item-badge">
-          <HonorEmblem achievement={a} size={compact ? 52 : 60} locked={!got} hidden={hidden} />
+          <HonorPopover achievement={a} got={!!got} hidden={hidden} date={date}
+            holders={holders} progress={progress} featured={featured}>
+            <HonorEmblem achievement={a} size={compact ? 52 : 60} locked={!got} hidden={hidden} />
+          </HonorPopover>
         </span>
         <span className="honors-item-body">
           <span className="honors-item-top">
@@ -154,6 +158,11 @@ export default function HonorsPage({ onBack }) {
     return true;
   }), [flt, unlockedCodes]);
 
+  const openSheet = (v) => {
+    // 移动端点开面板时把悬浮展签收起，避免它叠在面板上方。
+    try { window.dispatchEvent(new Event("stgblog:hpop-close")); } catch {}
+    setSheet(v);
+  };
   const closeSheet = () => setSheet(null);
 
   const toggleFeatured = async (a) => {
@@ -202,14 +211,13 @@ export default function HonorsPage({ onBack }) {
           {/* 第二级：所有内容收进一个框，框内上下滑动；页签固定在框顶部 */}
           <div className="honors-frame">
             <div className="honors-frame-head">
-              {!user && (
-                <div className="honors-notice">当前为访客浏览，登录后才会开始记录你的成长值、解锁成就与挑选徽章。</div>
-              )}
               {myGrowth ? (
                 <HonorCard growth={myGrowth} badges={featuredOrder} isMe />
               ) : (
                 <div className="honors-notice">
-                  {loading ? "正在同步荣誉数据…" : "尚无成长档案：登录并发布一条内容后即可开始累计。"}
+                  {!user
+                    ? "当前为访客浏览：登录后才会开始记录成长值、解锁成就并挑选展示徽章。"
+                    : loading ? "正在同步荣誉数据…" : "尚无成长档案：发布一条主题或回复后即可开始累计。"}
                 </div>
               )}
 
@@ -251,39 +259,44 @@ export default function HonorsPage({ onBack }) {
                       {myGrowth ? ` · Lv.${myGrowth.level}` : ""}
                     </small>
                   </div>
-                  <button className="honors-pill" onClick={() => { setFeatErr(""); setSheet({ type: "picker" }); }}>
+                  <button className="honors-pill" onClick={() => { setFeatErr(""); openSheet({ type: "picker" }); }}>
                     选择徽章
                   </button>
                 </div>
-                <div className="honors-slots">
-                  {Array.from({ length: MAX_FEATURED }, (_, k) => k).map((k) => {
-                    const code = featuredOrder[k];
-                    if (!code) {
-                      return <button key={k} className="honors-slot" aria-label="添加徽章" onClick={() => { setFeatErr(""); setSheet({ type: "picker" }); }}>+</button>;
-                    }
-                    const a = ACHIEVEMENT_MAP[code];
-                    return (
-                      <button key={k} className="honors-slot filled" aria-label={`查看 ${a.name}`} onClick={() => { setFeatErr(""); setSheet({ type: "detail", code }); }}>
-                        <HonorEmblem achievement={a} size={76} />
-                      </button>
-                    );
-                  })}
+                <div className="honors-vitrine-row">
+                  <div className="honors-slots">
+                    {Array.from({ length: MAX_FEATURED }, (_, k) => k).map((k) => {
+                      const code = featuredOrder[k];
+                      if (!code) {
+                        return <button key={k} className="honors-slot" aria-label="添加徽章" onClick={() => { setFeatErr(""); openSheet({ type: "picker" }); }}>+</button>;
+                      }
+                      const a = ACHIEVEMENT_MAP[code];
+                      return (
+                        <HonorPopover key={k} achievement={a} got
+                          date={unlockedAt[code]} holders={holderCounts[code] || 0} featured>
+                          <button className="honors-slot filled" aria-label={`查看 ${a.name}`} onClick={() => { setFeatErr(""); openSheet({ type: "detail", code }); }}>
+                            <HonorEmblem achievement={a} size={72} />
+                          </button>
+                        </HonorPopover>
+                      );
+                    })}
+                  </div>
+                  <p className="honors-vitrine-note">悬停或聚焦徽章可查看放大展签。别人打开你的主页或看到你的帖子时会看到这些徽章，最多 {MAX_FEATURED} 枚。</p>
                 </div>
-                <p>别人打开你的主页或看到你的帖子时会看到这些徽章，最多 {MAX_FEATURED} 枚；个人主页有同样的专属展示位。</p>
               </section>
 
               {/* 最接近解锁 */}
               <div className="honors-section">
                 <h2>最接近解锁</h2>
               </div>
-              <ul className="honors-list">
+              <ul className="honors-list honors-list-closest">
                 {closest.length === 0 ? (
                   <li className="honors-list-empty">
                     {myGrowth ? "可计算进度的成就都已解锁，继续探索隐藏成就吧。" : "登录后即可看到你离下一枚徽章还有多远。"}
                   </li>
                 ) : closest.map(({ a, progress }) => (
                   <AchievementRow key={a.code} a={a} compact
-                    {...rowState(a)} progress={progress} onOpen={(code) => { setFeatErr(""); setSheet({ type: "detail", code }); }} />
+                    {...rowState(a)} progress={progress} onOpen={(code) => { setFeatErr(""); openSheet({ type: "detail", code }); }} />
                 ))}
               </ul>
 
@@ -303,7 +316,7 @@ export default function HonorsPage({ onBack }) {
                 ) : filtered.map((a) => (
                   <AchievementRow key={a.code} a={a}
                     {...rowState(a)} progress={achievementProgress(a, myGrowth)}
-                    onOpen={(code) => { setFeatErr(""); setSheet({ type: "detail", code }); }} />
+                    onOpen={(code) => { setFeatErr(""); openSheet({ type: "detail", code }); }} />
                 ))}
               </ul>
 
@@ -364,8 +377,10 @@ export default function HonorsPage({ onBack }) {
                   {board.map((p, i) => (
                     <li key={p.user_id} className={user?.username === p.username ? "me" : ""}>
                       <span className={`honors-rank rank-${i + 1}`}>{i + 1}</span>
-                      <span className="honors-board-name">{p.username}</span>
-                      <IdentityMarks identity={growth.identityOf(p.username)} size={13} />
+                      <span className="honors-board-name">
+                        {p.username}
+                        <IdentityMarks identity={growth.identityOf(p.username)} size={13} />
+                      </span>
                       <LevelChip level={p.level} compact />
                       <span className="honors-board-xp">{Number(p.total_xp || 0).toLocaleString()} XP</span>
                       <span className="honors-board-rep">声望 {Number(p.reputation || 0).toLocaleString()}</span>
@@ -406,7 +421,10 @@ export default function HonorsPage({ onBack }) {
                         <button key={a.code} className={`honors-pk${sel ? " sel" : ""} rarity-${a.rarity}`}
                           aria-pressed={sel} onClick={() => toggleFeatured(a)}>
                           {sel && <em>{k + 1}</em>}
-                          <HonorEmblem achievement={a} size={68} />
+                          <HonorPopover achievement={a} got date={unlockedAt[a.code]}
+                            holders={holderCounts[a.code] || 0} featured={sel}>
+                            <HonorEmblem achievement={a} size={72} />
+                          </HonorPopover>
                           <span>{a.name}</span>
                         </button>
                       );

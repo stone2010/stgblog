@@ -11,7 +11,8 @@ const HonorsContext = createContext(null);
 
 const EMPTY = {
   enabled: true, ready: null, loading: false, myGrowth: null, profiles: {},
-  growthOf: () => null, badgesOf: () => [], unlocked: [], unlockedCodes: new Set(),
+  growthOf: () => null, badgesOf: () => [], featuredInfoOf: () => [],
+  unlocked: [], unlockedCodes: new Set(),
   featuredCodes: new Set(), holderCounts: {}, xpLog: [], toast: null,
   refresh: () => {}, setEnabled: () => {}, setFeatured: () => {}, dismissToast: () => {},
 };
@@ -66,8 +67,10 @@ export function HonorsProvider({ children }) {
         .from("user_achievements")
         .select("user_id,code,unlocked_at,is_featured")
         .eq("is_featured", true).limit(1000);
+      // 保留整行（含 unlocked_at），主页悬浮展签需要真实解锁日期；
+      // 对外接口仍然只把 code 暴露给原有调用方。
       const fmap = {};
-      (feat || []).forEach((r) => { (fmap[r.user_id] = fmap[r.user_id] || []).push(r.code); });
+      (feat || []).forEach((r) => { (fmap[r.user_id] = fmap[r.user_id] || []).push(r); });
       setFeaturedMap(fmap);
 
       // 全站解锁人数：user_achievements 公开可读，只取 code 一列，用于详情页的真实社交证明。
@@ -197,6 +200,10 @@ export function HonorsProvider({ children }) {
     growthOf: (name) => profiles[name] || null,
     badgesOf: (name) => {
       const p = profiles[name];
+      return p ? (featuredMap[p.user_id] || []).slice(0, 5).map((r) => r.code) : [];
+    },
+    featuredInfoOf: (name) => {
+      const p = profiles[name];
       return p ? (featuredMap[p.user_id] || []).slice(0, 5) : [];
     },
     unlocked,
@@ -205,6 +212,7 @@ export function HonorsProvider({ children }) {
     holderCounts, xpLog, toast, dismissToast: () => setToast(null), setFeatured,
   }), [enabled, setEnabled, ready, loading, refresh, profiles, featuredMap,
        holderCounts, unlocked, xpLog, toast, uname, setFeatured]);
+
 
   return <HonorsContext.Provider value={value}>{children}</HonorsContext.Provider>;
 }

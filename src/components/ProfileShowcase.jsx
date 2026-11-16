@@ -7,6 +7,7 @@ import { ACHIEVEMENT_MAP } from "../honors";
 import { MAX_FEATURED, UPLOAD_LEVEL, quotaMessage } from "../growth";
 import { LevelChip } from "./HonorBadge";
 import HonorEmblem from "./HonorEmblem";
+import HonorPopover from "./HonorPopover";
 import { IdentityMarks } from "./IdentityMark";
 import ImageCropModal from "./ImageCropModal";
 
@@ -26,6 +27,10 @@ export default function ProfileShowcase({
   const identity = growth.identityOf(username) || honors.growthOf(username) || {};
   const level = Number(identity.level || 0) || 1;
   const badges = (honors.enabled ? honors.badgesOf(username) : []).slice(0, MAX_FEATURED);
+  const badgeInfo = {};
+  if (honors.enabled) {
+    (honors.featuredInfoOf(username) || []).forEach((r) => { if (r?.code) badgeInfo[r.code] = r; });
+  }
   const remoteImgs = growth.imagesOf(username) || {};
   const ownImgs = isMe && growth.state ? {
     avatar_url: growth.state.avatar_url, banner_url: growth.state.banner_url,
@@ -111,32 +116,38 @@ export default function ProfileShowcase({
       <section className="showcase" aria-label="徽章展示">
         <div className="showcase-head">
           <div>
-            <b>徽章展示</b>
+            <b>徽章展柜</b>
             <span>{badges.length} / {MAX_FEATURED} 展示位</span>
           </div>
           {isMe && onPickBadges && honors.enabled && (
             <button className="showcase-manage" onClick={onPickBadges}>管理 ›</button>
           )}
         </div>
-        <div className="showcase-slots">
-          {Array.from({ length: MAX_FEATURED }, (_, k) => {
-            const code = badges[k];
-            const a = code ? ACHIEVEMENT_MAP[code] : null;
-            if (!a) {
-              return isMe && onPickBadges && honors.enabled
-                ? <button key={k} className="showcase-slot empty" aria-label="添加徽章" onClick={onPickBadges}>＋</button>
-                : <span key={k} className="showcase-slot empty static" aria-label="空展示位">＋</span>;
-            }
-            return (
-              <button key={k} className={`showcase-slot filled rarity-${a.rarity}`}
-                title={`${a.name} · ${a.desc}`} aria-label={`${a.name} 徽章`}
-                onClick={isMe && onPickBadges ? onPickBadges : undefined}>
-                <HonorEmblem achievement={a} size={62} />
-              </button>
-            );
-          })}
+        <div className="showcase-row">
+          <div className="showcase-slots">
+            {Array.from({ length: MAX_FEATURED }, (_, k) => {
+              const code = badges[k];
+              const a = code ? ACHIEVEMENT_MAP[code] : null;
+              if (!a) {
+                return isMe && onPickBadges && honors.enabled
+                  ? <button key={k} className="showcase-slot empty" aria-label="添加徽章" onClick={onPickBadges}>＋</button>
+                  : <span key={k} className="showcase-slot empty static" aria-label="空展示位">＋</span>;
+              }
+              return (
+                <HonorPopover key={k} achievement={a} got
+                  date={badgeInfo[a.code]?.unlocked_at}
+                  holders={honors.holderCounts[a.code] || 0} featured>
+                  <button className={`showcase-slot filled rarity-${a.rarity}`}
+                    title={`${a.name} · 悬停查看详情`} aria-label={`${a.name} 徽章`}
+                    onClick={isMe && onPickBadges ? onPickBadges : undefined}>
+                    <HonorEmblem achievement={a} size={64} />
+                  </button>
+                </HonorPopover>
+              );
+            })}
+          </div>
+          <p className="showcase-note">{isMe ? "悬停或聚焦徽章可查看放大展签；别人打开你的主页时会看到这些徽章，最多 5 枚。" : "这里的徽章由对方在荣誉中心挑选展示，悬停可查看放大展签。"}</p>
         </div>
-        <p>{isMe ? "别人打开你的主页时会看到这些徽章，最多 5 枚。在荣誉中心可随时更换。" : "这里的徽章由对方在荣誉中心挑选展示。"}</p>
       </section>
 
       {isMe && (

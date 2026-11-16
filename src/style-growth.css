@@ -28,89 +28,6 @@
   display:grid;place-items:center;font-size:15px;line-height:1;
   background:var(--accent);border:2px solid var(--bg);color:#fff;
 }
-.showcase-lock{
-  margin-top:12px;padding:8px 10px;border-radius:10px;font-size:12px;
-  background:var(--bg3);border:1px dashed var(--border);color:var(--text-muted);
-}
-
-/* 专属 5 槽徽章展示位 */
-.showcase{
-  margin:14px 12px 0;padding:16px;border-radius:var(--r2);
-  border:1px solid var(--border-light);background:var(--glass-bg,var(--card));
-}
-.showcase-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.showcase-head b{font-size:15px;font-weight:800;color:var(--text)}
-.showcase-head span{margin-left:8px;font-size:11px;color:var(--text-muted)}
-.showcase-manage{
-  border:1px solid var(--border-light);background:var(--bg3);color:var(--text-secondary);
-  border-radius:var(--r-pill);padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;
-}
-.showcase-manage:hover{color:var(--text);border-color:var(--accent)}
-.showcase-slots{display:flex;gap:12px;margin:16px 0 12px;flex-wrap:wrap}
-.showcase-slot{
-  width:62px;height:62px;flex:none;border-radius:50%;display:grid;place-items:center;
-  border:1.5px dashed var(--text-muted);background:transparent;color:var(--text-muted);
-  font-size:22px;cursor:pointer;padding:0;opacity:.75;
-  transition:transform .18s var(--ease),opacity .18s var(--ease),border-color .18s var(--ease);
-}
-.showcase-slot:hover{opacity:1;border-color:var(--accent);color:var(--accent);transform:scale(1.05)}
-.showcase-slot.static{cursor:default}
-.showcase-slot.static:hover{transform:none;border-color:var(--text-muted);color:var(--text-muted)}
-.showcase-slot.filled{border:0;background:transparent;opacity:1}
-.showcase-slot.filled .honor-emblem{width:100%;height:auto}
-.showcase>p{margin:0;color:var(--text-muted);font-size:12px;line-height:1.6}
-
-/* ─── 第二级：荣誉中心「一个可上下滑动的框」 ─── */
-.honors-frame{
-  position:relative;
-  margin:12px 12px 0;border:1px solid var(--border-light);border-radius:var(--r2);
-  background:var(--bg2);overflow:hidden;display:flex;flex-direction:column;
-  height:clamp(460px,72vh,760px);box-shadow:var(--shadow-sm);
-}
-.honors-frame-head{flex:none;border-bottom:1px solid var(--border);background:var(--card);padding:0 0 8px}
-.honors-frame-head .honor-card{margin:12px 12px 0;border:0;background:var(--bg3)}
-.honors-frame-head .honors-tabs{margin:10px 12px 0}
-.honors-frame-scroll{
-  flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;
-  overscroll-behavior:contain;scrollbar-width:thin;padding-bottom:44px;
-  /* 底部渐隐：内容不会在边框处被「一刀切断」 */
-  -webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 26px),transparent 100%);
-  mask-image:linear-gradient(180deg,#000 calc(100% - 26px),transparent 100%);
-}
-/* 细圆条滚动条，去掉 Windows 默认的箭头与灰色轨道 */
-.honors-frame-scroll::-webkit-scrollbar{width:9px;height:9px}
-.honors-frame-scroll::-webkit-scrollbar-track{background:transparent}
-.honors-frame-scroll::-webkit-scrollbar-thumb{
-  background:var(--border);border-radius:99px;
-  border:2px solid transparent;background-clip:content-box;
-}
-.honors-frame-scroll::-webkit-scrollbar-thumb:hover{
-  background:var(--text-muted);background-clip:content-box;
-}
-.honors-frame-scroll .honors-body{margin-top:14px}
-.honors-frame-scroll .honors-empty{margin:24px 12px}
-
-/* 五个分区的标签更紧凑，移动端可横向滑动 */
-.honors-tabs{gap:4px}
-.honors-tab{padding:8px 9px;font-size:11.5px}
-/* 悬浮提示框：贴框底居中，滚动后淡出 */
-.honors-float-hint{
-  position:absolute;left:50%;bottom:12px;z-index:3;pointer-events:none;
-  transform:translateX(-50%);
-  display:inline-flex;align-items:center;gap:5px;
-  padding:6px 14px;border-radius:var(--r-pill);
-  font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--text-secondary);
-  background:color-mix(in srgb, var(--card) 86%, transparent);
-  border:1px solid var(--border-light);
-  box-shadow:0 8px 22px rgba(0,0,0,.24);
-  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-  transition:opacity .22s ease, transform .22s ease;
-}
-.honors-float-hint.hide{opacity:0;transform:translate(-50%,8px)}
-.honors-float-hint-icon{font-size:12px;opacity:.75;animation:hintNudge 1.8s ease-in-out infinite}
-@keyframes hintNudge{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
-@media(prefers-reduced-motion:reduce){.honors-float-hint-icon{animation:none}}
-
 /* ─── 经验体系卡片 ─── */
 .growth-stack{display:flex;flex-direction:column;gap:12px;margin:0 12px}
 .growth-hint{
@@ -241,8 +158,6 @@
 /* ─── 侧栏管理员入口：金色认证呼应 ─── */
 .sidebar-btn-admin .sb-icon{filter:drop-shadow(0 0 4px rgba(229,169,22,.45))}
 .sidebar-btn-admin.on{color:#c8890a;border-color:rgba(229,169,22,.4)}
-.honors-profile-id b{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
-.honors-board-name{display:inline-flex;align-items:center;gap:3px}
 
 /* ─── 已在 posts 上标记的精华 ─── */
 .post-featured-tag{
@@ -250,26 +165,14 @@
   color:#c8890a;background:rgba(229,169,22,.13);border-radius:var(--r-pill);padding:2px 7px;
 }
 
-/* ─── 5 槽选择器（荣誉中心内同步） ─── */
-.honors-slots{gap:10px}
-.honors-slot{width:62px;height:62px}
 @media(max-width:768px){
-  .honors-frame{height:clamp(420px,70vh,660px);margin-left:10px;margin-right:10px}
-  .honors-frame-head .honor-card{margin:10px 10px 0}
-  .honors-frame-head .honors-tabs{margin:8px 10px 0}
-  .showcase{margin-left:10px;margin-right:10px;padding:14px}
-  .showcase-slots{gap:9px;justify-content:space-between}
-  .showcase-slot{width:52px;height:52px}
   .growth-stack{margin-left:10px;margin-right:10px}
-  .honors-slot{width:52px;height:52px}
 }
 @media(max-width:380px){
-  .showcase-slot{width:46px;height:46px}
-  .honors-slot{width:46px;height:46px}
   .growth-quota b{font-size:13px}
 }
 @media(prefers-reduced-motion:reduce){
-  .img-edit,.showcase-slot,.growth-cta,.growth-bar i{transition:none !important}
+  .img-edit,.growth-cta,.growth-bar i{transition:none !important}
 }
 
 /* ─── 图片裁切弹窗（v13.2）：固定取景框 + 拖动/缩放图片 ───────────────────── */
