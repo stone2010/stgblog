@@ -151,9 +151,79 @@
 }
 .admin-actions button:hover:not(:disabled){color:var(--text);border-color:var(--accent)}
 .admin-actions button.danger{color:var(--red,#e0245e);border-color:rgba(224,36,94,.3)}
+.admin-actions button.gold{color:#c8890a;border-color:rgba(229,169,22,.38);background:rgba(229,169,22,.08)}
 .admin-actions button:disabled{opacity:.5;cursor:default}
+.admin-xp{font-size:10.5px;font-weight:700;color:var(--text-muted);font-variant-numeric:tabular-nums}
 .admin-empty{text-align:center;color:var(--text-muted);font-size:12px}
 .admin-panel>.growth-foot{margin:12px}
+
+/* ─── 经验发放（超管）─── */
+.admin-grant{display:flex;flex-direction:column;gap:12px}
+.grant-block{padding:12px;border-radius:var(--r2);border:1px solid var(--border-light);background:var(--card)}
+.grant-label{font-size:11px;font-weight:800;letter-spacing:.02em;color:var(--text-muted);margin-bottom:8px}
+.grant-block .admin-search{margin:0}
+.grant-cand{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:5px;max-height:220px;overflow-y:auto}
+.grant-cand button{
+  width:100%;display:flex;align-items:center;gap:7px;text-align:left;cursor:pointer;
+  border:1px solid var(--border-light);background:var(--bg3);color:var(--text-secondary);
+  border-radius:var(--r-pill);padding:7px 12px;font-size:12px;font-weight:700;
+}
+.grant-cand button:hover{border-color:var(--accent);color:var(--text)}
+.grant-cand-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grant-cand-xp{margin-left:auto;font-size:10.5px;color:var(--text-muted);font-variant-numeric:tabular-nums}
+.grant-picked{margin-top:8px;border:1px solid rgba(229,169,22,.34);background:rgba(229,169,22,.07);border-radius:var(--r2);padding:10px 12px}
+.grant-picked-main{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.grant-picked-main b{font-size:13px;color:var(--text)}
+.grant-picked-xp{font-size:11px;font-weight:700;color:#c8890a;font-variant-numeric:tabular-nums}
+.grant-repick{margin-left:auto;border:0;background:transparent;color:var(--text-muted);font-size:11px;font-weight:700;cursor:pointer;text-decoration:underline}
+.grant-repick:hover{color:var(--text)}
+.grant-picked-hint{margin:6px 0 0;font-size:10.5px;color:var(--text-muted)}
+.grant-presets{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.grant-presets button{
+  border:1px solid var(--border-light);background:var(--bg3);color:var(--text-secondary);
+  border-radius:var(--r-pill);padding:6px 13px;font-size:12px;font-weight:800;cursor:pointer;
+  font-variant-numeric:tabular-nums;
+}
+.grant-presets button.on{background:var(--card-active);color:var(--text);border-color:var(--accent)}
+.grant-presets input{
+  width:86px;margin-left:2px;border:1px solid var(--border-light);background:var(--bg3);
+  color:var(--text);border-radius:var(--r-pill);padding:6px 11px;font-size:12px;font-weight:800;
+  font-variant-numeric:tabular-nums;
+}
+.grant-presets input:focus{outline:none;border-color:var(--accent)}
+.grant-tip{margin:8px 0 0;font-size:10.5px;line-height:1.6;color:var(--text-muted)}
+.grant-reason{
+  width:100%;box-sizing:border-box;border:1px solid var(--border-light);background:var(--bg3);
+  color:var(--text);border-radius:var(--r2);padding:9px 12px;font-size:12.5px;
+}
+.grant-reason:focus{outline:none;border-color:var(--accent)}
+.grant-reason-count{margin-top:4px;text-align:right;font-size:10px;color:var(--text-muted)}
+.grant-actions{display:flex;gap:8px}
+.grant-primary{
+  flex:1;border:0;border-radius:var(--r-pill);padding:11px 16px;cursor:pointer;
+  font-size:13px;font-weight:800;color:#fff;
+  background:linear-gradient(135deg,#f5b93b,#d98b0d);
+  box-shadow:0 2px 10px rgba(217,139,13,.28);
+}
+.grant-primary:hover:not(:disabled){filter:brightness(1.05)}
+.grant-deduct{
+  flex:none;border:1px solid rgba(224,36,94,.3);background:transparent;color:var(--red,#e0245e);
+  border-radius:var(--r-pill);padding:11px 14px;font-size:12px;font-weight:800;cursor:pointer;
+}
+.grant-primary:disabled,.grant-deduct:disabled{opacity:.45;cursor:default;box-shadow:none}
+.grant-result{margin:0 12px;padding:9px 12px;border-radius:var(--r2);font-size:11.5px;font-weight:700;
+  color:#0d7a4a;background:rgba(16,185,129,.11);border:1px solid rgba(16,185,129,.26)}
+.grant-log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.grant-log li{display:flex;align-items:center;gap:8px;font-size:11.5px;flex-wrap:wrap}
+.grant-log b{color:var(--text)}
+.grant-log-xp{font-weight:800;color:#0d7a4a;font-variant-numeric:tabular-nums}
+.grant-log-xp.minus{color:var(--red,#e0245e)}
+.grant-log-reason{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted)}
+.grant-log small{font-size:10px;color:var(--text-muted);margin-left:auto}
+@media(max-width:480px){
+  .grant-actions{flex-direction:column}
+  .grant-presets input{width:100%;margin-left:0}
+}
 
 /* ─── 侧栏管理员入口：金色认证呼应 ─── */
 .sidebar-btn-admin .sb-icon{filter:drop-shadow(0 0 4px rgba(229,169,22,.45))}

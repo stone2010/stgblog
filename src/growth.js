@@ -10,6 +10,13 @@ export const POW_BATCH_MS = 30000;      // 每 30 秒向服务端结算一次
 export const BASE_POST_CAP = 3;
 export const BASE_COMMENT_CAP = 5;
 
+// 精华帖奖励：与 migrations/v14_admin_xp.sql 里的 c_featured_xp 必须一致。
+// 普通主题 8 XP，精华一次给 50 XP —— 一次加精约等于六篇普通主题。
+export const FEATURED_XP = 50;
+// 超管单次发放上限（服务端同样限制在 -2000 ~ 2000）
+export const GRANT_MAX = 2000;
+export const GRANT_PRESETS = [10, 30, 50, 100, 200, 500];
+
 // 参考小米社区「成长值 → 等级 → 已解锁权益」的展示方式
 export const LEVEL_RIGHTS = [
   { level: 1, right: "参与主题与回复" },

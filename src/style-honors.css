@@ -517,6 +517,8 @@ html[data-style="editorial"] .honors-frame { border-color:var(--ink); }
   white-space:nowrap; font-variant-numeric:tabular-nums;
 }
 .honors-log-xp { color:var(--h-accent); font-weight:600; }
+/* 超管扣除经验时为负数，不能沿用「+N」的绿色/强调色 */
+.honors-log-xp.minus { color:var(--red,#e0245e); }
 
 /* ─── 荣誉榜 ─────────────────────────────────────────────────────────────── */
 .honors-board li {
