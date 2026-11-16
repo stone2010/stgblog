@@ -19,9 +19,9 @@ export const LEVEL_RIGHTS = [
   { level: 5, right: "5 枚徽章展示位全开" },
   { level: 6, right: "专属等级称号" },
   { level: 7, right: "优先参与社区话题" },
-  { level: 8, right: "社区核心标识" },
-  { level: 9, right: "荣誉成员标识" },
-  { level: 10, right: "STG 传奇 · 最高等级" },
+  { level: 8, right: "深孚众望标识" },
+  { level: 9, right: "实至名归标识" },
+  { level: 10, right: "登峰造极 · 最高等级" },
 ];
 
 export const TASK_META = {

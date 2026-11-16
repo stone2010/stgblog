@@ -13,7 +13,7 @@ import GrowthTasks from "./GrowthTasks";
 import VerifyPanel from "./VerifyPanel";
 import {
   ACHIEVEMENTS, ACHIEVEMENT_MAP, CATEGORY_LABEL, RARITY, AVAILABLE_COUNT,
-  XP_EVENT_LABELS, levelProgress, achievementPoints, achievementProgress,
+  XP_EVENT_LABELS, LEVELS, levelProgress, achievementPoints, achievementProgress,
 } from "../honors";
 
 function fmtTime(s) {
@@ -342,7 +342,7 @@ export default function HonorsPage({ onBack }) {
                   {(() => {
                     const p = levelProgress(Number(myGrowth.total_xp || 0));
                     return p.isMax
-                      ? "已达最高等级 STG 传奇，感谢你一路同行。"
+                      ? `已达最高等级 ${LEVELS[LEVELS.length - 1].title}，感谢你一路同行。`
                       : `当前 ${p.cur.title} · ${p.pct}% · 再获得 ${p.toNext} XP 升级为 ${p.next.title}`;
                   })()}
                 </div>

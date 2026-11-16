@@ -858,6 +858,10 @@ html[data-style="editorial"] .showcase { border-color:var(--ink); border-radius:
 }
 @media (max-width: 480px) {
   .honors-slots { gap:8px; grid-template-columns:repeat(3, minmax(0, 1fr)); }
+  .showcase-slots { display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:8px; }
+  .showcase-slots > .hpop-anchor { display:block; width:100%; }
+  .showcase-slot { width:100%; height:auto; aspect-ratio:1; }
+  .showcase-slot .honor-emblem { width:70%; height:auto; aspect-ratio:1; }
 }
 @media (max-width: 420px) {
   .honors-page > .detail-top .detail-top-title { font-size:19px; }
@@ -876,4 +880,39 @@ html[data-style="editorial"] .showcase { border-color:var(--ink); border-radius:
   .honor-emblem.pop, .honors-mask, .honors-sheet, .honor-toast, .hpop { animation:none !important; }
   .honors-meter i, .honors-bar i, .honor-progress-fill, .honors-slot, .showcase-slot, .honors-float-hint { transition:none !important; }
   .honors-float-hint-icon { animation:none; }
+}
+
+/* ─── 页面宽度对齐：个人主页 / 设置 / 三模块列表 ─────────────────────────── */
+.profile-page{
+  width:100%;max-width:820px;margin:0 auto;min-width:0;padding:0 0 28px;
+}
+.profile-page .profile-actions{flex-wrap:wrap}
+.profile-page .profile-tabs{margin-top:0}
+.profile-page .feed,
+html[data-style="editorial"] .profile-page .feed{
+  max-width:none;width:100%;margin:0;padding-left:0;padding-right:0;
+}
+.profile-page .showcase{margin-top:20px}
+.profile-uid{
+  display:inline-flex;align-items:center;margin-left:8px;padding:0 7px;
+  border:1px solid var(--border);font-family:"Space Grotesk",Inter,ui-monospace,sans-serif;
+  font-size:10px;font-weight:600;letter-spacing:.04em;color:var(--text-muted);
+  font-variant-numeric:tabular-nums;vertical-align:1px;
+}
+.pageblock{width:100%;max-width:820px;margin-inline:auto}
+.settings-page{width:100%;max-width:820px;margin:0 auto;padding:0 16px 24px}
+html[data-style="editorial"] .settings-page{max-width:820px;margin-inline:auto}
+.settings-page .settings-section{margin:12px 0 0}
+@media (max-width:900px){
+  html[data-style="editorial"] .desktop-wrap{padding-left:19px;padding-right:19px}
+  .profile-page{max-width:none;padding:0 12px 24px}
+  .pageblock{max-width:none;padding-left:12px;padding-right:12px}
+}
+@media (max-width:600px){
+  .profile-page{padding:0 10px 22px}
+  .profile-page .profile-actions{gap:8px}
+  .profile-page .profile-actions > button{flex:1 1 auto;min-width:0}
+  .settings-page{padding:0 10px 22px}
+  .settings-page .settings-section{padding:14px}
+  .settings-page .settings-seg{max-width:none;width:100%}
 }

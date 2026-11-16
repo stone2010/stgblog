@@ -28,7 +28,8 @@ function SegRow({ label, hint, value, options, onChange }) {
 export default function SettingsPage({ onBack, onOpenHonors }) {
   const { user, colorMode, setColorMode, glassMode, setGlassMode, fontSize, setFontSize,
     styleMode, setStyleMode, paletteMode, setPaletteMode, accentColor, setAccentColor,
-    logout, dmPrivacy, dmKey, updateDmPrivacy, keyPair } = useAuth();
+    logout, dmPrivacy, dmKey, updateDmPrivacy, keyPair,
+    changeUsername, identityReady } = useAuth();
   const honors = useHonors();
 
   // 修改密码（自个人主页迁入）
@@ -41,6 +42,32 @@ export default function SettingsPage({ onBack, onOpenHonors }) {
   const [pwLoading, setPwLoading] = useState(false);
 
   const [dmKeyCopied, setDmKeyCopied] = useState(false);
+
+  // v14：修改用户名
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [newUsername, setNewUsername] = useState("");
+  const [renamePw, setRenamePw] = useState("");
+  const [renameError, setRenameError] = useState("");
+  const [renameSuccess, setRenameSuccess] = useState("");
+  const [renameLoading, setRenameLoading] = useState(false);
+
+  const handleChangeUsername = useCallback(async () => {
+    setRenameError("");
+    setRenameSuccess("");
+    if (!newUsername.trim()) { setRenameError("请输入新用户名"); return; }
+    if (!renamePw) { setRenameError("请输入当前密码"); return; }
+    setRenameLoading(true);
+    const res = await changeUsername(newUsername, renamePw);
+    if (res?.error) {
+      setRenameError(res.error);
+      setRenameLoading(false);
+      return;
+    }
+    setRenamePw("");
+    setRenameSuccess("用户名已修改，正在刷新…");
+    try { sessionStorage.setItem("stgblog_after_rename", "settings"); } catch {}
+    setTimeout(() => { try { window.location.reload(); } catch {} }, 900);
+  }, [newUsername, renamePw, changeUsername]);
 
   const handleChangePassword = useCallback(async () => {
     setPwError("");
@@ -215,25 +242,6 @@ export default function SettingsPage({ onBack, onOpenHonors }) {
         </div>
       )}
 
-      {/* ─── 账号 ─── */}
-      <div className="settings-section">
-        <div className="settings-section-title">账号</div>
-        {user ? (
-          <>
-            <button className="settings-action" onClick={() => { setOldPw(""); setNewPw(""); setConfirmPw(""); setPwError(""); setPwSuccess(""); setPwModalOpen(true); }}>
-              <span className="settings-action-icon">🔑</span> 修改密码
-              <span className="settings-action-arrow">›</span>
-            </button>
-            <button className="settings-action settings-action-danger" onClick={logout}>
-              <span className="settings-action-icon">🚪</span> 退出登录
-              <span className="settings-action-arrow">›</span>
-            </button>
-          </>
-        ) : (
-          <div className="settings-empty">登录后可管理账号选项</div>
-        )}
-      </div>
-
       {/* ─── 功能：STG 荣誉体系（v13 灰度测试，默认全量开启，可退出）─── */}
       <div className="settings-section">
         <div className="settings-section-title">功能</div>
@@ -283,6 +291,43 @@ export default function SettingsPage({ onBack, onOpenHonors }) {
         )}
       </div>
 
+      {/* ─── 账号 ─── */}
+      <div className="settings-section">
+        <div className="settings-section-title">账号</div>
+        {user ? (
+          <>
+            <div className="settings-row settings-row-inline">
+              <div className="settings-row-label">
+                <span className="settings-row-name">用户 ID</span>
+                <span className="settings-row-hint">按注册顺序分配，永久不变</span>
+              </div>
+              <div className="settings-id">{user.user_no != null ? `#${user.user_no}` : "—"}</div>
+            </div>
+            {user.user_no != null ? (
+              <button className="settings-action" onClick={() => { setNewUsername(""); setRenamePw(""); setRenameError(""); setRenameSuccess(""); setRenameOpen(true); }}>
+                <span className="settings-action-icon">✎</span> 修改用户名
+                <span className="settings-action-arrow">›</span>
+              </button>
+            ) : identityReady !== false ? (
+              <div className="settings-note">用户 ID 与改名功能需先在 Supabase 执行 <code>migrations/v15_identity.sql</code> 后启用。</div>
+            ) : null}
+            {user.user_no != null && (
+              <div className="settings-note">当前 @{user.username} · 30 天内仅可修改一次；改名会同步历史帖子与私信身份。</div>
+            )}
+            <button className="settings-action" onClick={() => { setOldPw(""); setNewPw(""); setConfirmPw(""); setPwError(""); setPwSuccess(""); setPwModalOpen(true); }}>
+              <span className="settings-action-icon">🔑</span> 修改密码
+              <span className="settings-action-arrow">›</span>
+            </button>
+            <button className="settings-action settings-action-danger" onClick={logout}>
+              <span className="settings-action-icon">🚪</span> 退出登录
+              <span className="settings-action-arrow">›</span>
+            </button>
+          </>
+        ) : (
+          <div className="settings-empty">登录后可管理账号选项</div>
+        )}
+      </div>
+
       <p className="settings-footer">STGBLOG 设置即时生效，并在本设备记住你的偏好</p>
 
       {/* ─── 修改密码弹窗 ─── */}
@@ -301,6 +346,34 @@ export default function SettingsPage({ onBack, onOpenHonors }) {
               {pwError && <div className="auth-err">{pwError}</div>}
               {pwSuccess && <div style={{ padding: "10px 14px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 8, color: "var(--green)", fontSize: 12, marginBottom: 8 }}>{pwSuccess}</div>}
               <button className="auth-btn" onClick={handleChangePassword} disabled={pwLoading}>{pwLoading ? "修改中..." : "修改密码"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── 修改用户名弹窗 ─── */}
+      {renameOpen && (
+        <div className="auth-overlay" onClick={() => { if (!renameLoading) { setRenameOpen(false); setRenameError(""); setRenameSuccess(""); } }}>
+          <div className="auth-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div className="auth-top">
+              <h3 style={{ fontSize: 15, fontWeight: 700 }}>修改用户名</h3>
+              <button className="auth-close" onClick={() => { if (!renameLoading) { setRenameOpen(false); setRenameError(""); setRenameSuccess(""); } }}>✕</button>
+            </div>
+            <div className="auth-body" style={{ paddingTop: 16 }}>
+              <div className="rename-current">当前用户名：<b>@{user?.username}</b></div>
+              <input className="auth-input" value={newUsername} onChange={(e) => setNewUsername(e.target.value)}
+                placeholder="新用户名（3–20 位）" autoFocus maxLength={20} />
+              <input className="auth-input" type="password" value={renamePw} onChange={(e) => setRenamePw(e.target.value)}
+                placeholder="当前密码" onKeyDown={(e) => { if (e.key === "Enter") handleChangeUsername(); }} />
+              <p className="rename-tip">
+                改名后，你已发布的帖子、评论、私信与群聊身份会同步更新；端到端加密密钥会用当前密码重新包裹。
+                每个账号 30 天内仅可修改一次。
+              </p>
+              {renameError && <div className="auth-err">{renameError}</div>}
+              {renameSuccess && <div className="rename-ok">{renameSuccess}</div>}
+              <button className="auth-btn" onClick={handleChangeUsername} disabled={renameLoading}>
+                {renameLoading ? "修改中..." : "确认修改"}
+              </button>
             </div>
           </div>
         </div>

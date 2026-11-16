@@ -266,6 +266,17 @@ const PAGE_SIZE = 30;
     window.history.pushState({ page: p }, "", `#${p}`);
   }, [user, loadDmList, dmList, setDmTarget, loadGroups, closeGroup]);
 
+  // v14：改名成功后整页刷新，回到设置页而不是首页
+  useEffect(() => {
+    if (!user) return;
+    try {
+      if (sessionStorage.getItem("stgblog_after_rename") === "settings") {
+        sessionStorage.removeItem("stgblog_after_rename");
+        navigate("settings");
+      }
+    } catch {}
+  }, [user, navigate]);
+
   useEffect(() => {
     const handlePopState = (e) => {
       if (e.state?.page) {

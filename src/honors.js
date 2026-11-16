@@ -5,16 +5,16 @@ export const HONORS_KEY = "stgblog_honors";
 export const HONORS_SEEN_KEY = "stgblog_honors_seen";
 
 export const LEVELS = [
-  { level: 1,  xp: 0,    title: "初来者",    stage: "探索阶段", tone: "silver" },
-  { level: 2,  xp: 100,  title: "探索者",    stage: "探索阶段", tone: "silver" },
-  { level: 3,  xp: 250,  title: "参与者",    stage: "参与阶段", tone: "cyan" },
-  { level: 4,  xp: 450,  title: "交流者",    stage: "参与阶段", tone: "cyan" },
-  { level: 5,  xp: 700,  title: "建设者",    stage: "贡献阶段", tone: "emerald" },
-  { level: 6,  xp: 1000, title: "贡献者",    stage: "贡献阶段", tone: "emerald" },
-  { level: 7,  xp: 1400, title: "资深成员",  stage: "资深阶段", tone: "amethyst" },
-  { level: 8,  xp: 1900, title: "社区核心",  stage: "资深阶段", tone: "amethyst" },
-  { level: 9,  xp: 2500, title: "荣誉成员",  stage: "荣誉阶段", tone: "champagne" },
-  { level: 10, xp: 3200, title: "STG 传奇",  stage: "传奇阶段", tone: "gold" },
+  { level: 1,  xp: 0,    title: "初来乍到",  stage: "探索阶段", tone: "silver" },
+  { level: 2,  xp: 100,  title: "渐入佳境",  stage: "探索阶段", tone: "silver" },
+  { level: 3,  xp: 250,  title: "崭露头角",  stage: "参与阶段", tone: "cyan" },
+  { level: 4,  xp: 450,  title: "谈笑风生",  stage: "参与阶段", tone: "cyan" },
+  { level: 5,  xp: 700,  title: "添砖加瓦",  stage: "贡献阶段", tone: "emerald" },
+  { level: 6,  xp: 1000, title: "中流砥柱",  stage: "贡献阶段", tone: "emerald" },
+  { level: 7,  xp: 1400, title: "德才兼备",  stage: "资深阶段", tone: "amethyst" },
+  { level: 8,  xp: 1900, title: "深孚众望",  stage: "资深阶段", tone: "amethyst" },
+  { level: 9,  xp: 2500, title: "实至名归",  stage: "荣誉阶段", tone: "champagne" },
+  { level: 10, xp: 3200, title: "登峰造极",  stage: "传奇阶段", tone: "gold" },
 ];
 
 // 图鉴分：仅用于展示稀有度与收藏进度，绝不计入等级 XP（成就本身不奖励经验值）。

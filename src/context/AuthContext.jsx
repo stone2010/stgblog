@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
-import { supabase, setSessionToken } from "../supabase";
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
+import { supabase, setSessionToken, getSessionToken } from "../supabase";
 import { generateHash, showToast } from "../utils";
 import {
   getOrCreateKeyPair, generateKeyPair, createKeyBackup, restoreKeyBackup, parsePubkeyRecord,
@@ -76,6 +76,12 @@ export function AuthProvider({ children }) {
   });
   // 旧会话 / 会话失效：需要显式引导用户重新登录
   const [reloginRequired, setReloginRequired] = useState(STALE_SESSION_AT_BOOT);
+  // v14：服务端身份对账完成前不跑密钥同步，避免改名后旧用户名查不到 pubkey
+  // 被当成「极老账户」重新生成私钥，直接破坏 E2EE。
+  const [identityReady, setIdentityReady] = useState(() => {
+    try { return !localStorage.getItem("stgblog_session"); } catch { return true; }
+  });
+  const identityBusy = useRef(false);
   const [keyPair, setKeyPair] = useState(null);
   const [followingSet, setFollowingSet] = useState(new Set());
   const [dmPrivacy, setDmPrivacy] = useState("open");
@@ -183,9 +189,93 @@ export function AuthProvider({ children }) {
     } catch {}
   }, [accentColor, styleMode]);
 
+  // v14：登录后/切回标签页时向服务端核对身份。服务端用户名与本地不同，
+  // 说明另一台设备改过名：迁移本地密钥并在刷新后统一换用新名字。
+  const reconcileIdentity = useCallback(async () => {
+    if (identityBusy.current) return;
+    let token = "";
+    try { token = getSessionToken(); } catch { token = ""; }
+    if (!token) { setIdentityReady(true); return; }
+    identityBusy.current = true;
+    try {
+      const { data, error } = await supabase.rpc("auth_identity");
+      if (error) { setIdentityReady(true); return; }
+      if (!data || data.ok === false) {
+        if (data?.reason === "no_session") {
+          setSessionToken(null);
+          try { localStorage.removeItem("stgblog_user"); } catch {}
+          setUser(null);
+          setReloginRequired(true);
+        }
+        setIdentityReady(true);
+        return;
+      }
+      let stored = null;
+      try { stored = JSON.parse(localStorage.getItem("stgblog_user") || "null"); } catch {}
+      const next = {
+        ...(stored || {}),
+        username: data.username,
+        user_no: data.user_no ?? null,
+        hash_id: data.hash_id ?? stored?.hash_id ?? "",
+        bio: data.bio ?? stored?.bio ?? "",
+        is_admin: !!data.is_admin,
+        username_changed_at: data.username_changed_at || null,
+      };
+      if (stored?.username && stored.username !== data.username) {
+        const oldBlob = localStorage.getItem(`stgblog_keys_${stored.username}`);
+        if (!oldBlob) {
+          setSessionToken(null);
+          try {
+            localStorage.removeItem("stgblog_user");
+            localStorage.removeItem("stgblog_session");
+          } catch {}
+          setUser(null);
+          setReloginRequired(true);
+          setIdentityReady(true);
+          showToast(`用户名已改为 ${data.username}，请用新用户名重新登录以同步加密密钥`, 5200);
+          return;
+        }
+        if (!localStorage.getItem(`stgblog_keys_${data.username}`)) {
+          localStorage.setItem(`stgblog_keys_${data.username}`, oldBlob);
+        }
+        localStorage.removeItem(`stgblog_keys_${stored.username}`);
+        localStorage.setItem("stgblog_user", JSON.stringify(next));
+        setUser(next);
+        setIdentityReady(true);
+        setTimeout(() => { try { window.location.reload(); } catch {} }, 120);
+        return;
+      }
+      const changed = !stored
+        || stored.username !== next.username
+        || stored.user_no !== next.user_no
+        || stored.hash_id !== next.hash_id
+        || stored.bio !== next.bio
+        || !!stored.is_admin !== next.is_admin
+        || (stored.username_changed_at || null) !== (next.username_changed_at || null);
+      localStorage.setItem("stgblog_user", JSON.stringify(next));
+      if (changed) setUser(next);
+      setIdentityReady(true);
+    } catch {
+      setIdentityReady(true);
+    } finally {
+      identityBusy.current = false;
+    }
+  }, []);
+
+  useEffect(() => {
+    reconcileIdentity();
+    const onVisible = () => { if (document.visibilityState === "visible") reconcileIdentity(); };
+    window.addEventListener("focus", onVisible);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("focus", onVisible);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [reconcileIdentity]);
+
   // Load key pair when user changes
   useEffect(() => {
-    if (!user) { setKeyPair(null); setFollowingSet(new Set()); return; }
+    if (!user || !identityReady) { if (!user) { setKeyPair(null); setFollowingSet(new Set()); } return; }
     (async () => {
       try {
         // ─── 与服务端权威密钥对账:绝不静默生成错位私钥(否则对方发来的消息将无法解密)───
@@ -227,7 +317,7 @@ export function AuthProvider({ children }) {
         setKeyPair(kp);
       } catch (e) { console.warn("Key pair error:", e); }
     })();
-  }, [user]);
+  }, [user, identityReady]);
 
   // Load follow data
   useEffect(() => {
@@ -286,7 +376,21 @@ export function AuthProvider({ children }) {
       return { error: "密钥同步失败，请重试" };
     }
 
-    const u = { username: userData.username, hash_id: userData.hash_id, bio: userData.bio || "" };
+    // v14：登录后补一次身份信息（user_no / is_admin）；未迁移时静默忽略。
+    let ident = null;
+    try {
+      const { data: id } = await supabase.rpc("auth_identity");
+      if (id && id.ok) ident = id;
+    } catch {}
+    const u = {
+      username: userData.username,
+      hash_id: userData.hash_id,
+      bio: userData.bio || "",
+      user_no: ident?.user_no ?? null,
+      is_admin: !!ident?.is_admin,
+      username_changed_at: ident?.username_changed_at || null,
+    };
+    setIdentityReady(true);
     localStorage.setItem("stgblog_user", JSON.stringify(u));
     setKeyPair(finalKeys); // 显式设置，避免依赖二次 effect 读取产生竞态
     setUser(u);
@@ -309,7 +413,8 @@ export function AuthProvider({ children }) {
       const msg = error.message || "";
       let friendly = "注册失败，请稍后重试";
       if (/用户名已存在/.test(msg)) friendly = "该用户名已被注册，换一个试试";
-      else if (/duplicate key|unique constraint/i.test(msg)) friendly = "注册繁忙，请再试一次";
+      else if (/保留/.test(msg)) friendly = "该用户名不可用，请换一个";
+      else if (/duplicate key|unique constraint/i.test(msg)) friendly = "该用户名已被注册，换一个试试";
       else if (/过于频繁|rate/i.test(msg)) friendly = "操作过于频繁，请稍后再试";
       else if (/用户名格式/.test(msg)) friendly = "用户名格式不合法（3-20 位中英文、数字或下划线）";
       else if (/密码至少/.test(msg)) friendly = "密码至少 6 位";
@@ -317,13 +422,83 @@ export function AuthProvider({ children }) {
       return { error: friendly };
     }
     const userData = data[0];
-    const u = { username: userData.username, hash_id: userData.hash_id, bio: userData.bio || "" };
     setSessionToken(userData.session_token || null);
+    let ident = null;
+    try {
+      const { data: id } = await supabase.rpc("auth_identity");
+      if (id && id.ok) ident = id;
+    } catch {}
+    const u = {
+      username: userData.username,
+      hash_id: userData.hash_id,
+      bio: userData.bio || "",
+      user_no: ident?.user_no ?? null,
+      is_admin: !!ident?.is_admin,
+      username_changed_at: ident?.username_changed_at || null,
+    };
+    setIdentityReady(true);
     localStorage.setItem("stgblog_user", JSON.stringify(u));
     setUser(u);
     setReloginRequired(false);
     return { ok: true };
   }, []);
+
+  // v14：修改用户名。客户端先用当前密码把私钥重新包裹到新用户名下，
+  // 再由服务端一次性级联所有以用户名为文本的引用。
+  const changeUsername = useCallback(async (newName, password) => {
+    if (!user) return { error: "请先登录" };
+    const name = String(newName || "").trim();
+    if (name.length < 3 || name.length > 20 || /[<>&"/;]/.test(name)) {
+      return { error: "用户名需为 3–20 位，且不能包含 < > & / ; 或引号" };
+    }
+    if (name.toLowerCase() === String(user.username || "").toLowerCase()) {
+      return { error: "新用户名不能与当前用户名相同" };
+    }
+    if (!password) return { error: "请输入当前密码" };
+    if (!keyPair?.privateKey || !keyPair?.publicKey) {
+      return { error: "加密密钥尚未同步到本设备，请重新登录后再修改用户名" };
+    }
+    try {
+      const encPriv = await createKeyBackup(name, password, keyPair.privateKey);
+      if (!encPriv) return { error: "密钥备份生成失败，请重试" };
+      const newPubkey = JSON.stringify({ pub: keyPair.publicKey, encPriv });
+      const { data, error } = await supabase.rpc("secure_change_username", {
+        p_new_username: name,
+        p_password: password,
+        p_new_pubkey: newPubkey,
+      });
+      if (error) {
+        const msg = String(error.message || "");
+        if (/function|schema cache|PGRST202|does not exist|Could not find/i.test(msg)) {
+          return { error: "改名功能尚未启用：请先在 Supabase 执行 migrations/v15_identity.sql" };
+        }
+        if (/30 天|冷却|等待/.test(msg)) return { error: msg };
+        if (/密码/.test(msg)) return { error: "当前密码不正确" };
+        if (/已存在|保留|格式/.test(msg)) return { error: msg };
+        if (/会话无效/.test(msg)) return { error: "登录状态已过期，请重新登录" };
+        return { error: msg || "修改失败，请稍后重试" };
+      }
+      if (!data || data.ok === false) return { error: "修改失败，请稍后重试" };
+      const oldName = user.username;
+      const blob = localStorage.getItem(`stgblog_keys_${oldName}`) || JSON.stringify(keyPair);
+      try {
+        localStorage.setItem(`stgblog_keys_${name}`, blob);
+        localStorage.removeItem(`stgblog_keys_${oldName}`);
+      } catch {}
+      const next = {
+        ...user,
+        username: data.username || name,
+        user_no: data.user_no ?? user.user_no ?? null,
+        username_changed_at: new Date().toISOString(),
+      };
+      try { localStorage.setItem("stgblog_user", JSON.stringify(next)); } catch {}
+      setUser(next);
+      setIdentityReady(true);
+      return { ok: true, username: next.username };
+    } catch (e) {
+      return { error: String(e?.message || "网络错误，请稍后重试") };
+    }
+  }, [user, keyPair]);
 
   const logout = useCallback(() => {
     try { supabase.rpc("logout").catch(() => {}); } catch {}
@@ -410,10 +585,11 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       user, keyPair, followingSet, dmPrivacy, dmKey, reloginRequired, setReloginRequired,
+      identityReady,
       colorMode, setColorMode, glassMode, setGlassMode, fontSize, setFontSize, accentColor, setAccentColor,
       styleMode, setStyleMode,
       paletteMode, setPaletteMode,
-      login, register, logout, updateBio, follow, unfollow,
+      login, register, changeUsername, logout, updateBio, follow, unfollow,
       updateDmPrivacy, getDmKey,
     }}>
       {children}

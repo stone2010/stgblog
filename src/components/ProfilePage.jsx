@@ -39,11 +39,12 @@ export default function ProfilePage({ posts, onAuthOpen, onSelectPost, onLike, o
   );
 
   return (
-    <>
+    <div className="profile-page">
       {/* 第一级：等级 / 认证 / 头像背景 / 5 枚徽章集中在这里；
           详细的经验、成就、榜单、认证全部收进荣誉中心的滑动框，避免两套体系堆叠。 */}
       <ProfileShowcase
         username={user.username}
+        userNo={user.user_no}
         isMe
         bio={user.bio}
         onPickBadges={onOpenHonors}
@@ -99,6 +100,6 @@ export default function ProfilePage({ posts, onAuthOpen, onSelectPost, onLike, o
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

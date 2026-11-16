@@ -14,7 +14,7 @@ import ImageCropModal from "./ImageCropModal";
 // 第一级入口：个人主页。把「等级 / 认证 / 头像背景 / 5 枚徽章」集中在一个专属区块，
 // 荣誉中心内部再分级承载详细内容，避免两套体系互相堆叠。
 export default function ProfileShowcase({
-  username, isMe = false, bio = "", stats = null, actions = null, onPickBadges,
+  username, userNo = null, isMe = false, bio = "", stats = null, actions = null, onPickBadges,
 }) {
   const { user } = useAuth();
   const honors = useHonors();
@@ -103,7 +103,10 @@ export default function ProfileShowcase({
             <IdentityMarks identity={identity} size={16} />
             <LevelChip level={level} compact />
           </div>
-          <div className="profile-handle">@{username}</div>
+          <div className="profile-handle">
+            @{username}
+            {userNo != null && <span className="profile-uid">ID {userNo}</span>}
+          </div>
           <div className="profile-bio">{bio || "STGBLOG 用户 · 加密社交"}</div>
           {stats}
           {actions}

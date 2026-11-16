@@ -13,7 +13,7 @@ function fmt(s) {
 }
 
 // 管理员模式：入口在右侧边栏，仅服务端 users.is_admin=true 时才出现。
-// 所有动作都走 SECURITY DEFINER RPC 并重新校验身份；提权仅超管 Stone 可用。
+// 所有动作都走 SECURITY DEFINER RPC 并重新校验身份；提权仅超级管理员（user_no=1）可用。
 //
 // 搜索说明：admin_overview() 只返回「最近 40 篇 / 最近 60 位」用于默认浏览，
 // 因此搜索必须查服务端全表，不能在前端过滤这份快照——否则老用户永远搜不到。
@@ -185,16 +185,16 @@ export default function AdminPanel({ onBack }) {
                   <b>{u.username}</b>
                   {u.is_admin && <IdentityMark kind="admin" size={14} />}
                   {u.is_banned && <span className="admin-tag red">已封禁</span>}
-                  <small>{fmt(u.created_at)}</small>
+                  <small>{u.user_no != null ? `ID ${u.user_no} · ` : ""}{fmt(u.created_at)}</small>
                 </div>
                 <div className="admin-actions">
-                  <button disabled={busy === `b${u.username}` || u.username === "Stone"}
+                  <button disabled={busy === `b${u.username}` || u.user_no === 1}
                     onClick={() => act(`b${u.username}`, "admin_ban_user",
                       { p_username: u.username, p_banned: !u.is_banned, p_reason: "违反社区规范" },
                       u.is_banned ? `确定解封 ${u.username}？` : `确定封禁 ${u.username}？该账号将无法发帖和评论。`)}>
                     {u.is_banned ? "解封账号" : "封禁账号"}
                   </button>
-                  {ov.is_super && u.username !== "Stone" && (
+                  {ov.is_super && u.user_no !== 1 && (
                     <button disabled={busy === `p${u.username}`}
                       onClick={() => act(`p${u.username}`, "admin_promote",
                         { p_username: u.username, p_admin: !u.is_admin },
@@ -225,7 +225,7 @@ export default function AdminPanel({ onBack }) {
           </ul>
         )}
       </div>
-      <p className="growth-foot">权限边界：删帖 / 加精 / 封禁对所有管理员开放；调整管理员权限仅超管 Stone 可用，且不能修改 Stone 自身。</p>
+      <p className="growth-foot">权限边界：删帖 / 加精 / 封禁对所有管理员开放；调整管理员权限仅超级管理员（ID 1）可用，且不能修改超级管理员自身。</p>
     </div>
   );
 }

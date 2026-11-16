@@ -245,7 +245,9 @@ export function avatarColor(name = "") {
 }
 
 export function isAdmin(user) {
-  return !!user && user.username === ADMIN_USERNAME;
+  // v14：优先使用服务端身份（is_admin / 不可变 user_no=1），
+  // 用户名只作为未迁移时的兜底；改名后管理员能力不会丢失。
+  return !!user && (user.is_admin === true || user.user_no === 1 || user.username === ADMIN_USERNAME);
 }
 
 // ─── 全局轻提示（Toast）：复制成功等场景 ───

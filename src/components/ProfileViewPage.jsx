@@ -12,7 +12,16 @@ export default function ProfileViewPage({ viewingProfile, posts: allPosts, onBac
   useEffect(() => {
     if (!viewingProfile) return;
     (async () => {
-      const { data: userData } = await supabase.from("users").select("username, bio, created_at").eq("username", viewingProfile).maybeSingle();
+      // v14：优先带上 user_no；未执行迁移时该列不存在，回退到旧字段，
+      // 个人主页仍能正常打开，只是不显示 ID。
+      let { data: userData, error: userErr } = await supabase
+        .from("users").select("username, bio, created_at, user_no")
+        .eq("username", viewingProfile).maybeSingle();
+      if (userErr) {
+        ({ data: userData } = await supabase
+          .from("users").select("username, bio, created_at")
+          .eq("username", viewingProfile).maybeSingle());
+      }
       const { count: postCount } = await supabase.from("posts").select("*", { count: "exact", head: true }).eq("author", viewingProfile);
       const { count: followers } = await supabase.from("follows").select("*", { count: "exact", head: true }).eq("following", viewingProfile);
       const { count: following } = await supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower", viewingProfile);
@@ -44,13 +53,14 @@ export default function ProfileViewPage({ viewingProfile, posts: allPosts, onBac
   const { user: profileUser, postCount, followers, following, isFollowing } = profileData;
 
   return (
-    <>
+    <div className="profile-page">
       <div className="detail-top">
         <button className="detail-back" onClick={onBack}><Icons.Back /></button>
         <span className="detail-top-title">{viewingProfile}</span>
       </div>
       <ProfileShowcase
         username={viewingProfile}
+        userNo={profileUser.user_no}
         bio={profileUser.bio}
         stats={
           <div className="profile-stats">
@@ -79,6 +89,6 @@ export default function ProfileViewPage({ viewingProfile, posts: allPosts, onBac
           <PostCard key={post.id} post={post} onSelect={onSelectPost} onLike={onLike} onShare={onShare} onRepost={onRepost} onBookmark={onBookmark} />
         ))}
       </div>
-    </>
+    </div>
   );
 }
