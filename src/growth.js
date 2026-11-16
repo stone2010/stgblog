@@ -71,6 +71,9 @@ function loadImage(file) {
   });
 }
 
+// 裁切弹窗需要先拿到 Image 再让用户选区，所以单独导出
+export const loadImageFile = loadImage;
+
 function drawScaled(img, maxSide) {
   const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
   const w = Math.max(1, Math.round(img.naturalWidth * scale));
@@ -92,6 +95,17 @@ function pickMime() {
   } catch { return "image/jpeg"; }
 }
 
+// 把原图上的一块矩形（自然像素坐标）画到目标画布上
+function drawRegion(img, rect, outW, outH) {
+  const cv = document.createElement("canvas");
+  cv.width = outW; cv.height = outH;
+  const ctx = cv.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, outW, outH);
+  ctx.drawImage(img, rect.x, rect.y, rect.w, rect.h, 0, 0, outW, outH);
+  return cv;
+}
+
 export async function compressImage(file, maxBytes = MAX_IMAGE_BYTES, maxSide = 1024) {
   if (!file || !/^image\//.test(file.type || "")) throw new Error("请选择图片文件");
   const img = await loadImage(file);
@@ -110,4 +124,27 @@ export async function compressImage(file, maxBytes = MAX_IMAGE_BYTES, maxSide = 
     side = Math.max(160, Math.round(side * 0.7));
   }
   throw new Error("这张图片压缩后仍超过 200KB，请换一张尺寸更小的图片");
+}
+
+// 裁切后再压缩：rect 为原图自然像素坐标下的一块矩形。
+// 复用同一套「降采样 + 质量二分」策略，保证输出仍 ≤200KB，服务端 274000 字符上限不会被击穿。
+export async function compressCropped(img, rect, maxBytes = MAX_IMAGE_BYTES, maxSide = 1024) {
+  if (!img || !rect || rect.w < 1 || rect.h < 1) throw new Error("裁切区域无效");
+  const mime = pickMime();
+  const ratio = rect.w / rect.h;
+  let long = Math.min(maxSide, Math.max(rect.w, rect.h));
+  let best = null;
+  for (let pass = 0; pass < 4; pass++) {
+    const outW = Math.max(1, Math.round(ratio >= 1 ? long : long * ratio));
+    const outH = Math.max(1, Math.round(ratio >= 1 ? long / ratio : long));
+    const cv = drawRegion(img, rect, outW, outH);
+    for (const q of [0.82, 0.68, 0.52, 0.38, 0.26, 0.16]) {
+      const url = cv.toDataURL(mime, q);
+      const bytes = dataUrlBytes(url);
+      if (!best || bytes < best.bytes) best = { dataUrl: url, bytes };
+      if (bytes <= maxBytes) return { dataUrl: url, bytes, mime, width: outW, height: outH };
+    }
+    long = Math.max(160, Math.round(long * 0.7));
+  }
+  throw new Error("这个区域压缩后仍超过 200KB，请缩小选区或换一张图片");
 }
