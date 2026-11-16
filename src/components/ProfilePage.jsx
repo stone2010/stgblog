@@ -1,11 +1,14 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useHonors } from "../context/HonorsContext";
 import { Icons } from "./Icons";
 import PostCard from "./PostCard";
 import ProfileShowcase from "./ProfileShowcase";
 
 export default function ProfilePage({ posts, onAuthOpen, onSelectPost, onLike, onShare, onRepost, onBookmark, onFollowersPage, onOpenSettings, onOpenHonors }) {
   const { user, followingSet, logout, updateBio } = useAuth();
+  // 荣誉入口只放在个人主页；关闭后入口隐藏，但等级/认证照常显示。
+  const honors = useHonors();
   const [editOpen, setEditOpen] = useState(false);
   const [editBio, setEditBio] = useState("");
   const [profileTab, setProfileTab] = useState("posts");
@@ -56,7 +59,9 @@ export default function ProfilePage({ posts, onAuthOpen, onSelectPost, onLike, o
             <button className="profile-edit" onClick={() => onOpenSettings?.()}>
               <Icons.Settings /> 设置
             </button>
-            {onOpenHonors && <button className="profile-edit" onClick={onOpenHonors}>✦ 荣誉中心</button>}
+            {onOpenHonors && honors.enabled && (
+              <button className="profile-edit profile-edit-honors" onClick={onOpenHonors}>✦ 荣誉中心</button>
+            )}
             <button className="profile-edit" onClick={logout} style={{ color: "var(--red)", borderColor: "rgba(244,33,46,0.3)" }}>退出</button>
           </div>
         }

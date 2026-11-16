@@ -813,7 +813,6 @@ const PAGE_SIZE = 30;
           {user && <button className={`sidebar-btn ${page === "dm" || page === "dm-chat" ? "on" : ""}`} onClick={() => navigate("dm")}><span className="sb-icon"><Icons.Msg /></span>私信{dmUnreadCount > 0 && <span className="sidebar-badge">{dmUnreadCount > 9 ? "9+" : dmUnreadCount}</span>}</button>}
           {user && <button className={`sidebar-btn ${page === "groups" || page === "group-chat" ? "on" : ""}`} onClick={() => navigate("groups")}><span className="sb-icon"><Icons.Group /></span>群组</button>}
           {user && <button className={`sidebar-btn ${page === "profile" || page === "profile-view" || page === "followers" ? "on" : ""}`} onClick={() => navigate("profile")}><span className="sb-icon"><Icons.User /></span>个人</button>}
-          {honors.enabled && <button className={`sidebar-btn ${page === "honors" ? "on" : ""}`} onClick={() => navigate("honors")}><span className="sb-icon">✦</span>荣誉</button>}
           {isServerAdmin && <button className={`sidebar-btn sidebar-btn-admin ${page === "admin" ? "on" : ""}`} onClick={() => navigate("admin")}><span className="sb-icon">🛡</span>管理员模式</button>}
           <button className={`sidebar-btn ${page === "settings" ? "on" : ""}`} onClick={() => navigate("settings")}><span className="sb-icon"><Icons.Settings /></span>设置</button>
           {user ? (

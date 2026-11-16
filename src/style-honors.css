@@ -16,7 +16,7 @@
 .tone-gold     { --tone: #fbbf24; --tone-soft: rgba(251, 191, 36, 0.18); }
 
 /* 稀有度配色：外框渐变 + 文字/进度条主色（取自参考稿） */
-.rarity-common { --b1:#7d8cab; --b2:#56627f; --hi:#c3cce0; --tone:#9aa5bd; --tone-soft:rgba(154,165,189,0.16); }
+.rarity-common { --b1:#6d86bd; --b2:#3f4f78; --hi:#c8d6f2; --tone:#8fa4c9; --tone-soft:rgba(143,164,201,0.16); }
 .rarity-rare   { --b1:#3b82f6; --b2:#1d4fb4; --hi:#9cc2ff; --tone:#4ea1ff; --tone-soft:rgba(78,161,255,0.16); }
 .rarity-epic   { --b1:#f5a30b; --b2:#b45309; --hi:#ffe19a; --tone:#ffb020; --tone-soft:rgba(255,176,32,0.16); }
 .rarity-legend { --b1:#f43f8e; --b2:#9d1457; --hi:#ffb3d3; --tone:#ff4f8b; --tone-soft:rgba(255,79,139,0.16); }
@@ -28,7 +28,11 @@
 }
 
 /* ─── SVG 徽章：外框形状由稀有度决定 ─────────────────────────────────────── */
-.honor-emblem{display:block;flex:none;--em:#fff;--b1:#7d8cab;--b2:#56627f;--hi:#c3cce0}
+.honor-emblem{display:block;flex:none;--em:#fff}
+/* 兜底色用 :where() 包起来 = 特异性为 0，这样 .rarity-* 永远能盖过它。
+   之前这里直接写 --b1/--b2/--hi，且位置在 .rarity-* 之后、特异性相同，
+   导致稀有度配色被整体覆盖 —— 所有徽章都显示成同一个灰蓝，这就是「全是灰色」的真正原因。 */
+:where(.honor-emblem){--b1:#6d86bd;--b2:#3f4f78;--hi:#c8d6f2}
 .honor-emblem .he-a1{fill:var(--b1)}
 .honor-emblem .he-a2{fill:var(--b2)}
 .honor-emblem .he-ah{fill:none;stroke:var(--hi);stroke-opacity:.55;stroke-width:1.5}
@@ -39,11 +43,13 @@
 .honor-emblem .he-ks.he-thin{stroke-width:3}
 .honor-emblem .he-line{fill:none;stroke:var(--b1);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
 /* 未解锁：用主题色派生灰阶，三套主题都保持可读性 */
+/* 未解锁：保留稀有度配色（蓝 / 金 / 粉），只压暗图标与整体亮度。
+   之前把 --b1/--b2/--hi 全部替换成灰色，而图鉴里绝大多数徽章都是未解锁，
+   结果整页一片灰、毫无质感。现在「框的颜色 = 稀有度」始终成立，锁定状态靠明度区分。 */
 .honor-emblem.is-locked{
-  --b1:color-mix(in srgb, var(--text-muted) 22%, var(--card));
-  --b2:color-mix(in srgb, var(--text-muted) 12%, var(--card));
-  --hi:transparent;
-  --em:color-mix(in srgb, var(--text-muted) 52%, var(--card));
+  --em:color-mix(in srgb, var(--text-muted) 44%, var(--card));
+  opacity:.62;
+  filter:saturate(.85);
 }
 .honor-emblem.pop{animation:honorPop .7s cubic-bezier(.3,1.5,.5,1)}
 @keyframes honorPop{0%{transform:scale(.5) rotate(-10deg)}100%{transform:none}}
@@ -68,7 +74,7 @@
 }
 .honor-badge .honor-emblem{display:block;flex:none}
 .honor-badge-xs{padding:0 4px;font-size:10px}
-.honor-badge.is-locked{opacity:0.45;filter:grayscale(1)}
+.honor-badge.is-locked{opacity:0.5;filter:saturate(0.75)}
 
 /* ─── 设置里的总开关 ─── */
 .honors-beta{
@@ -483,4 +489,16 @@
 @media(prefers-reduced-motion:reduce){
   .honor-emblem.pop,.honors-mask,.honors-sheet,.honor-toast{animation:none !important}
   .honors-meter i,.honors-bar i,.honor-progress-fill,.honors-slot{transition:none !important}
+}
+
+/* ─── 荣誉入口：从左侧栏移到个人主页后，需要一点视觉重量 ─────────────────── */
+.profile-edit-honors{
+  color:#f5b93b;
+  border-color:color-mix(in srgb, #f5b93b 40%, transparent);
+  background:color-mix(in srgb, #f5b93b 9%, transparent);
+}
+.profile-edit-honors:hover{
+  color:#ffc94d;
+  border-color:color-mix(in srgb, #f5b93b 62%, transparent);
+  background:color-mix(in srgb, #f5b93b 17%, transparent);
 }

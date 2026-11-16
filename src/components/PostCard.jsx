@@ -5,7 +5,7 @@ import { mdToPlain } from "../md";
 import { useAuth } from "../context/AuthContext";
 import { useHonors } from "../context/HonorsContext";
 import { useGrowth } from "../context/GrowthContext";
-import { LevelChip, HonorBadge } from "./HonorBadge";
+import { LevelChip } from "./HonorBadge";
 import { IdentityMarks } from "./IdentityMark";
 
 function RenderContent({ content, onHashtag, onMention }) {
@@ -37,9 +37,7 @@ const PostCard = memo(function PostCard({ post, index = 0, editorial = false, on
   // 荣誉标识是纯增量：只有开启且服务端就绪、且该作者也主动加入时才渲染
   const authorGrowth = honors.enabled && honors.ready === true
     ? honors.growthOf(displayPost.author) : null;
-  const showAuthorHonors = !!(authorGrowth && authorGrowth.honors_enabled);
-  const authorBadges = showAuthorHonors ? honors.badgesOf(displayPost.author) : [];
-  // Lv 与认证标识对每个人都显示；身份只取服务端公开视图，前端不自行推断。
+  // 列表里作者名后只保留 Lv 与认证标识：勋章留给个人主页/荣誉中心，避免每条帖子都堆一排图标。
   const identity = growth.identityOf(displayPost.author) || authorGrowth || {};
   const authorLevel = Number(identity.level || 0) || 1;
   const authorAvatar = growth.imagesOf(displayPost.author)?.avatar_url || "";
@@ -88,7 +86,6 @@ const PostCard = memo(function PostCard({ post, index = 0, editorial = false, on
           <span className="post-time">{formatTimeShort(displayPost.created_at)}</span>
           <LevelChip level={authorLevel} compact />
           <IdentityMarks identity={identity} size={13} />
-          {showAuthorHonors && authorBadges.map((c) => <HonorBadge key={c} code={c} size="xs" />)}
           {displayPost.is_announcement && <span className="post-ann-badge">📢 公告</span>}
           {displayPost.is_featured && <span className="post-featured-tag">✦ 精华</span>}
           {displayPost.pinned && <span className="post-pin-icon"><Icons.Pin /></span>}
