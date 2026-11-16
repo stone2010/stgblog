@@ -184,7 +184,15 @@ export default function AdminPanel({ onBack }) {
       p_username: picked.username, p_xp: xp, p_reason: reason.trim(),
     });
     setGrantBusy(false);
-    if (res.error) { setGrantMsg("❌ " + res.error); showToast(res.error, 3400); return; }
+    if (res.error) {
+      // 前端已上线但服务端还没执行 v14 迁移时，PostgREST 只会给一句 PGRST202，
+      // 直接透出去没人看得懂，这里换成可执行的下一步。
+      const missing = /schema cache|PGRST202|Could not find|does not exist/i.test(res.error);
+      const msg = missing
+        ? "服务端还没有 admin_grant_xp，请先在 Supabase SQL Editor 执行 migrations/v14_admin_xp.sql"
+        : res.error;
+      setGrantMsg("❌ " + msg); showToast(msg, 4000); return;
+    }
     const d = res.data || {};
     const lv0 = levelOf(Number(d.before || 0)).level;
     const lv1 = Number(d.level || lv0);
