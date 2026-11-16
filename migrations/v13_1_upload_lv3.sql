@@ -91,13 +91,25 @@ BEGIN
 END;
 $fn$;
 
--- ─── 3. 自检：三列应分别为 true / true / false ──────────────────────────────
-SELECT p.proname,
-       (p.prosrc LIKE '%g.level >= 3%') AS state_lv3,
-       (p.prosrc LIKE '%g.level < 3%')  AS image_lv3,
-       (p.prosrc LIKE '%Lv.4%')         AS still_has_old
-  FROM pg_proc p
-  JOIN pg_namespace n ON n.oid = p.pronamespace
- WHERE n.nspname = 'public'
-   AND p.proname IN ('growth_state', 'growth_set_image')
- ORDER BY p.proname;
+-- ─── 3. 自检：只看第一列 verdict，✅ 就代表两个函数都改对了 ─────────────────
+-- 说明：两个函数各管一件事，所以「同一行两个 true」永远不会出现，这是正常的。
+--   growth_state      → 只含 g.level >= 3（决定界面上传按钮是否出现）
+--   growth_set_image  → 只含 g.level < 3 （决定服务端是否放行写库）
+WITH f AS (
+  SELECT p.proname, p.prosrc
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public'
+     AND p.proname IN ('growth_state', 'growth_set_image')
+), v AS (
+  SELECT bool_or(proname = 'growth_state'     AND prosrc LIKE '%g.level >= 3%') AS ui_ok,
+         bool_or(proname = 'growth_set_image' AND prosrc LIKE '%g.level < 3%')  AS guard_ok,
+         bool_or(prosrc LIKE '%Lv.4%')                                          AS old_left
+    FROM f
+)
+SELECT CASE WHEN ui_ok AND guard_ok AND NOT old_left
+            THEN '✅ 已生效：Lv.3 及以上可上传头像与主页背景'
+            ELSE '❌ 未完全生效，请重跑本文件'
+       END AS verdict,
+       ui_ok, guard_ok, old_left
+  FROM v;
