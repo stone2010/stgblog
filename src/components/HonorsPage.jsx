@@ -359,7 +359,9 @@ export default function HonorsPage({ onBack }) {
                         {r.reversed && <em> · 关联内容已删除</em>}
                       </span>
                       <span className="honors-log-time">{fmtTime(r.created_at)}</span>
-                      <span className="honors-log-xp">+{Number(r.amount || 0)} XP</span>
+                      <span className={`honors-log-xp${Number(r.amount) < 0 ? " minus" : ""}`}>
+                        {Number(r.amount) > 0 ? "+" : ""}{Number(r.amount || 0)} XP
+                      </span>
                     </li>
                   ))}
                 </ul>

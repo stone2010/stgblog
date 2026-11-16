@@ -146,11 +146,12 @@ export function GrowthProvider({ children }) {
 
   const adminAct = useCallback(async (fn, args) => {
     try {
-      const { error: e } = await supabase.rpc(fn, args);
+      const { data, error: e } = await supabase.rpc(fn, args);
       if (e) return { error: String(e.message || "操作失败") };
       await adminLoad();
       await refresh();
-      return { ok: true };
+      // 把 RPC 返回值透出：加精要知道发了多少 XP，发经验要知道发放后的等级
+      return { ok: true, data: data || null };
     } catch (e) { return { error: String(e?.message || "操作失败") }; }
   }, [adminLoad, refresh]);
 

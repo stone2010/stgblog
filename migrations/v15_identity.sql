@@ -5,6 +5,8 @@
 -- 【执行前必读】
 -- 1. 先备份（Dashboard → Database → Backups）。本脚本幂等，可重复执行。
 -- 2. 依赖 v11_security.sql / v12_honors.sql / v13_growth.sql。
+--    如果已经执行过 v14_admin_xp.sql，请在本文件【之后】保持 v15 覆盖；
+--    如果之后重跑了 v14_admin_xp.sql，记得再跑一次本文件。
 -- 3. 编号规则：排除 SYSTEM，Stone 显式为 1，其余按 created_at, id 顺序；
 --    新用户从序列取下一个号。SYSTEM 的 user_no 为 NULL。
 -- 4. 改名会同步更新 posts/comments/follows/notifications/DM/群聊/点赞/
@@ -13,6 +15,8 @@
 -- 5. E2EE：users.pubkey 的 encPriv 盐包含用户名，改名时必须由客户端用
 --    当前密码重新包裹，并把完整 {pub,encPriv} 传给本脚本的 RPC。
 -- 6. 执行后前端才会显示 ID / 改名入口；未执行时前端自动降级。
+-- 7. 本文件同时把 v14_admin_xp 的超管判定（admin_grant_xp / admin_overview）
+--    从用户名 Stone 改为不可变的 user_no=1，并保留 level/total_xp/detail 字段。
 -- ============================================================================
 
 BEGIN;
@@ -326,16 +330,92 @@ BEGIN
         'is_featured', COALESCE(is_featured, false), 'is_announcement', COALESCE(is_announcement,false))
         ORDER BY created_at DESC)
       FROM (SELECT * FROM public.posts ORDER BY created_at DESC LIMIT 40) p), '[]'::jsonb),
+    -- 保留 v14_admin_xp 的 level/total_xp，并补上 user_no 供 ID 展示与超管判定
     'users', COALESCE((
-      SELECT jsonb_agg(jsonb_build_object('username', username, 'user_no', user_no,
-        'is_admin', is_admin, 'is_banned', is_banned, 'created_at', created_at)
-        ORDER BY created_at DESC)
-      FROM (SELECT * FROM public.users ORDER BY created_at DESC LIMIT 60) q), '[]'::jsonb),
+      SELECT jsonb_agg(jsonb_build_object(
+        'username', q.username, 'user_no', q.user_no,
+        'is_admin', q.is_admin, 'is_banned', q.is_banned,
+        'created_at', q.created_at,
+        'level', COALESCE(q.level, 1), 'total_xp', COALESCE(q.total_xp, 0))
+        ORDER BY q.created_at DESC)
+      FROM (SELECT u.id, u.username, u.user_no, u.is_admin, u.is_banned, u.created_at,
+                   g.level, g.total_xp
+              FROM public.users u
+              LEFT JOIN public.user_growth g ON g.user_id = u.id
+             ORDER BY u.created_at DESC LIMIT 60) q), '[]'::jsonb),
     'log', COALESCE((
       SELECT jsonb_agg(jsonb_build_object('actor', actor, 'action', action,
-        'target_id', target_id, 'created_at', created_at) ORDER BY created_at DESC)
+        'target_id', target_id, 'created_at', created_at, 'detail', detail)
+        ORDER BY created_at DESC)
       FROM (SELECT * FROM public.admin_actions ORDER BY created_at DESC LIMIT 30) l), '[]'::jsonb)
   );
+END;
+$fn$;
+
+-- 超管经验发放：在 v14_admin_xp.sql 之后覆盖一次，把 actor = 'Stone' 改成 user_no=1。
+CREATE OR REPLACE FUNCTION public.admin_grant_xp(
+  p_username TEXT, p_xp INT, p_reason TEXT
+) RETURNS JSONB
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, extensions, pg_temp
+AS $fn$
+DECLARE
+  v_actor TEXT; v_actor_no BIGINT; v_uid BIGINT; v_uname TEXT;
+  v_before BIGINT := 0; v_after BIGINT := 0;
+  v_level INT; v_enabled BOOLEAN; v_reason TEXT;
+BEGIN
+  v_actor := public.growth_assert_admin();
+  SELECT user_no INTO v_actor_no FROM public.users WHERE username = v_actor;
+  IF COALESCE(v_actor_no, 0) <> 1 THEN
+    RAISE EXCEPTION '只有超级管理员（ID 1）可以发放经验';
+  END IF;
+
+  v_uname := btrim(COALESCE(p_username, ''));
+  IF v_uname = '' THEN RAISE EXCEPTION '请先选择要发放经验的用户'; END IF;
+  IF p_xp IS NULL OR p_xp = 0 THEN RAISE EXCEPTION '经验值必须是非零整数'; END IF;
+  IF p_xp > 2000 OR p_xp < -2000 THEN RAISE EXCEPTION '单次调整范围是 -2000 ~ 2000 XP'; END IF;
+
+  v_reason := btrim(left(COALESCE(p_reason, ''), 80));
+  IF v_reason = '' THEN RAISE EXCEPTION '请填写发放理由，这条记录会写进管理员日志'; END IF;
+
+  SELECT id INTO v_uid FROM public.users WHERE username = v_uname;
+  IF v_uid IS NULL THEN RAISE EXCEPTION '用户不存在：%', v_uname; END IF;
+
+  INSERT INTO public.user_growth(user_id, username, joined_at)
+  SELECT u.id, u.username, COALESCE(u.created_at, now())
+    FROM public.users u WHERE u.id = v_uid
+  ON CONFLICT (user_id) DO NOTHING;
+
+  SELECT total_xp, honors_enabled INTO v_before, v_enabled
+    FROM public.user_growth WHERE user_id = v_uid;
+
+  IF v_enabled IS NOT TRUE THEN
+    RAISE EXCEPTION '对方未开启 STG 荣誉体系，经验会被忽略。请对方在「设置 → 功能」中开启（或先登录一次本站）';
+  END IF;
+
+  v_after := v_before + p_xp;
+  IF v_after < 0 THEN
+    RAISE EXCEPTION '扣除后经验不能为负（对方当前 % XP）', v_before;
+  END IF;
+  v_level := public.honors_level_for_xp(v_after);
+
+  INSERT INTO public.xp_transactions(user_id, amount, event_type, source_id, idempotency_key)
+  VALUES (v_uid, p_xp, 'admin_grant', NULL, 'grant:' || gen_random_uuid()::text);
+
+  UPDATE public.user_growth
+     SET total_xp = v_after, level = v_level, updated_at = now()
+   WHERE user_id = v_uid;
+
+  PERFORM public.honors_check_achievements(v_uid);
+
+  INSERT INTO public.admin_actions(actor, action, target_type, target_id, detail)
+  VALUES (v_actor, 'grant_xp', 'user', v_uname,
+          jsonb_build_object('xp', p_xp, 'reason', v_reason,
+                             'before', v_before, 'after', v_after, 'level', v_level));
+
+  RETURN jsonb_build_object(
+    'ok', true, 'username', v_uname, 'xp', p_xp,
+    'before', v_before, 'total_xp', v_after, 'level', v_level, 'reason', v_reason);
 END;
 $fn$;
 
@@ -387,6 +467,7 @@ $fn$;
 GRANT EXECUTE ON FUNCTION public.admin_overview() TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_ban_user(TEXT, BOOLEAN, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_promote(TEXT, BOOLEAN) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_grant_xp(TEXT, INT, TEXT) TO anon, authenticated;
 
 -- 通知 PostgREST 刷新 schema cache，避免新列/新 RPC 短暂 404
 NOTIFY pgrst, 'reload schema';
