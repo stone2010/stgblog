@@ -81,14 +81,14 @@ function AchievementRow({ a, got, hidden, featured, progress, date, holders, com
   );
 }
 
-export default function HonorsPage({ onBack }) {
+export default function HonorsPage({ onBack, initialTab }) {
   const { user } = useAuth();
   const {
     enabled, ready, loading, myGrowth, profiles, refresh,
     unlocked, unlockedCodes, featuredCodes, holderCounts, xpLog, setFeatured,
   } = useHonors();
   const growth = useGrowth();
-  const [tab, setTab] = useState("badges");
+  const [tab, setTab] = useState(() => (initialTab === "verify" || initialTab === "growth" || initialTab === "log" || initialTab === "board") ? initialTab : "badges");
   const [flt, setFlt] = useState("all");
   const [sheet, setSheet] = useState(null); // null | {type:"detail",code} | {type:"picker"}
   const [featErr, setFeatErr] = useState("");

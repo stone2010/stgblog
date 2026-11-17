@@ -10,6 +10,7 @@ import { useDM } from "./hooks/useDM";
 import { useGroupChat } from "./hooks/useGroupChat";
 import { Icons } from "./components/Icons";
 import AuthModal from "./components/AuthModal";
+import PostGateModal from "./components/PostGateModal";
 import NotificationPage from "./components/NotificationPage";
 import HomeFeed from "./components/HomeFeed";
 import QuestionsPage from "./components/QuestionsPage";
@@ -56,6 +57,11 @@ function notifMeta(type) {
   return m[type] || ["🔔", "新通知"];
 }
 
+// 服务端 growth_quota_guard 抛出的额度类错误：交给发帖门禁弹窗做引导
+function isQuotaError(msg) {
+  return /每日最多|额度|未认证账号/.test(String(msg || ""));
+}
+
 function AppInner() {
   const { user, followingSet, keyPair, styleMode,
     reloginRequired, setReloginRequired } = useAuth();
@@ -80,6 +86,11 @@ function AppInner() {
 
   // Modals
   const [authOpen, setAuthOpen] = useState(false);
+  // 发帖门禁：未认证引导 / 额度拦截（纯前端提示，权威判定仍在服务端）
+  const [postGate, setPostGate] = useState(null); // null | { mode:"guide"|"quota" }
+  const [honorsTab, setHonorsTab] = useState("badges");
+  const guideSkippedRef = useRef(false);          // 本次会话内「跳过」后不再重复引导
+  const pendingPostRef = useRef(null);            // 引导跳过后续执行的发帖动作
 
   // 会话失效（旧会话 / RLS 拒绝写操作）：显式引导重新登录，不再静默失败
   useEffect(() => {
@@ -266,6 +277,32 @@ const PAGE_SIZE = 30;
     window.history.pushState({ page: p }, "", `#${p}`);
   }, [user, loadDmList, dmList, setDmTarget, loadGroups, closeGroup]);
 
+  // 额度拦截：先拉取最新 growth 状态再弹窗，保证「已发 X/Y」数字准确
+  const openQuotaGate = useCallback(async () => {
+    let st = growth.state;
+    try {
+      const { data } = await supabase.rpc("growth_state");
+      if (data?.ok) st = data;
+    } catch {}
+    growth.refresh?.();
+    setPostGate({ mode: "quota", quota: st?.quota, pow_seconds: st?.pow_seconds });
+  }, [growth]);
+
+  // 发帖门禁：去真人认证 / 跳过引导 / 关闭额度提示
+  const openVerifyFromGate = useCallback(() => {
+    setPostGate(null);
+    setHonorsTab("verify");
+    navigate("honors");
+  }, [navigate]);
+  const skipGateAndContinue = useCallback(() => {
+    guideSkippedRef.current = true;
+    setPostGate(null);
+    const pending = pendingPostRef.current;
+    pendingPostRef.current = null;
+    if (pending) pending();
+  }, []);
+  const closeGate = useCallback(() => setPostGate(null), []);
+
   // v14：改名成功后整页刷新，回到设置页而不是首页
   useEffect(() => {
     if (!user) return;
@@ -391,12 +428,19 @@ const PAGE_SIZE = 30;
   }, [user, dmUnreadCount, unreadCount, navigate]);
 
   // ─── Handlers ───
-  const handlePublish = useCallback(async () => {
+  const handlePublish = useCallback(async (skipGate = false) => {
     if (!user) { setAuthOpen(true); return; }
     if (publishing) return;
     const content = composeText.trim();
     if (!content) return;
     if (content.length > 5000) { alert("内容不能超过5000字"); return; }
+    // 未认证引导：仅当成长体系已启用、明确未认证、非管理员、本次会话未跳过时拦截
+    if (!skipGate && growth.ready === true && growth.state &&
+        !growth.state.is_verified && !growth.state.is_admin && !guideSkippedRef.current) {
+      pendingPostRef.current = () => handlePublish(true);
+      setPostGate({ mode: "guide", quota: growth.state.quota, pow_seconds: growth.state.pow_seconds });
+      return;
+    }
     setPublishing(true);
     try {
       let post = null;
@@ -462,11 +506,15 @@ const PAGE_SIZE = 30;
       }
     } catch (e) {
       console.error("发帖失败:", e);
-      alert(quotaMessage(e?.message || "网络错误"));
+      if (isQuotaError(e?.message)) {
+        openQuotaGate();
+      } else {
+        alert(quotaMessage(e?.message || "网络错误"));
+      }
     } finally {
       setPublishing(false);
     }
-  }, [user, composeText, publishing, composeAnnouncement]);
+  }, [user, composeText, publishing, composeAnnouncement, growth.ready, growth.state, openQuotaGate]);
 
   // ─── 提问站:发布问题 ───
   const handleAsk = useCallback(async (question) => {
@@ -481,10 +529,12 @@ const PAGE_SIZE = 30;
       setPosts((prev) => [data, ...prev]);
       showToast("✅ 提问成功，等待大家回答");
       notifyHonorsActivity();
+    } else if (isQuotaError(error?.message)) {
+      openQuotaGate();
     } else {
       showToast(quotaMessage(error?.message || "未知错误"), 3600);
     }
-  }, [user]);
+  }, [user, openQuotaGate]);
 
   // ─── 长文站:发布长文(Markdown 或普通文本)───
   const handlePublishLongForm = useCallback(async ({ title, content, isMd }) => {
@@ -499,10 +549,12 @@ const PAGE_SIZE = 30;
       setPosts((prev) => [data, ...prev]);
       showToast("✅ 长文已发布");
       notifyHonorsActivity();
+    } else if (isQuotaError(error?.message)) {
+      openQuotaGate();
     } else {
       showToast(quotaMessage(error?.message || "未知错误"), 3600);
     }
-  }, [user]);
+  }, [user, openQuotaGate]);
 
   // ─── 键盘快捷键（Ctrl+Enter 发布 · Ctrl+K 搜索 · Esc 关闭弹层）───
   // 注意：必须定义在 handlePublish 之后，否则依赖数组会在渲染期触发 TDZ 错误
@@ -531,6 +583,7 @@ const PAGE_SIZE = 30;
         setCreateGroupOpen(false);
         setJoinGroupOpen(false);
         setGroupSettingsOpen(false);
+        setPostGate(null);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -742,7 +795,7 @@ const PAGE_SIZE = 30;
     );
     if (page === "profile-view" && viewingProfile) return <ProfileViewPage viewingProfile={viewingProfile} posts={posts} onBack={() => { setViewingProfile(null); setPage("home"); setMobileTab("home"); }} onSelectPost={openPostDetail} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onOpenDm={(u) => { openDm(u); setPage("dm-chat"); }} />;
     if (page === "admin") return <AdminPanel onBack={() => navigate(user ? "profile" : "home")} />;
-    if (page === "honors") return <HonorsPage onBack={() => navigate(user ? "profile" : "home")} />;
+    if (page === "honors") return <HonorsPage initialTab={honorsTab} onBack={() => navigate(user ? "profile" : "home")} />;
     if (page === "settings") return <SettingsPage onBack={() => { if (user) { navigate("profile"); } else { navigate("home"); } }} onOpenHonors={() => navigate("honors")} />;
     if (page === "profile") return <ProfilePage posts={posts} onAuthOpen={() => setAuthOpen(true)} onSelectPost={openPostDetail} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onFollowersPage={(type) => setFollowersPage({ username: user?.username, type })} onOpenUser={openUserClick} onOpenSettings={() => navigate("settings")} onOpenHonors={() => navigate("honors")} />;
     if (page === "questions") return <QuestionsPage posts={posts} postsLoading={postsLoading} onAsk={handleAsk} onSelectPost={openPostDetail} onAuthOpen={() => setAuthOpen(true)} onUserClick={openUserClick} />;
@@ -857,6 +910,13 @@ const PAGE_SIZE = 30;
       )}
 
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
+      <PostGateModal
+        mode={postGate?.mode}
+        quota={{ ...(postGate?.quota || {}), pow_seconds: postGate?.pow_seconds }}
+        onVerify={openVerifyFromGate}
+        onSkip={skipGateAndContinue}
+        onClose={closeGate}
+      />
       <AnnouncementModal user={user} />
       <HonorToast />
       {newDmOpen && <NewDmModal onClose={() => setNewDmOpen(false)} onStartDm={(target) => { setNewDmOpen(false); openDm(target); setPage("dm-chat"); }} />}
