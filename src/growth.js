@@ -2,13 +2,17 @@
 // 权威判定全在 Postgres（migrations/v13_growth.sql）；这里只做展示与本地压缩。
 
 export const MAX_FEATURED = 5;          // 个人主页徽章展示位
-export const UPLOAD_LEVEL = 3;          // 头像 / 背景图解锁等级
+// v16：头像 / 背景图不再按等级解锁，改为「完成真人认证」；精华帖作者与管理员免认证。
+export const UPLOAD_LEVEL = 3;          // 仅用于旧文案兜底，新界面不再展示等级门槛
 export const MAX_IMAGE_BYTES = 200 * 1024;
 export const VERIFY_GOAL = 3600;        // 累计在线计算 1 小时
 export const POW_ZEROS = 4;             // Hashcash 凭证前导 0 个数
 export const POW_BATCH_MS = 30000;      // 每 30 秒向服务端结算一次
 export const BASE_POST_CAP = 3;
 export const BASE_COMMENT_CAP = 5;
+export const MAX_POST_IMAGES = 3;       // 单篇帖子最多 3 张图
+export const IMAGE_BATCH_SECONDS = 600; // 每跑满 10 分钟 hash
+export const IMAGE_BATCH_COUNT = 3;     // 得 3 张图片额度
 
 // 精华帖奖励：与 migrations/v14_admin_xp.sql 里的 c_featured_xp 必须一致。
 // 普通主题 8 XP，精华一次给 50 XP —— 一次加精约等于六篇普通主题。
@@ -21,7 +25,7 @@ export const GRANT_PRESETS = [10, 30, 50, 100, 200, 500];
 export const LEVEL_RIGHTS = [
   { level: 1, right: "参与主题与回复" },
   { level: 2, right: "解锁成长记录明细" },
-  { level: 3, right: "自定义头像与主页背景" },
+  { level: 3, right: "真人认证后自定义头像与主页背景" },
   { level: 4, right: "登上社区荣誉榜" },
   { level: 5, right: "5 枚徽章展示位全开" },
   { level: 6, right: "专属等级称号" },
@@ -52,7 +56,10 @@ export function quotaMessage(msg) {
   if (/封禁/.test(s)) return "账号已被封禁，暂时无法发布内容。如有疑问请联系管理员。";
   if (/每日最多发 3 篇/.test(s)) return "今日 3 篇主题的免费额度已用完。完成真人认证，或让计算任务多跑一会儿获得反垃圾凭证，即可继续发布。";
   if (/每日最多发 5 条/.test(s)) return "今日 5 条评论的免费额度已用完。完成真人认证，或用计算凭证兑换额外额度后即可继续。";
-  if (/Lv\.\d|需要达到/.test(s)) return "自定义头像与主页背景需要达到 Lv.3，继续签到和发帖就能升级。";
+  if (/Lv\.\d|需要达到|真人认证才能自定义头像/.test(s)) return "完成真人认证后即可自定义头像与主页背景（精华帖作者与管理员不受限制）。";
+  if (/图片额度不足/.test(s)) return s;
+  if (/每篇帖子最多 3 张图片/.test(s)) return "每篇帖子最多 3 张图片。";
+  if (/帖子图片格式或体积/.test(s)) return "图片需为压缩后的 WebP/JPEG，每张不超过 200KB。";
   return s || "网络错误，请稍后重试";
 }
 

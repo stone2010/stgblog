@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { supabase } from "../supabase";
 import { encryptMessage, decryptMessage, parsePubkeyRecord } from "../crypto";
+import { cacheChatImage, getChatImage } from "../utils/chatImageCache";
 
 // localStorage helpers for DM conversation cache
 const CACHE_KEY = (username) => `stgblog_dm_conversations_${username}`;
@@ -196,16 +197,43 @@ export function useDM(user, keyPair) {
     return data?.pubkey || null;
   }, []);
 
+  // 私信图片：优先用消息里的云端数据（可能是加密 JSON），云端已清除则回落到本地 IndexedDB 缓存。
+  const hydrateImage = useCallback(async (msg) => {
+    let url = null;
+    if (msg.image_data) {
+      try {
+        const raw = String(msg.image_data);
+        if (raw.startsWith("{")) {
+          const obj = JSON.parse(raw);
+          if (obj?.v === 1 && obj.ciphertext && obj.iv && keyPair?.privateKey) {
+            const peerStr = await getPeerPubKeyStr(user, msg, msg.sender === user?.username ? msg.receiver : msg.sender);
+            if (peerStr) {
+              const plain = await decryptMessage(obj.ciphertext, obj.iv, keyPair.privateKey, JSON.parse(peerStr));
+              if (String(plain).startsWith("data:image/")) url = String(plain);
+            }
+          }
+        } else if (raw.startsWith("data:image/")) {
+          url = raw;
+        }
+      } catch { /* 密文损坏或密钥不匹配 → 尝试本地缓存 */ }
+    }
+    if (!url) url = await getChatImage(msg.id);
+    return { ...msg, image_url: url || null };
+  }, [user, keyPair]);
+
   const decryptMessages = useCallback(async (data, otherUser, { forceRefreshKeys } = {}) => {
     if (!keyPair?.privateKey) {
-      return data.map((msg) => ({ ...msg, decrypted: false }));
+      return Promise.all(data.map(async (msg) => {
+        const out = { ...msg, decrypted: false };
+        return (msg.image_data || /^\[图片/.test(msg.content || "")) ? hydrateImage(out) : out;
+      }));
     }
 
     if (forceRefreshKeys) latestPubKeyRef.current = {};
 
     const otherUserPubKeyStr = await fetchPubKey(otherUser);
 
-    const decrypted = await Promise.all(data.map(async (msg) => {
+    const plainDecrypted = await Promise.all(data.map(async (msg) => {
       if (msg.encrypted && msg.ciphertext && msg.iv) {
         if (msg.decrypted && msg.content) return msg;
         for (let attempt = 0; attempt < 2; attempt++) {
@@ -231,8 +259,11 @@ export function useDM(user, keyPair) {
       }
       return { ...msg, decrypted: false };
     }));
+    const decrypted = await Promise.all(plainDecrypted.map((m) =>
+      (m.image_data || /^\[图片/.test(m.content || "")) ? hydrateImage(m) : m
+    ));
     return decrypted;
-  }, [user, keyPair, fetchPubKey]);
+  }, [user, keyPair, fetchPubKey, hydrateImage]);
 
   const loadDmMessages = useCallback(async (otherUser) => {
     if (!user || !otherUser) return;
@@ -340,6 +371,57 @@ export function useDM(user, keyPair) {
     setDmSending(false);
     return !error;
   }, [user, dmTarget, keyPair, loadDmList]);
+
+  // ─── 私信图片：可选 E2EE 密文入云，对方查看后写本地缓存并清空云端 ──────────
+  const sendDmImage = useCallback(async (dataUrl) => {
+    if (!user || !dmTarget || !String(dataUrl || "").startsWith("data:image/")) return false;
+    setDmSending(true);
+    try {
+      const { data: recipient } = await supabase.from("users").select("pubkey").eq("username", dmTarget).maybeSingle();
+      const record = parsePubkeyRecord(recipient?.pubkey);
+      let imageData = String(dataUrl);
+      let content = "[图片]";
+      if (record?.pub && keyPair?.privateKey) {
+        try {
+          const { ciphertext, iv } = await encryptMessage(String(dataUrl), keyPair.privateKey, record.pub);
+          imageData = JSON.stringify({ v: 1, ciphertext, iv });
+          content = "[图片·加密]";
+        } catch (e) {
+          console.warn("Image encryption failed, sending compressed image as-is:", e);
+        }
+      }
+      const { data, error } = await supabase.from("dm_messages").insert([{
+        sender: user.username, receiver: dmTarget,
+        content, image_data: imageData,
+        ciphertext: null, iv: null, encrypted: false,
+      }]).select("*").single();
+      if (error) throw error;
+      // 发送方自己也存一份本地缓存：对方看过把云端删掉后，自己仍能查看
+      await cacheChatImage(data.id, dataUrl);
+      setDmMessages((prev) => [...prev, { ...data, image_url: dataUrl, decrypted: true }]);
+      loadDmList();
+      return true;
+    } catch (e) {
+      console.error("Send image failed:", e);
+      return false;
+    } finally {
+      setDmSending(false);
+    }
+  }, [user, dmTarget, keyPair, loadDmList]);
+
+  // 图片被查看：写浏览器缓存 → 立刻从云端删除（image_data = NULL）。
+  // 之后任何人再从服务器拉这条消息都只剩占位符，只能从各自本地缓存恢复。
+  const viewDmImage = useCallback(async (msgId, url) => {
+    if (!msgId || !url) return;
+    const cached = await cacheChatImage(msgId, url);
+    if (!cached) return; // 缓存失败时绝不删云端，避免图片永久丢失
+    setDmMessages((prev) => prev.map((m) => m.id === msgId ? { ...m, image_data: null, image_url: url } : m));
+    try {
+      await supabase.from("dm_messages").update({ image_data: null }).eq("id", msgId);
+    } catch (e) {
+      console.warn("Clear cloud image failed:", e);
+    }
+  }, []);
 
   const markAsRead = useCallback(async (otherUser) => {
     if (!user || !otherUser) return;
@@ -552,7 +634,8 @@ export function useDM(user, keyPair) {
   return {
     dmList, dmTarget, dmMessages, dmSending, dmUnreadCount,
     dmHasMore, dmLoadingMore, dmLive, dmLoadError,
-    loadDmList, loadDmMessages, loadMoreDmMessages, sendDm, openDm, closeDm, markAsRead, recallDm,
+    loadDmList, loadDmMessages, loadMoreDmMessages, sendDm, sendDmImage, viewDmImage,
+    openDm, closeDm, markAsRead, recallDm,
     setDmTarget, togglePin, deleteConversation, setNickname,
   };
 }

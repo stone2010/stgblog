@@ -6,6 +6,8 @@ import CommentNode from "./CommentNode";
 import { hasLiked, hasBookmarked, formatTime, formatTimeShort, formatCount, buildTree, parseContent, incrementViewCount, showToast } from "../utils";
 import { renderMarkdown } from "../md";
 import { quotaMessage } from "../growth";
+import { useGrowth } from "../context/GrowthContext";
+import PostImages from "./PostImages";
 
 // 写操作失败不再静默：RLS 拒绝（旧会话无令牌）要给出可操作的提示；
 // v13 的每日限额/封禁由服务端触发器抛出，这里翻译成可执行的引导文案。
@@ -37,6 +39,7 @@ function RenderContent({ content, onHashtag, onMention }) {
 
 export default function PostDetail({ post, onClose, onLike, onShare, onRepost, onBookmark, onUserClick, onDeletePost, onEditPost, onHashtag }) {
   const { user, followingSet, follow, unfollow } = useAuth();
+  const growth = useGrowth();
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
   const [commentLoading, setCommentLoading] = useState(false);
@@ -129,6 +132,8 @@ const commentTree = useMemo(() => buildTree(comments), [comments]);
   if (!post) return null;
   const liked = hasLiked(post.id);
   const bookmarked = hasBookmarked(post.id);
+  const authorAvatar = growth.imagesOf(post.author)?.avatar_url || "";
+  const myAvatar = user ? (growth.imagesOf(user.username)?.avatar_url || "") : "";
 
   return (
     <div className="detail">
@@ -137,7 +142,7 @@ const commentTree = useMemo(() => buildTree(comments), [comments]);
         <span className="detail-top-title">{isQuestion ? "提问 · 讨论区" : isLongform ? "博客 · 文章" : "主页 · 帖子"}</span>
       </div>
       <div className="detail-author">
-        <div className="detail-avatar" style={{ cursor: "pointer" }} onClick={() => onUserClick(post.author)}>{post.author[0]}</div>
+        <div className="detail-avatar" style={{ cursor: "pointer", ...(authorAvatar ? { backgroundImage: `url("${authorAvatar}")`, backgroundSize: "cover", backgroundPosition: "center", color: "transparent" } : {}) }} onClick={() => onUserClick(post.author)}>{authorAvatar ? "" : post.author[0]}</div>
         <div>
           <div className="detail-name" style={{ cursor: "pointer" }} onClick={() => onUserClick(post.author)}>{post.author}</div>
           <div className="detail-handle">@{post.author}</div>
@@ -177,6 +182,7 @@ const commentTree = useMemo(() => buildTree(comments), [comments]);
           <RenderContent content={post.content} onHashtag={onHashtag} />
         </div>
       )}
+      <PostImages images={post.images} detail />
       {post.quote_of && post.quote_data && (
         <div className="quote-card detail-quote" onClick={() => onUserClick(post.quote_data.author)}>
           <div className="quote-head">
@@ -212,7 +218,7 @@ const commentTree = useMemo(() => buildTree(comments), [comments]);
       <div className="cmt-section">
         {user && (
           <div className="cmt-input-area">
-            <div className="comment-avatar">{user.username[0]}</div>
+            <div className="comment-avatar" style={myAvatar ? { backgroundImage: `url("${myAvatar}")`, backgroundSize: "cover", backgroundPosition: "center", color: "transparent" } : undefined}>{myAvatar ? "" : user.username[0]}</div>
             <textarea className="cmt-textarea" value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder={isQuestion ? "写下你的回答..." : "发表评论..."} rows={1} maxLength={500} />
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 11, color: commentText.length > 450 ? "var(--red)" : "var(--muted)" }}>{commentText.length}/500</span>

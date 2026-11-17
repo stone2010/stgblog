@@ -4,7 +4,7 @@ import { useHonors } from "../context/HonorsContext";
 import { useGrowth } from "../context/GrowthContext";
 import { showToast } from "../utils";
 import { ACHIEVEMENT_MAP } from "../honors";
-import { MAX_FEATURED, UPLOAD_LEVEL, quotaMessage } from "../growth";
+import { MAX_FEATURED, quotaMessage } from "../growth";
 import { LevelChip } from "./HonorBadge";
 import HonorEmblem from "./HonorEmblem";
 import HonorPopover from "./HonorPopover";
@@ -111,7 +111,7 @@ export default function ProfileShowcase({
           {stats}
           {actions}
           {showUploadHint && (
-            <div className="showcase-lock">🖼 自定义头像与主页背景将在 Lv.{UPLOAD_LEVEL} 解锁（当前 Lv.{level}）</div>
+            <div className="showcase-lock">🖼 完成真人认证后即可自定义头像与主页背景；精华帖作者与管理员不受限制</div>
           )}
         </div>
       </div>

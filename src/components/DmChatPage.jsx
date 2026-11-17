@@ -4,6 +4,8 @@ import { useAuth } from "../context/AuthContext";
 import { formatTime, avatarColor, showToast } from "../utils";
 import { supabase } from "../supabase";
 import { pubkeyFingerprint } from "../crypto";
+import { useGrowth } from "../context/GrowthContext";
+import ImageAttachButton from "./ImageAttachButton";
 
 const CheckSingle = () => (
   <svg viewBox="0 0 16 11" width="16" height="11" fill="none" style={{ display: "inline-block", verticalAlign: "middle" }}>
@@ -17,8 +19,10 @@ const CheckDouble = () => (
   </svg>
 );
 
-export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, onBack, onUserClick, onMarkAsRead, onLoadMore, dmLive, dmLoadError, onReloadDm, onRecall }) {
+export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, onSendImage, onImageViewed, onBack, onUserClick, onMarkAsRead, onLoadMore, dmLive, dmLoadError, onReloadDm, onRecall }) {
   const { user, keyPair } = useAuth();
+  const growth = useGrowth();
+  const [zoomImage, setZoomImage] = useState(null);
   const [input, setInput] = useState("");
   const [showVerify, setShowVerify] = useState(false);
   const [remotePubJwk, setRemotePubJwk] = useState(null);
@@ -67,6 +71,7 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
   }, [dmTarget]);
 
   const hasRemoteKey = !!remotePubJwk;
+  const peerAvatar = growth.imagesOf(dmTarget)?.avatar_url || "";
 
   const handleSend = useCallback(async () => {
     const text = input;
@@ -241,8 +246,8 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
     <div className="dm-chat">
       <div className="dm-chat-top">
         <button className="dm-chat-back" onClick={onBack} aria-label="返回"><Icons.Back /></button>
-        <div className="dm-avatar dm-avatar-clickable" style={{ background: avatarColor(dmTarget) }} onClick={() => onUserClick?.(dmTarget)}>
-          {dmTarget?.[0] || '?'}
+        <div className="dm-avatar dm-avatar-clickable" style={{ background: avatarColor(dmTarget), ...(peerAvatar ? { backgroundImage: `url("${peerAvatar}")`, backgroundSize: "cover", backgroundPosition: "center", color: "transparent" } : {}) }} onClick={() => onUserClick?.(dmTarget)}>
+          {peerAvatar ? "" : (dmTarget?.[0] || '?')}
         </div>
         <div className="dm-chat-title" onClick={() => onUserClick?.(dmTarget)}>
           <span className="dm-chat-name">{dmTarget || '未知'}</span>
@@ -293,9 +298,20 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
           else if (decryptionFailed) body = "🔒 无法解密此消息";
           else if (isEncrypted) body = "🔒 加密消息";
           else body = "";
+          const hasImage = !isRevoked && !isDeleteRequest && !!msg.image_url;
+          const expiredImage = !hasImage && (msg.content === "[图片]" || msg.content === "[图片·加密]");
           return (
             <div key={msg.id || `i${idx}`} className={`dm-msg ${isMine ? "sent" : "received"} ${msg.decryptError ? "decrypt-fail" : ""} ${isRevoked ? "revoked" : ""} ${isDeleteRequest ? "delete-request" : ""}`}>
-              <div className="dm-msg-bubble">{body}</div>
+              <div className="dm-msg-bubble">
+                {hasImage ? (
+                  <div className="dm-msg-image-wrap">
+                    <img className="dm-msg-image" src={msg.image_url} alt="私信图片" loading="lazy"
+                      onLoad={() => onImageViewed?.(msg.id, msg.image_url)}
+                      onClick={() => setZoomImage(msg.image_url)} />
+                    <span className="dm-msg-image-hint">看过即从云端移除 · 仅本机可见</span>
+                  </div>
+                ) : expiredImage ? "🖼 图片已过期（仅在曾查看的设备可见）" : body}
+              </div>
               <div className="dm-msg-meta">
                 <span className="dm-msg-time">{formatTime(msg.created_at)}</span>
                 {(isEncrypted || msg.decrypted) && <span className="dm-msg-lock">🔒</span>}
@@ -348,6 +364,10 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
         </div>
       )}
       <div className="dm-chat-input">
+        <ImageAttachButton className="dm-img-btn" title="发送图片（自动压缩到 200KB，对方看过即从云端删除）"
+          disabled={dmSending} onImage={async (dataUrl) => { const ok = await onSendImage?.(dataUrl); if (!ok) setWarning("图片发送失败，请重试"); }}>
+          🖼
+        </ImageAttachButton>
         <textarea ref={inputRef} className="dm-input" value={input} onChange={handleInputChange}
           placeholder={hasRemoteKey ? "输入加密消息…" : "对方未设置公钥（消息将以明文发送）"}
           rows={1}
@@ -360,6 +380,12 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
           )}
         </button>
       </div>
+      {zoomImage && (
+        <div className="lightbox" onClick={() => setZoomImage(null)} role="presentation">
+          <img src={zoomImage} alt="私信图片预览" onClick={(e) => e.stopPropagation()} />
+          <button className="lightbox-close" onClick={() => setZoomImage(null)} aria-label="关闭">×</button>
+        </div>
+      )}
     </div>
   );
 }

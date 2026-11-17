@@ -75,6 +75,7 @@ function AppInner() {
   const [postsLoading, setPostsLoading] = useState(false);
   const [searchKey, setSearchKey] = useState("");
   const [composeText, setComposeText] = useState("");
+  const [composeImages, setComposeImages] = useState([]);
   const [composeAnnouncement, setComposeAnnouncement] = useState(false);
 
   // Navigation
@@ -138,7 +139,7 @@ function AppInner() {
 
   // Hooks
   const { notifications, unreadCount, markAllRead, markOneRead } = useNotifications(user?.username);
-  const { dmList, dmTarget, dmMessages, dmSending, dmUnreadCount, dmLive, dmLoadError, loadDmList, loadDmMessages, loadMoreDmMessages, sendDm, openDm, closeDm, markAsRead, recallDm, setDmTarget, togglePin, deleteConversation, setNickname } = useDM(user, keyPair);
+  const { dmList, dmTarget, dmMessages, dmSending, dmUnreadCount, dmLive, dmLoadError, loadDmList, loadDmMessages, loadMoreDmMessages, sendDm, sendDmImage, viewDmImage, openDm, closeDm, markAsRead, recallDm, setDmTarget, togglePin, deleteConversation, setNickname } = useDM(user, keyPair);
   const { groups, activeGroup, groupMessages, groupMembers, groupSending, loadGroups, createGroup, joinGroup, shareGroupKey, leaveGroup, loadGroupMessages, loadMoreGroupMessages, sendGroupMessage, getGroupMembers, kickMember, deleteGroup, openGroup, closeGroup, updateGroupName, setMemberRole, transferOwnership } = useGroupChat(user, keyPair);
 
   // ─── Load posts ───
@@ -285,7 +286,7 @@ const PAGE_SIZE = 30;
       if (data?.ok) st = data;
     } catch {}
     growth.refresh?.();
-    setPostGate({ mode: "quota", quota: st?.quota, pow_seconds: st?.pow_seconds });
+    setPostGate({ mode: "quota", quota: st?.quota, pow_seconds: st?.pow_seconds, imageQuota: st?.image_quota });
   }, [growth]);
 
   // 发帖门禁：去真人认证 / 跳过引导 / 关闭额度提示
@@ -432,7 +433,8 @@ const PAGE_SIZE = 30;
     if (!user) { setAuthOpen(true); return; }
     if (publishing) return;
     const content = composeText.trim();
-    if (!content) return;
+    const imgs = Array.isArray(composeImages) ? composeImages : [];
+    if (!content && imgs.length === 0) return;
     if (content.length > 5000) { alert("内容不能超过5000字"); return; }
     // 未认证引导：仅当成长体系已启用、明确未认证、非管理员、本次会话未跳过时拦截
     if (!skipGate && growth.ready === true && growth.state &&
@@ -454,7 +456,7 @@ const PAGE_SIZE = 30;
             author: user.username,
             category: "公告",
             likes: 0, views: 0, reposts: 0, pinned: false, edited: false,
-            is_announcement: true,
+            is_announcement: true, images: imgs,
           }]).select("*").single();
           if (error) throw error;
           post = data;
@@ -467,8 +469,9 @@ const PAGE_SIZE = 30;
             p_username: user.username,
             p_content: content,
             p_category: "动态",
+            p_images: imgs,
           });
-          if (error) throw annErr;
+          if (error) throw error;
           post = Array.isArray(data) ? data[0] : data;
         }
       } else {
@@ -477,13 +480,15 @@ const PAGE_SIZE = 30;
             p_username: user.username,
             p_content: content,
             p_category: "动态",
+            p_images: imgs,
           });
           if (error) throw error;
           if (data) post = Array.isArray(data) ? data[0] : data;
         } catch (rpcErr) {
+          // 额度/校验类错误必须原样抛出，不能被「RPC 不可用」回退逻辑吞掉后直写绕过。
+          if (isQuotaError(rpcErr?.message) || /图片|内容长度|会话无效/.test(String(rpcErr?.message || ""))) throw rpcErr;
           // T2.5：安全 RPC 尚未上线时允许回退，但必须做等价校验，绝不"静默绕过校验"。
-          // 待 v11 迁移上线、create_post 可用后，这段回退自然不再触发。
-          if (!user?.username || !content.trim() || content.length > 5000) {
+          if (!user?.username || (!content.trim() && imgs.length === 0) || content.length > 5000) {
             throw new Error("发帖校验未通过（内容为空、超长或未登录）");
           }
           console.warn("RPC create_post 不可用，已执行等价本地校验后直写:", rpcErr);
@@ -493,6 +498,7 @@ const PAGE_SIZE = 30;
             author: user.username,
             category: "动态",
             likes: 0, views: 0, reposts: 0, pinned: false, edited: false,
+            images: imgs,
           }]).select("*").single();
           if (error) throw error;
           post = data;
@@ -501,6 +507,7 @@ const PAGE_SIZE = 30;
       if (post) {
         setPosts((prev) => [post, ...prev]);
         setComposeText("");
+        setComposeImages([]);
         setComposeAnnouncement(false);
         notifyHonorsActivity();
       }
@@ -514,7 +521,7 @@ const PAGE_SIZE = 30;
     } finally {
       setPublishing(false);
     }
-  }, [user, composeText, publishing, composeAnnouncement, growth.ready, growth.state, openQuotaGate]);
+  }, [user, composeText, composeImages, publishing, composeAnnouncement, growth.ready, growth.state, openQuotaGate]);
 
   // ─── 提问站:发布问题 ───
   const handleAsk = useCallback(async (question) => {
@@ -777,7 +784,7 @@ const PAGE_SIZE = 30;
     );
     if (page === "dm-chat" && dmTarget) return (
       <DmChatPage dmTarget={dmTarget} dmMessages={dmMessages} dmSending={dmSending}
-        onSend={sendDm} onBack={() => { closeDm(); setPage("dm"); }} onUserClick={openUserClick} onMarkAsRead={markAsRead}
+        onSend={sendDm} onSendImage={sendDmImage} onImageViewed={viewDmImage} onBack={() => { closeDm(); setPage("dm"); }} onUserClick={openUserClick} onMarkAsRead={markAsRead}
         onLoadMore={loadMoreDmMessages} dmLive={dmLive} onRecall={recallDm}
         dmLoadError={dmLoadError} onReloadDm={() => loadDmMessages(dmTarget)} />
     );
@@ -800,7 +807,7 @@ const PAGE_SIZE = 30;
     if (page === "profile") return <ProfilePage posts={posts} onAuthOpen={() => setAuthOpen(true)} onSelectPost={openPostDetail} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onFollowersPage={(type) => setFollowersPage({ username: user?.username, type })} onOpenUser={openUserClick} onOpenSettings={() => navigate("settings")} onOpenHonors={() => navigate("honors")} />;
     if (page === "questions") return <QuestionsPage posts={posts} postsLoading={postsLoading} onAsk={handleAsk} onSelectPost={openPostDetail} onAuthOpen={() => setAuthOpen(true)} onUserClick={openUserClick} />;
     if (page === "blog") return <BlogPage posts={posts} postsLoading={postsLoading} publishing={publishing} onPublishLongForm={handlePublishLongForm} onSelectPost={openPostDetail} onAuthOpen={() => setAuthOpen(true)} onUserClick={openUserClick} />;
-    return <HomeFeed posts={posts} postsLoading={postsLoading} hasMore={hasMore} loadMorePosts={loadMorePosts} searchKey={searchKey} composeText={composeText} setComposeText={setComposeText} onPublish={handlePublish} publishing={publishing} composeRef={composeRef} isAnnouncement={composeAnnouncement} onAnnouncementChange={setComposeAnnouncement} onSelectPost={openPostDetail} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onHashtag={handleHashtag} onAuthOpen={() => setAuthOpen(true)} />;
+    return <HomeFeed posts={posts} postsLoading={postsLoading} hasMore={hasMore} loadMorePosts={loadMorePosts} searchKey={searchKey} composeText={composeText} setComposeText={setComposeText} onPublish={handlePublish} publishing={publishing} composeRef={composeRef} isAnnouncement={composeAnnouncement} onAnnouncementChange={setComposeAnnouncement} composeImages={composeImages} setComposeImages={setComposeImages} onSelectPost={openPostDetail} onLike={handleLike} onShare={handleShare} onRepost={handleRepost} onBookmark={handleBookmark} onHashtag={handleHashtag} onAuthOpen={() => setAuthOpen(true)} />;
   };
 
   return (
@@ -913,6 +920,7 @@ const PAGE_SIZE = 30;
       <PostGateModal
         mode={postGate?.mode}
         quota={{ ...(postGate?.quota || {}), pow_seconds: postGate?.pow_seconds }}
+        imageQuota={postGate?.imageQuota}
         onVerify={openVerifyFromGate}
         onSkip={skipGateAndContinue}
         onClose={closeGate}

@@ -7,6 +7,7 @@ import { useHonors } from "../context/HonorsContext";
 import { useGrowth } from "../context/GrowthContext";
 import { LevelChip } from "./HonorBadge";
 import { IdentityMarks } from "./IdentityMark";
+import PostImages from "./PostImages";
 
 function RenderContent({ content, onHashtag, onMention }) {
   const parts = parseContent(content);
@@ -126,6 +127,7 @@ const PostCard = memo(function PostCard({ post, index = 0, editorial = false, on
         ) : (
           <RenderContent content={displayPost.content} onHashtag={onHashtag} onMention={handleMention} />
         )}
+        <PostImages images={displayPost.images} />
         {displayPost.quote_of && displayPost.quote_data && (
           <div className="quote-card" onClick={(e) => { e.stopPropagation(); onSelect(displayPost.quote_data); }}>
             <div className="quote-head">

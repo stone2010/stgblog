@@ -1,10 +1,13 @@
 import React, { memo } from "react";
 import { formatTimeShort, avatarColor } from "../utils";
+import { useGrowth } from "../context/GrowthContext";
 
 const CommentNode = memo(function CommentNode({ node, user, onDelete, replyTarget, setReplyTarget, replyText, setReplyText, submitting, onSubmitReply, onUserClick }) {
+  const growth = useGrowth();
+  const avatar = growth.imagesOf(node.author)?.avatar_url || "";
   return (
     <div className="comment">
-      <div className="comment-avatar" style={{ cursor: "pointer", background: avatarColor(node.author) }} onClick={() => onUserClick?.(node.author)}>{node.author[0]}</div>
+      <div className="comment-avatar" style={{ cursor: "pointer", background: avatarColor(node.author), ...(avatar ? { backgroundImage: `url("${avatar}")`, backgroundSize: "cover", backgroundPosition: "center", color: "transparent" } : {}) }} onClick={() => onUserClick?.(node.author)}>{avatar ? "" : node.author[0]}</div>
       <div className="comment-body">
         <div className="comment-head">
           <b style={{ cursor: "pointer" }} onClick={() => onUserClick?.(node.author)}>{node.author}</b>

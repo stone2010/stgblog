@@ -1,9 +1,13 @@
 import React, { useRef, useCallback, useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useGrowth } from "../context/GrowthContext";
 import { isAdmin } from "../utils";
+import { MAX_POST_IMAGES, IMAGE_BATCH_SECONDS, IMAGE_BATCH_COUNT } from "../growth";
+import ImageAttachButton from "./ImageAttachButton";
 
-export default function ComposeBar({ value, onChange, onPublish, publishing, composeRef, isAnnouncement, onAnnouncementChange }) {
+export default function ComposeBar({ value, onChange, onPublish, publishing, composeRef, isAnnouncement, onAnnouncementChange, images = [], onImagesChange }) {
   const { user } = useAuth();
+  const growth = useGrowth();
   const textareaRef = useRef(null);
   const emojiTriggerRef = useRef(null);
   const [showEmoji, setShowEmoji] = useState(false);
@@ -35,6 +39,10 @@ export default function ComposeBar({ value, onChange, onPublish, publishing, com
 
   const charCount = value.length;
   const charClass = charCount > 1800 ? "over" : charCount > 1500 ? "warn" : "";
+  const ownAvatar = growth.imagesOf(user.username)?.avatar_url || "";
+  const iq = growth.imageQuota || { used: 0, cap: 0, unlimited: false, next_in: IMAGE_BATCH_SECONDS };
+  // 只有服务端额度明确加载后才禁用；未就绪时先允许选取，由服务端触发器做权威裁决。
+  const imageFull = growth.ready === true && !!growth.imageQuota && !iq.unlimited && (iq.used + images.length) >= iq.cap;
 
   const emojiCategories = {
     smileys: { name: "笑脸", icon: "😊", emojis: [
@@ -127,7 +135,9 @@ export default function ComposeBar({ value, onChange, onPublish, publishing, com
 
   return (
     <div className={`compose-bar ${showEmoji ? "picker-open" : ""}`}>
-      <div className="compose-avatar">{user.username[0]}</div>
+      <div className="compose-avatar" style={ownAvatar ? { backgroundImage: `url("${ownAvatar}")`, backgroundSize: "cover", backgroundPosition: "center", color: "transparent" } : undefined}>
+        {ownAvatar ? "" : user.username[0]}
+      </div>
       <div className="compose-input">
         <textarea
           ref={(el) => { textareaRef.current = el; if (composeRef) composeRef.current = el; }}
@@ -138,9 +148,30 @@ export default function ComposeBar({ value, onChange, onPublish, publishing, com
           rows={2}
           maxLength={2000}
         />
+        {images.length > 0 && (
+          <div className="compose-images">
+            {images.map((src, i) => (
+              <div className="compose-img" key={i}>
+                <img src={src} alt={`待发布图片 ${i + 1}`} />
+                <button type="button" className="compose-img-del" aria-label="移除图片"
+                  onClick={() => onImagesChange?.(images.filter((_, k) => k !== i))}>×</button>
+              </div>
+            ))}
+          </div>
+        )}
+        {growth.ready === true && !iq.unlimited && images.length === 0 && (
+          <div className="compose-img-quota">🖼 图片额度 {iq.used}/{iq.cap} · 每跑满 {IMAGE_BATCH_SECONDS / 60} 分钟 hash 得 {IMAGE_BATCH_COUNT} 张</div>
+        )}
         <div className="compose-bottom">
           <div className="compose-tools">
-            <button className="compose-tool">📷</button>
+            <ImageAttachButton
+              disabled={images.length >= MAX_POST_IMAGES || imageFull}
+              title={imageFull ? "图片额度不足：每跑满 10 分钟 hash 得 3 张额度" : "添加图片（自动压缩到 200KB）"}
+              onImage={(dataUrl) => {
+                if (images.length >= MAX_POST_IMAGES) return;
+                onImagesChange?.([...images, dataUrl]);
+              }}
+            >📷</ImageAttachButton>
 
             <div className="emoji-trigger-wrapper">
               <button
@@ -194,7 +225,7 @@ export default function ComposeBar({ value, onChange, onPublish, publishing, com
               </label>
             )}
           </div>
-          <button className="compose-submit" onClick={handlePublish} disabled={!value.trim() || publishing}>{publishing ? "发送中..." : "发帖"}</button>
+          <button className="compose-submit" onClick={handlePublish} disabled={(!value.trim() && images.length === 0) || publishing}>{publishing ? "发送中..." : "发帖"}</button>
         </div>
       </div>
     </div>

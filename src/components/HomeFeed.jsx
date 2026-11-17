@@ -17,7 +17,7 @@ function isLongform(p) { return (p.category || "").startsWith("长文"); }
 export default function HomeFeed({
   posts, postsLoading, hasMore, loadMorePosts, searchKey,
   composeText, setComposeText, onPublish, publishing, composeRef,
-  isAnnouncement, onAnnouncementChange,
+  isAnnouncement, onAnnouncementChange, composeImages, setComposeImages,
   onSelectPost, onLike, onShare, onRepost, onBookmark, onHashtag, onAuthOpen,
 }) {
   const { styleMode } = useAuth();
@@ -84,7 +84,7 @@ export default function HomeFeed({
   );
 
   const composer = (
-    <ComposeBar value={composeText} onChange={setComposeText} onPublish={onPublish} publishing={publishing} composeRef={composeRef} isAnnouncement={isAnnouncement} onAnnouncementChange={onAnnouncementChange} />
+    <ComposeBar value={composeText} onChange={setComposeText} onPublish={onPublish} publishing={publishing} composeRef={composeRef} isAnnouncement={isAnnouncement} onAnnouncementChange={onAnnouncementChange} images={composeImages} onImagesChange={setComposeImages} />
   );
 
   // ── 编辑部模式:与经典版同结构(顶部大艺术块已按反馈移除),但保留

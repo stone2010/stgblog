@@ -16,6 +16,7 @@ const EMPTY = {
   refresh: () => {}, signin: async () => ({ error: "服务未就绪" }),
   setImage: async () => ({ error: "服务未就绪" }),
   identityOf: () => null, imagesOf: () => ({}),
+  imageQuota: null, canUpload: false,
   admin: { overview: null, load: async () => {}, act: async () => ({ error: "服务未就绪" }) },
   verify: {
     running: false, computed: 0, progress: 0, seconds: 0,
@@ -85,7 +86,7 @@ export function GrowthProvider({ children }) {
     } catch { /* v13 未执行时该视图可能缺列，忽略即可 */ }
     try {
       const { data: us } = await supabase
-        .from("users").select("username,avatar_url,banner_url").limit(500);
+        .from("users").select("username,avatar_url,banner_url").limit(1000);
       const im = {};
       (us || []).forEach((r) => {
         if (r && r.username) im[r.username] = { avatar_url: r.avatar_url, banner_url: r.banner_url };
@@ -260,16 +261,18 @@ export function GrowthProvider({ children }) {
   const imagesOf = useCallback((name) => images[name] || {}, [images]);
 
   const seconds = Number(state?.pow_seconds || 0);
+  const imageQuota = state?.image_quota || null;
   const value = useMemo(() => ({
     ready, loading, state, error, refresh, signin, setImage,
-    identityOf, imagesOf, quotaMessage,
+    identityOf, imagesOf, quotaMessage, imageQuota,
+    canUpload: state?.can_upload === true,
     admin: { overview, load: adminLoad, act: adminAct },
     verify: {
       running: verifyRunning, computed: verifyComputed, error: verifyError,
       seconds, progress: Math.min(100, Math.round((seconds / VERIFY_GOAL) * 100)),
       toggle: toggleVerify, start: startVerify, stop: stopVerify,
     },
-  }), [ready, loading, state, error, refresh, signin, setImage, identityOf, imagesOf,
+  }), [ready, loading, state, error, refresh, signin, setImage, identityOf, imagesOf, imageQuota,
        overview, adminLoad, adminAct, verifyRunning, verifyComputed, verifyError,
        seconds, toggleVerify, startVerify, stopVerify]);
 

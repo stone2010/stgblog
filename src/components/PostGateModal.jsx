@@ -3,7 +3,7 @@ import React from "react";
 // 发帖门禁弹窗：把「真人认证 / PoW 算力凭证」与发帖的关系讲清楚。
 // guide = 未认证用户点发帖时的引导（可跳过）；quota = 今日额度用完时的拦截。
 // 纯前端展示，所有额度判定仍由服务端 growth_quota_guard 触发器权威裁决。
-export default function PostGateModal({ mode, onVerify, onSkip, onClose, quota }) {
+export default function PostGateModal({ mode, onVerify, onSkip, onClose, quota, imageQuota }) {
   if (!mode) return null;
   const isGuide = mode === "guide";
   const used = quota?.posts_used ?? 0;
@@ -11,6 +11,8 @@ export default function PostGateModal({ mode, onVerify, onSkip, onClose, quota }
   const stamps = quota?.stamps ?? 0;
   const sec = Number(quota?.pow_seconds ?? 0);
   const pct = Math.min(100, Math.round((sec / 3600) * 100));
+  const iq = imageQuota || null;
+  const imgPct = iq?.unlimited ? 100 : Math.min(100, Math.round(((sec % 600) / 600) * 100));
 
   return (
     <div className="pgate-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) (isGuide ? onSkip : onClose)?.(); }}>
@@ -34,6 +36,16 @@ export default function PostGateModal({ mode, onVerify, onSkip, onClose, quota }
             <div><b>{stamps} 枚</b><span>可用算力凭证</span></div>
             <div><b>{pct}%</b><span>真人认证进度</span></div>
           </div>
+        )}
+
+        {iq && !isGuide && (
+          <>
+            <div className="pgate-stats">
+              <div><b>{iq.used}/{iq.cap}</b><span>今日图片已用 / 上限</span></div>
+              <div><b>{iq.unlimited ? "不限" : `${Math.ceil((iq.next_in || 0) / 60)} 分`}</b><span>{iq.unlimited ? "认证/精华/管理员" : "下批 3 张到账"}</span></div>
+            </div>
+            {!iq.unlimited && <div className="pgate-bar"><i style={{ width: `${imgPct}%` }} /></div>}
+          </>
         )}
 
         {isGuide && (
