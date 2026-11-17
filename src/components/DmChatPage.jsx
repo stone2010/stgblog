@@ -308,7 +308,7 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
                     <img className="dm-msg-image" src={msg.image_url} alt="私信图片" loading="lazy"
                       onLoad={() => onImageViewed?.(msg.id, msg.image_url)}
                       onClick={() => setZoomImage(msg.image_url)} />
-                    <span className="dm-msg-image-hint">看过即从云端移除 · 仅本机可见</span>
+                    <span className="dm-msg-image-hint">{isMine ? "对方查看后即从云端移除" : "看过即从云端移除 · 仅本机可见"}</span>
                   </div>
                 ) : expiredImage ? "🖼 图片已过期（仅在曾查看的设备可见）" : body}
               </div>

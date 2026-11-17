@@ -415,13 +415,17 @@ export function useDM(user, keyPair) {
     if (!msgId || !url) return;
     const cached = await cacheChatImage(msgId, url);
     if (!cached) return; // 缓存失败时绝不删云端，避免图片永久丢失
+    // 只有「接收方」查看才算阅后即焚；发送方自己看时保留云端副本，
+    // 否则图片会在对方还没打开前就被删掉。
+    const msg = dmMessagesRef.current.find((m) => m.id === msgId);
+    if (msg && msg.sender === user?.username) return;
     setDmMessages((prev) => prev.map((m) => m.id === msgId ? { ...m, image_data: null, image_url: url } : m));
     try {
       await supabase.from("dm_messages").update({ image_data: null }).eq("id", msgId);
     } catch (e) {
       console.warn("Clear cloud image failed:", e);
     }
-  }, []);
+  }, [user]);
 
   const markAsRead = useCallback(async (otherUser) => {
     if (!user || !otherUser) return;
