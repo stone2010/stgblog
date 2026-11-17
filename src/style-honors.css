@@ -828,10 +828,27 @@ html[data-style="editorial"] .showcase { border-color:var(--ink); border-radius:
   .honors-vitrine-note, .showcase-note { max-width:none; margin-top:14px; }
 }
 @media (max-width: 768px) {
-  .honors-page { padding:0 10px 32px; }
+  /* 手机端改为单层自然滚动：取消固定高度的内部滚动框。
+     原设计在桌面用 clamp 高度的框 + 内层滚动，但手机屏高有限，
+     内层可视区被压缩到 170~300px，用户要在矮框里反复滑 5000px 内容，
+     且框底与浮动提示会被固定底栏(bnav)遮挡。改为跟随页面整体滚动。 */
+  .honors-page {
+    padding:0 10px calc(var(--bottom-h, 60px) + 40px + env(safe-area-inset-bottom, 0px));
+  }
   .honors-page > .detail-top { padding:14px 0 12px; }
   .honors-page > .detail-top .detail-top-title { font-size:22px; }
-  .honors-frame { margin-top:12px; height:clamp(480px, 76vh, 720px); }
+  .honors-frame {
+    margin-top:12px;
+    height:auto; max-height:none;
+    overflow:visible;
+  }
+  .honors-frame-scroll {
+    flex:none; overflow:visible; padding-bottom:0;
+    -webkit-mask-image:none; mask-image:none;
+    overscroll-behavior:auto;
+  }
+  /* 单层滚动后不再需要「上下滑动」提示（且它原本被底栏遮挡） */
+  .honors-float-hint { display:none !important; }
   .honors-frame-head .honor-card { padding:18px 16px 16px; }
   .honors-frame-head .honors-notice { margin:14px 16px; }
   .honors-tabs { padding:0 10px; }
