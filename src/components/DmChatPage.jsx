@@ -6,6 +6,7 @@ import { supabase } from "../supabase";
 import { pubkeyFingerprint } from "../crypto";
 import { useGrowth } from "../context/GrowthContext";
 import ImageAttachButton from "./ImageAttachButton";
+import Lightbox from "./Lightbox";
 
 const CheckSingle = () => (
   <svg viewBox="0 0 16 11" width="16" height="11" fill="none" style={{ display: "inline-block", verticalAlign: "middle" }}>
@@ -380,12 +381,7 @@ export default function DmChatPage({ dmTarget, dmMessages, dmSending, onSend, on
           )}
         </button>
       </div>
-      {zoomImage && (
-        <div className="lightbox" onClick={() => setZoomImage(null)} role="presentation">
-          <img src={zoomImage} alt="私信图片预览" onClick={(e) => e.stopPropagation()} />
-          <button className="lightbox-close" onClick={() => setZoomImage(null)} aria-label="关闭">×</button>
-        </div>
-      )}
+      <Lightbox src={zoomImage} alt="私信图片预览" onClose={() => setZoomImage(null)} />
     </div>
   );
 }
